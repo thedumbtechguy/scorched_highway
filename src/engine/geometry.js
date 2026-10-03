@@ -50,14 +50,28 @@ function mergeParts(parts) {
 export const MAT_VC = new THREE.MeshLambertMaterial({ vertexColors: true });
 
 // canvas text texture for signs
+const SIGNS = []; // [texture, paint] — repainted when the web fonts finish loading after boot
 export function signTexture(text, bg, fg, w, h, font) {
-  const cv = document.createElement('canvas'); cv.width = w || 512; cv.height = h || 128; const x = cv.getContext('2d');
-  x.fillStyle = bg; x.fillRect(0, 0, cv.width, cv.height);
-  x.strokeStyle = fg; x.lineWidth = 6; x.strokeRect(10, 10, cv.width - 20, cv.height - 20);
-  x.fillStyle = fg; x.textAlign = 'center'; x.textBaseline = 'middle';
-  let size = cv.height * 0.58;
-  x.font = (font || "400 ") + size + "px Shrikhand, 'Cooper Black', 'Arial Black', serif";
-  while (x.measureText(text).width > cv.width - 50 && size > 12) { size -= 4; x.font = (font || "400 ") + size + "px Shrikhand, 'Cooper Black', 'Arial Black', serif"; }
-  x.fillText(text, cv.width / 2, cv.height / 2 + size * 0.06);
-  const t = new THREE.CanvasTexture(cv); t.anisotropy = 4; return t;
+  const cv = document.createElement('canvas'); cv.width = w || 512; cv.height = h || 128;
+  const paint = () => {
+    const x = cv.getContext('2d');
+    x.fillStyle = bg; x.fillRect(0, 0, cv.width, cv.height);
+    x.strokeStyle = fg; x.lineWidth = 6; x.strokeRect(10, 10, cv.width - 20, cv.height - 20);
+    x.fillStyle = fg; x.textAlign = 'center'; x.textBaseline = 'middle';
+    let size = cv.height * 0.58;
+    x.font = (font || "400 ") + size + "px Shrikhand, 'Cooper Black', 'Arial Black', serif";
+    while (x.measureText(text).width > cv.width - 50 && size > 12) { size -= 4; x.font = (font || "400 ") + size + "px Shrikhand, 'Cooper Black', 'Arial Black', serif"; }
+    x.fillText(text, cv.width / 2, cv.height / 2 + size * 0.06);
+  };
+  paint();
+  const t = new THREE.CanvasTexture(cv); t.anisotropy = 4; SIGNS.push([t, paint]); return t;
+}
+if (document.fonts) document.fonts.addEventListener('loadingdone', () => { for (const [t, paint] of SIGNS) { paint(); t.needsUpdate = true; } });
+
+// de-indexed copies of source shapes (with normals), so builders can add a primitive with a plain transform loop
+const FLAT = new WeakMap();
+export function flatGeo(geo) {
+  let f = FLAT.get(geo);
+  if (!f) { f = geo.index ? geo.toNonIndexed() : geo; if (!f.attributes.normal) f.computeVertexNormals(); FLAT.set(geo, f); }
+  return f;
 }

@@ -1,11 +1,11 @@
 import * as THREE from 'three';
 import { GEO, MAT_VC, PB, sphGeo } from '../engine/geometry.js';
-import { scene } from '../engine/renderer.js';
+import { addToScene } from '../engine/renderer.js';
 
 // ================= projectile meshes (pooled) =================
 const POOLS = {};
 function makePool(name, n, factory) {
-  const arr = []; for (let i = 0; i < n; i++) { const m = factory(); m.visible = false; scene.add(m); arr.push(m); }
+  const arr = []; for (let i = 0; i < n; i++) { const m = factory(); m.visible = false; addToScene(m, 'combat'); arr.push(m); }
   POOLS[name] = { arr, i: 0 };
 }
 export function takeMesh(name) {

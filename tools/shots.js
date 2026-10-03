@@ -15,9 +15,9 @@ const outDir = resolve('shots'); mkdirSync(outDir, { recursive: true });
 // env viewpoints: [name, camera x, y, z, look-at x, y, z]
 const VIEWS = [
   ['town', -72, 3.2, 3, 0, 2.5, 0], ['street', 12, 2.2, -6, -40, 3, 14], ['gas', 58, 4, -44, 34, 3, -22], ['mesa', -55, 5, -25, -110, 12, -70],
-  ['desert', 110, 4.5, 70, 70, 2, 30], ['edge', 95, 6, -70, 160, 18, -120], ['tower', -5, 3, 55, -24, 9, 38], ['saloon', -42, 2.8, 2, -49, 4.5, 15], ['bank', 6, 2.8, -3, -1, 4.5, -16], ['overview', 0, 130, 175, 0, 0, 0],
+  ['desert', 110, 4.5, 70, 70, 2, 30], ['edge', 95, 6, -70, 160, 18, -120], ['tower', -5, 3, 55, -24, 9, 38], ['saloon', -42, 2.8, 2, -49, 4.5, 15], ['pickups', -30, 4, 10, -38, 2, 3], ['bank', 6, 2.8, -3, -1, 4.5, -16], ['overview', 0, 130, 175, 0, 0, 0],
 ];
-const ANGLES = [['front', 0.75, 8.5, 2.6], ['rear', 3.6, 8.5, 2.8], ['side', 1.57, 9, 1.4]];
+const ANGLES = [['low', 1.0, 7.5, 0.45], ['front', 0.75, 8.5, 2.6], ['rear', 3.6, 8.5, 2.8], ['side', 1.57, 9, 1.4]];
 
 const server = await createServer({ server: { port: 5199, strictPort: false }, logLevel: 'error' });
 await server.listen();

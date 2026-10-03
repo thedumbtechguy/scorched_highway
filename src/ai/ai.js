@@ -2,7 +2,7 @@ import { DIFF } from '../combat/damage.js';
 import { TAU, angDiff, clamp, rand } from '../engine/util.js';
 import { G } from '../game/state.js';
 import { blockedAt, lineOfSight } from '../world/collision.js';
-import { WEAPON_ORDER, nearestPickup } from '../world/pickups.js';
+import { WEAPON_ORDER, nearestPickup } from '../world/pickups';
 
 // ================= AI =================
 const PERS = {

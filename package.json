@@ -11,7 +11,8 @@
     "test": "playwright test",
     "check": "npm run lint && npm run typecheck && npm run build && npm test",
     "shots": "node tools/shots.js",
-    "typecheck": "tsc -p ."
+    "typecheck": "tsc -p .",
+    "perf": "node tools/perf.js"
   },
   "dependencies": {
     "three": "^0.128.0"

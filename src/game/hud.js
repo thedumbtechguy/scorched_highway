@@ -3,7 +3,7 @@ import { COMBOS, findTarget } from '../combat/weapons.js';
 import { camera } from '../engine/renderer.js';
 import { $, TAU, _v1 } from '../engine/util.js';
 import { G } from './state.js';
-import { PICK, PICKUPS, drawGlyph } from '../world/pickups.js';
+import { PICK, PICKUPS, drawGlyph } from '../world/pickups';
 import { BOXES } from '../world/scenery.js';
 import { ARENA_R } from '../world/terrain.js';
 

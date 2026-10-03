@@ -5,7 +5,7 @@ import { damageCar } from '../combat/damage.js';
 import { sparks } from '../combat/effects.js';
 import { spawnDebris } from '../engine/debris.js';
 import { FX_ADD, FX_SMOKE, fxScale } from '../engine/particles.js';
-import { scene } from '../engine/renderer.js';
+import { addToScene } from '../engine/renderer.js';
 import { curTod } from '../engine/sky';
 import { GRAV, TAU, _m4, _v1, clamp, lerp, rand } from '../engine/util.js';
 import { G, shake } from '../game/state.js';
@@ -19,7 +19,7 @@ export class Car {
   constructor(def, isPlayer) {
     this.def = def; this.isPlayer = isPlayer;
     this.model = buildCarModel(def); this.obj = this.model.group; this.body = this.model.body;
-    scene.add(this.obj);
+    addToScene(this.obj, 'cars');
     this.radius = 1.9; this.mass = def.mass; this.up = new THREE.Vector3(0, 1, 0);
     this.input = { throttle: 0, steer: 0, handbrake: false };
     this.speedK = 1; // top-speed scale; AI difficulty lowers it
@@ -41,7 +41,7 @@ export class Car {
     this.input.throttle = 0; this.input.steer = 0; this.input.handbrake = false;
     this.up.set(0, 1, 0);
     this.obj.visible = true; this.model.tint(1, 1, 1); this.model.emit(0, 0, 0);
-    for (const w of this.model.wheels) w.pivot.visible = true;
+    for (const w of this.model.wheels) w.on = true;
     this.body.rotation.set(0, 0, 0);
     this.syncModel(1);
   }
@@ -149,7 +149,7 @@ export class Car {
     this.obj.position.set(this.x, this.y, this.z);
     this.body.rotation.set(this.pitch + (this.tumbleAxis === 0 ? this.tumble : 0), 0, this.lean + (this.tumbleAxis === 1 ? this.tumble : 0));
     this.body.position.y = 0.04 * Math.sin(this.wheelRot * 0.37) * (this.grounded ? clamp(this.speed / 30, 0, 1) : 0);
-    for (const w of this.model.wheels) { w.mesh.rotation.x = this.wheelRot * 0.48 / w.r; if (w.front) w.pivot.rotation.y = this.steerVis; }
+    this.model.poseWheels(this.wheelRot, this.steerVis);
   }
   effects(dt) {
     const hpF = this.hp / this.def.hp;
@@ -197,7 +197,7 @@ export class Car {
     this.vy = 14; this.grounded = false; this.y += 0.2; this.tumbleV = rand(4, 7) * (Math.random() < 0.5 ? -1 : 1); this.tumbleAxis = Math.random() < 0.5 ? 0 : 1;
     for (const w of this.model.wheels) {
       if (Math.random() < 0.6) {
-        w.pivot.visible = false; w.pivot.getWorldPosition(_v1);
+        w.on = false; this.model.wheelWorldPos(w, _v1);
         spawnDebris(_v1.x, _v1.y, _v1.z, rand(-10, 10), rand(8, 16), rand(-10, 10), w.r * 1.8, 0x1c1a1a, rand(3, 5));
       }
     }

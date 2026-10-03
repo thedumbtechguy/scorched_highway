@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { fog, scene } from './renderer.js';
+import { addToScene, fog } from './renderer.js';
 
 // ================= particles =================
 const P_VS = `
@@ -46,7 +46,7 @@ class Particles {
     });
     this.points = new THREE.Points(g, this.mat); this.points.frustumCulled = false;
     this.points.renderOrder = additive ? 5 : 4;
-    scene.add(this.points); PSYS.push(this);
+    addToScene(this.points, 'particles'); PSYS.push(this);
   }
   spawn(x, y, z, vx, vy, vz, life, s0, s1, c0, c1, a0, drag, grav) {
     const i = this.i; this.i = (i + 1) % this.max; const i3 = i * 3;

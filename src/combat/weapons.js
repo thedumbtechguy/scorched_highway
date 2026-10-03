@@ -8,7 +8,7 @@ import { TAU, _v1, _v2, clamp, rand } from '../engine/util.js';
 import { bigText } from '../game/hud.js';
 import { G, shake } from '../game/state.js';
 import { pointBlocked } from '../world/collision.js';
-import { WEAPON_ORDER } from '../world/pickups.js';
+import { WEAPON_ORDER } from '../world/pickups';
 import { PROPS, breakProp, damageProp } from '../world/props.js';
 import { ARENA_R, ground } from '../world/terrain.js';
 

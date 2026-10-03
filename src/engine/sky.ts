@@ -1,7 +1,7 @@
 // Sky dome (gradient, sun or moon, drifting clouds), stars, and the time-of-day presets that
 // drive lights and fog. Listeners registered with onTod() re-tune themselves on every change.
 import * as THREE from 'three';
-import { fog, hemi, renderer, scene, sun, sunDir } from './renderer.js';
+import { addToScene, fog, hemi, renderer, sun, sunDir } from './renderer.js';
 import { TAU, srand } from './util.js';
 
 export interface TimeOfDay {
@@ -66,7 +66,7 @@ void main() {
   gl_FragColor = vec4(c, 1.0);
 }`;
 export const sky = new THREE.Mesh(new THREE.SphereGeometry(SKY_R, 48, 24), new THREE.ShaderMaterial({ uniforms: skyUniforms, vertexShader: SKY_VS, fragmentShader: SKY_FS, side: THREE.BackSide, depthWrite: false, fog: false }));
-sky.renderOrder = -10; sky.frustumCulled = false; scene.add(sky);
+sky.renderOrder = -10; sky.frustumCulled = false; addToScene(sky, 'sky');
 
 export function glowTexture(inner: string, outer: string): THREE.CanvasTexture {
   const cv = document.createElement('canvas'); cv.width = cv.height = 256; const x = cv.getContext('2d')!;
@@ -85,7 +85,7 @@ export const stars = (() => {
   }
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(p, 3)); g.setAttribute('color', new THREE.BufferAttribute(c, 3));
   const s = new THREE.Points(g, new THREE.PointsMaterial({ vertexColors: true, size: 2, sizeAttenuation: false, fog: false, transparent: true, opacity: 0.9, depthWrite: false }));
-  s.renderOrder = -8; s.visible = false; scene.add(s); return s;
+  s.renderOrder = -8; s.visible = false; addToScene(s, 'sky'); return s;
 })();
 
 /** Keep the sky centred on the camera and the clouds drifting. */

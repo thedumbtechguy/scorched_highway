@@ -10,9 +10,9 @@ import { feed, updateHUD } from './hud.js';
 import { pauseGame, step } from './match.js';
 import { SHOW_POS } from './screens.js';
 import { G } from './state.js';
-import { updateTumbleweeds } from '../world/flora';
+import { updateScatter, updateTumbleweeds } from '../world/flora';
 import { pollGamepad } from '../input/input.js';
-import { updatePickups } from '../world/pickups.js';
+import { updatePickups } from '../world/pickups';
 import { ground } from '../world/terrain.js';
 
 // ================= render loop =================
@@ -20,6 +20,10 @@ const _bs = new THREE.Vector2();
 let lastT = performance.now(), fpsAcc = 0, fpsN = 0, autoLowered = false;
 function frame(now) {
   requestAnimationFrame(frame);
+  tick(now);
+}
+/** One frame of simulation and rendering at time `now` (ms). Tools call it directly to benchmark. */
+export function tick(now) {
   const rdt = Math.min(0.05, Math.max(0.001, (now - lastT) / 1000)); lastT = now;
   pollGamepad();
   let dt = rdt;
@@ -54,7 +58,8 @@ function frame(now) {
   G.shake = Math.max(0, G.shake - rdt * 2.2);
   updateAudio(rdt);
   // sky & sun follow camera
-  updateSky(camera.position, rdt);
+  updateSky(camera.position, rdt); updateScatter(camera.position);
+  for (const c of G.cars) c.model.lod(camera.position);
   // shadow camera follows focus
   const f = G.player && G.state !== 'garage' && G.state !== 'title' ? G.player : (G.state === 'garage' ? { x: SHOW_POS.x, y: 0, z: SHOW_POS.z } : { x: 0, y: 0, z: 0 });
   sun.target.position.set(f.x, f.y || 0, f.z); sun.position.set(f.x + sunDir.x * 200, (f.y || 0) + Math.max(0.25, sunDir.y) * 200, f.z + sunDir.z * 200);

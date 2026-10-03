@@ -1,7 +1,7 @@
 // Roads as ground-hugging ribbons with painted textures: cracked asphalt with lane markings, and
 // dirt tracks with tyre ruts. Edges fade out so they sit in the sand instead of on it.
 import * as THREE from 'three';
-import { scene } from '../engine/renderer.js';
+import { addToScene } from '../engine/renderer.js';
 import { mulberry32 } from '../engine/util.js';
 import { ground } from './terrain.js';
 import { fbm } from './textures';
@@ -65,15 +65,17 @@ function ribbon(points: Array<[number, number]>, width: number, yOff: number, ti
     if (i > 0) for (let k = 0; k < ACROSS; k++) { const p = (i - 1) * (ACROSS + 1) + k, q = p + ACROSS + 1; idx.push(p, p + 1, q, p + 1, q + 1, q); }
   }
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals();
-  const m = new THREE.Mesh(g, mat); m.receiveShadow = true; m.renderOrder = 1; scene.add(m); return m;
+  const m = new THREE.Mesh(g, mat); m.receiveShadow = true; m.renderOrder = 1; addToScene(m, 'roads'); return m;
 }
-const roadMat = (map: THREE.Texture, rough: number) => new THREE.MeshStandardMaterial({ map, roughness: rough, metalness: 0, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+// No polygon offset: it scales with depth-buffer precision, so far away it lifted the road through the
+// bottom of distant cars. The ribbons sit a few centimetres above the ground instead.
+const roadMat = (map: THREE.Texture, rough: number) => new THREE.MeshStandardMaterial({ map, roughness: rough, metalness: 0, transparent: true, depthWrite: false });
 
 export function buildRoads() {
   const hw: Array<[number, number]> = []; for (let x = -214; x <= 214; x += 3) hw.push([x, 0]);
-  ribbon(hw, 13, 0.06, 13, roadMat(asphalt(), 0.85));
+  ribbon(hw, 13, 0.05, 13, roadMat(asphalt(), 0.85));
   const mud = roadMat(dirt(), 1);
   const north: Array<[number, number]> = []; for (let z = 12; z <= 214; z += 3) north.push([4 + 12 * Math.sin(Math.max(0, z - 30) * 0.02), z]);
   const south: Array<[number, number]> = []; for (let z = -26; z >= -214; z -= 3) south.push([-18 + 10 * Math.sin((z + 26) * 0.025), z]);
-  ribbon(north, 9, 0.05, 9, mud); ribbon(south, 9, 0.05, 9, mud);
+  ribbon(north, 9, 0.04, 9, mud); ribbon(south, 9, 0.04, 9, mud);
 }

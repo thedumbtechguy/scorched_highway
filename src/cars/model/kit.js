@@ -15,7 +15,7 @@ export class CarKit {
   cyl(mi, rt, rb, h, seg, c, x, y, z, rx, ry, rz) { this.mb.geo(mi, cylGeo(rt, rb, h, seg), mat4(x, y, z, rx, ry, rz), c); return this; }
   cylX(mi, r, h, seg, c, x, y, z) { return this.cyl(mi, r, r, h, seg, c, x, y, z, 0, 0, -Math.PI / 2); }
   cylZ(mi, r, h, seg, c, x, y, z, r2) { return this.cyl(mi, r, r2 == null ? r : r2, h, seg, c, x, y, z, Math.PI / 2, 0, 0); }
-  sph(mi, r, c, x, y, z, sx, sy, sz, ws, hs) { this.mb.geo(mi, sphGeo(r, ws || 16, hs || 10), mat4(x, y, z, 0, 0, 0, sx, sy, sz), c); return this; }
+  sph(mi, r, c, x, y, z, sx, sy, sz, ws, hs) { this.mb.geo(mi, sphGeo(r, ws || 12, hs || 8), mat4(x, y, z, 0, 0, 0, sx, sy, sz), c); return this; }
   torus(mi, R, t, c, x, y, z, rx, ry, rz, arc, seg) { this.mb.geo(mi, new THREE.TorusGeometry(R, t, 6, seg || 18, arc || TAU), mat4(x, y, z, rx, ry, rz), c); return this; }
   tube(mi, pts, rad, c, seg) {
     const g = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts.map(p => new THREE.Vector3(p[0], p[1], p[2]))), seg || 24, rad, 8, false);
@@ -31,8 +31,8 @@ export class CarKit {
     for (const s of (x === 0 ? [1] : [-1, 1])) {
       const X = s * x;
       if (shape === 'round') {
-        if (bezel !== false) this.cyl(M_CHROME, w * 1.28, w * 1.28, 0.06, 18, C_CHROME, X, y, z, rx);
-        this.cyl(M_LAMP, w, w, 0.07, 18, col, X, y, z + dir * 0.006, rx);
+        if (bezel !== false) this.cyl(M_CHROME, w * 1.28, w * 1.28, 0.06, 14, C_CHROME, X, y, z, rx);
+        this.cyl(M_LAMP, w, w, 0.07, 14, col, X, y, z + dir * 0.006, rx);
         if (kind === 'head') this.sph(M_LAMP, w * 0.35, 0xffffff, X, y, z + dir * 0.04, 1, 1, 0.4);
       } else {
         if (bezel !== false) this.rbox(M_CHROME, w + 0.05, h + 0.05, 0.05, 0.02, C_CHROME, X, y, z);

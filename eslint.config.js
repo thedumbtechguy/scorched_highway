@@ -9,7 +9,7 @@ export default tseslint.config(
     files: ['src/**/*.js', 'src/**/*.ts'],
     languageOptions: { ecmaVersion: 2022, sourceType: 'module', globals: globals.browser },
     rules: {
-      'no-unused-vars': ['error', { args: 'none', caughtErrors: 'none' }],
+      'no-unused-vars': ['error', { args: 'none', caughtErrors: 'none', ignoreRestSiblings: true }],
       'no-import-assign': 'error',
     },
   },
@@ -18,7 +18,7 @@ export default tseslint.config(
     extends: [tseslint.configs.recommended],
     rules: {
       'no-unused-vars': 'off',
-      '@typescript-eslint/no-unused-vars': ['error', { args: 'none', caughtErrors: 'none' }],
+      '@typescript-eslint/no-unused-vars': ['error', { args: 'none', caughtErrors: 'none', ignoreRestSiblings: true }],
     },
   },
   {

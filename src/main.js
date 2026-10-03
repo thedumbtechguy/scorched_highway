@@ -6,12 +6,12 @@ import { buildCarModel, disposeCarModel } from './cars/model/build.js';
 import { CARS } from './cars/roster.js';
 import { damageCar } from './combat/damage.js';
 import { $ } from './engine/util.js';
-import { applyQuality, startLoop } from './game/loop.js';
+import { applyQuality, startLoop, tick } from './game/loop.js';
 import { pauseGame, resumeGame, startMatch, step } from './game/match.js';
 import { buildGarage, goGarage, goTitle, selectCar, show } from './game/screens.js';
 import { G } from './game/state.js';
 import { setupTouch } from './input/input.js';
-import { buildPickups } from './world/pickups.js';
+import { buildPickups } from './world/pickups';
 import { buildProps } from './world/props.js';
 import { buildStatic, buildTerrain, decorBlocked } from './world/scenery.js';
 import { buildScatter, buildTumbleweeds } from './world/flora';
@@ -34,19 +34,26 @@ function wireUI() {
   addEventListener('pointerdown', () => ensureAudio(), { once: true });
 }
 function boot() {
-  applyTod(G.settings.tod);
-  buildTerrain(G.settings.quality === 'low'); buildStatic(); buildProps(); buildPickups(); initPools();
-  buildScatter({ lowQ: G.settings.quality === 'low', blocked: decorBlocked }); buildTumbleweeds(G.settings.quality === 'low' ? 4 : 8, baseHeight);
-  setupTouch(); wireUI(); buildGarage();
-  applyQuality();
-  goTitle();
+  const lowQ = G.settings.quality === 'low';
+  // each step is timed into the performance timeline as boot:<name> (see tools/perf.js)
+  const timed = (name, fn) => { const t = performance.now(); fn(); performance.measure('boot:' + name, { start: t }); };
+  timed('sky', () => applyTod(G.settings.tod));
+  timed('terrain', () => buildTerrain(lowQ));
+  timed('town', () => buildStatic());
+  timed('props', () => { buildProps(); buildPickups(); initPools(); });
+  timed('scatter', () => { buildScatter({ lowQ, blocked: decorBlocked }); buildTumbleweeds(lowQ ? 4 : 8, baseHeight); });
+  timed('ui', () => { setupTouch(); wireUI(); buildGarage(); applyQuality(); goTitle(); });
+  timed('shaders', () => renderer.compile(scene, camera));
   const L = $('#loading'); L.style.opacity = '0'; setTimeout(() => L.remove(), 550);
   startLoop();
 }
 // handle for tests, tools and the browser console
-window.SH = { G, CARS, step, startMatch, goGarage, selectCar, damageCar, buildCarModel, disposeCarModel, applyTod, applyQuality, camera, renderer, scene };
+window.SH = { G, CARS, step, tick, startMatch, goGarage, selectCar, damageCar, buildCarModel, disposeCarModel, applyTod, applyQuality, camera, renderer, scene };
 
 (function start() {
   let done = false; const go = () => { if (done) return; done = true; try { boot(); } catch (e) { console.error(e); $('#loading').lastChild.textContent = 'Something went wrong starting the game: ' + e.message; } };
-  if (document.fonts && document.fonts.ready) { document.fonts.load("40px Shrikhand").catch(() => { }).then(() => document.fonts.ready).then(go, go); setTimeout(go, 2500); } else go();
+  // signs and liveries are painted with the web fonts, so wait (at most 2.5 s) for the stylesheet, then the font
+  const css = /** @type {HTMLLinkElement | null} */ (document.getElementById('fontcss'));
+  const cssReady = new Promise(res => { if (!css || css.media === 'all') res(); else { css.addEventListener('load', res); css.addEventListener('error', res); } });
+  if (document.fonts && document.fonts.ready) { cssReady.then(() => document.fonts.load('40px Shrikhand')).catch(() => { }).then(() => document.fonts.ready).then(go, go); setTimeout(go, 2500); } else go();
 })();

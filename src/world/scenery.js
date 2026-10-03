@@ -1,9 +1,9 @@
 import * as THREE from 'three';
 import { signTexture } from '../engine/geometry.js';
-import { scene } from '../engine/renderer.js';
+import { addToScene } from '../engine/renderer.js';
 import { TAU, mulberry32 } from '../engine/util.js';
 import { ARENA_R, RAMPS, baseHeight } from './terrain.js';
-import { addBoulders, addMesa, buildCanyonWall, buildTerrainMesh } from './landscape';
+import { addBoulders, addMesas, buildCanyonWall, buildTerrainMesh } from './landscape';
 import { SIGNS, buildTown } from './town';
 import { buildRoads } from './roads';
 import { PROPS } from './props.js';
@@ -50,18 +50,19 @@ export function buildStatic() {
   }
   buildTown(BUILDINGS, RAMPS, poles);
   SIGN_MESHES.push(...SIGNS);
-  { const t = signTexture('Gas', '#c0392b', '#f6ead4', 256, 256); const sm = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 3.4), new THREE.MeshLambertMaterial({ map: t, side: THREE.DoubleSide })); sm.position.set(48, 10.4, -16); sm.rotation.y = Math.PI / 2; scene.add(sm); SIGN_MESHES.push(sm); }
+  { const t = signTexture('Gas', '#c0392b', '#f6ead4', 256, 256); const sm = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 3.4), new THREE.MeshLambertMaterial({ map: t, side: THREE.DoubleSide })); sm.position.set(48, 10.4, -16); sm.rotation.y = Math.PI / 2; addToScene(sm, 'town'); SIGN_MESHES.push(sm); }
   // mesas inside the arena (collision stays a circle) and far buttes beyond the canyon
-  MESAS.forEach((m, i) => {
+  addMesas(MESAS.map((m, i) => {
     const gy = baseHeight(m.x, m.z) - 1.5;
-    addMesa(m.x, m.z, gy, m.r * 1.08, m.h + 1.5, 100 + i, 72, true);
     CIRCLES.push({ x: m.x, z: m.z, r: m.r * 0.98, h: gy + m.h + 2 });
-  });
-  const fr = mulberry32(42);
+    return [m.x, m.z, gy, m.r * 1.08, m.h + 1.5, 100 + i];
+  }), 72, true);
+  const fr = mulberry32(42), far = [];
   for (let i = 0; i < 26; i++) {
     const a = i / 26 * TAU + fr() * 0.2, R = 280 + fr() * 260, r = 18 + fr() * 40, h = 35 + fr() * 70;
-    addMesa(Math.sin(a) * R, Math.cos(a) * R, 27, r, h, 200 + i, 28, false);
+    far.push([Math.sin(a) * R, Math.cos(a) * R, 27, r, h, 200 + i]);
   }
+  addMesas(far, 28, false);
   // boulders (same placement and collision as before), shaded like the canyon rock
   const rr = mulberry32(7), boulders = [];
   for (let i = 0; i < 26; i++) {

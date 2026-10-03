@@ -7,7 +7,8 @@
 <title>Scorched Highway</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=Shrikhand&display=swap" rel="stylesheet">
+<!-- non-blocking: the game starts even if the font host is slow; boot waits briefly for the display font -->
+<link id="fontcss" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=Shrikhand&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
 <link rel="stylesheet" href="src/style.css">
 </head>
 <body>

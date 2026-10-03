@@ -5,12 +5,12 @@ import { explode } from '../combat/effects.js';
 import { spawnDebris } from '../engine/debris.js';
 import { MAT_VC, PB, signTexture } from '../engine/geometry.js';
 import { FX_SMOKE, fxScale } from '../engine/particles.js';
-import { scene } from '../engine/renderer.js';
+import { addToScene } from '../engine/renderer.js';
 import { TAU, _q1, mulberry32, rand, srand } from '../engine/util.js';
 import { G, shake } from '../game/state.js';
 import { clearSpot } from './scenery.js';
 import { ground } from './terrain.js';
-import { cactusMaterial, saguaroGeometry } from './flora';
+import { queueCactus } from './flora';
 
 // ================= destructible props =================
 export const PROPS = [];
@@ -22,8 +22,8 @@ function makeProp(kind, x, z, opts) {
   switch (kind) {
     case 'cactus': {
       const s = opts && opts.s || 1;
-      const m = new THREE.Mesh(saguaroGeometry(s, PROPS.length * 7 + 1), cactusMaterial); m.castShadow = true; m.receiveShadow = true; group.add(m);
-      group.rotation.y = srand() * TAU; r = 0.7; h = 5 * s; hp = 8; breakOnRam = 3; debrisCol = 0x4f7a3a; break;
+      // drawn by a shared instanced mesh (see buildCactusInstances); the group only tracks the transform
+      group.rotation.y = srand() * TAU; group.scale.setScalar(s); r = 0.7; h = 5 * s; hp = 8; breakOnRam = 3; debrisCol = 0x4f7a3a; break;
     }
     case 'barrel': {
       pb.cyl(0.55, 0.55, 1.3, 10, 0xc0392b, 0, 0.65, 0); pb.cyl(0.57, 0.57, 0.14, 10, 0xf6ead4, 0, 0.9, 0); pb.cyl(0.57, 0.57, 0.1, 10, 0x6a1e17, 0, 0.3, 0);
@@ -48,12 +48,12 @@ function makeProp(kind, x, z, opts) {
       const tex = signTexture(opts.text, opts.bg, opts.fg, 512, 256);
       const face = new THREE.Mesh(new THREE.PlaneGeometry(9, 4), new THREE.MeshLambertMaterial({ map: tex }));
       face.position.set(0, 6.8, 0.07); group.add(face);
-      const back = face.clone(); back.material = new THREE.MeshLambertMaterial({ color: 0x5a3e2c }); back.rotation.y = Math.PI; back.position.z = -0.27; group.add(back);
       group.rotation.y = opts.yaw || 0; r = 2.6; h = 9; hp = 40; topple = true; debrisCol = 0x6b4a36; break;
     }
   }
-  if (pb.parts.length) { const mesh = new THREE.Mesh(pb.build(), MAT_VC); mesh.castShadow = true; mesh.receiveShadow = kind === 'tower'; group.add(mesh); }
-  scene.add(group);
+  if (INSTANCED.includes(kind)) { if (!KIND_GEO[kind]) KIND_GEO[kind] = pb.build(); } // drawn by buildKindInstances
+  else if (pb.parts.length) { const mesh = new THREE.Mesh(pb.build(), MAT_VC); mesh.castShadow = true; mesh.receiveShadow = kind === 'tower'; group.add(mesh); }
+  addToScene(group, 'props');
   const p = { kind, x, z, y, r, h, hp, maxHp: hp, solid, breakOnRam, explosive, topple, debrisCol, group, alive: true, fall: null, rot0: group.rotation.y };
   PROPS.push(p); return p;
 }
@@ -73,11 +73,31 @@ export function buildProps() {
     makeProp('cactus', x, z, { s: 0.8 + cr() * 0.5 }); n++;
   }
   for (const [x, z] of [[-66, 22], [64, -24], [8, 42], [-12, -40], [70, 14]]) makeProp('cactus', x, z, { s: 0.9 });
+  buildCactusInstances(); buildKindInstances();
+}
+// cacti are merged into the scatter cells (see flora.ts); each keeps a handle to hide it when it breaks
+function buildCactusInstances() {
+  PROPS.filter(p => p.kind === 'cactus').forEach((p, i) => { p.group.updateMatrix(); p.cactus = queueCactus(p.group.matrix, i); });
+}
+// barrels and pumps: one instanced mesh per kind; a broken one collapses its instance
+const INSTANCED = ['barrel', 'pump'], KIND_GEO = {}, _hidden = new THREE.Matrix4().makeScale(0, 0, 0);
+function buildKindInstances() {
+  for (const kind of INSTANCED) {
+    const mine = PROPS.filter(p => p.kind === kind); if (!mine.length) continue;
+    const mesh = new THREE.InstancedMesh(KIND_GEO[kind], MAT_VC, mine.length); mesh.castShadow = true; mesh.frustumCulled = false; // spread over town
+    mine.forEach((p, i) => { p.group.updateMatrix(); p.inst = { mesh, i, m: p.group.matrix.clone() }; mesh.setMatrixAt(i, p.inst.m); });
+    addToScene(mesh, 'props');
+  }
+}
+function showProp(p, on) {
+  p.group.visible = on;
+  if (p.cactus) p.cactus.show(on);
+  if (p.inst) { p.inst.mesh.setMatrixAt(p.inst.i, on ? p.inst.m : _hidden); p.inst.mesh.instanceMatrix.needsUpdate = true; }
 }
 export function resetProps() {
   for (const p of PROPS) {
     p.alive = true; p.hp = p.maxHp; p.fall = null; p.solid = true;
-    p.group.visible = true; p.group.position.set(p.x, p.y, p.z); p.group.quaternion.identity(); p.group.rotation.set(0, p.rot0, 0);
+    showProp(p, true); p.group.position.set(p.x, p.y, p.z); p.group.quaternion.identity(); p.group.rotation.set(0, p.rot0, 0);
   }
 }
 export function damageProp(p, amt, by) {
@@ -96,7 +116,7 @@ export function breakProp(p, by, dirX, dirZ) {
     p.solid = false;
     playSfx('crash', p.x, p.z, 1);
   } else {
-    p.group.visible = false; p.solid = false;
+    showProp(p, false); p.solid = false;
     if (p.explosive) explode(p.x, p.y + 1, p.z, p.explosive.r, p.explosive.dmg, by || null, { size: p.kind === 'pump' ? 2.2 : 1.4, fire: p.explosive.fire });
     else { puff(p.x, p.y + 1.5, p.z, 0x8a7a5a, 6); playSfx('crunch', p.x, p.z, 0.6); }
   }
