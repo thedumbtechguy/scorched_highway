@@ -178,7 +178,7 @@ function buildGarage() {
     seg.querySelectorAll('button').forEach(btn => btn.addEventListener('click', () => {
       let v = btn.dataset.v; if (key === 'opponents' || key === 'difficulty') v = +v;
       G.settings[key] = v; saveSettings(); syncSegs();
-      if (key === 'tod') { applyTod(v); if (G.showcase) for (const b of G.showcase.beams) b.visible = curTod.night; }
+      if (key === 'tod') { applyTod(v); if (G.showcase) { for (const b of G.showcase.beams) b.visible = curTod.night; G.showcase.lights(curTod.night, false, true); } }
       if (key === 'quality') applyQuality();
       if (key === 'sound') { ensureAudio(); setSound(v === 'on'); }
     }));
