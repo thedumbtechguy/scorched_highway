@@ -6,7 +6,7 @@ import { sparks } from '../combat/effects.js';
 import { spawnDebris } from '../engine/debris.js';
 import { FX_ADD, FX_SMOKE, fxScale } from '../engine/particles.js';
 import { scene } from '../engine/renderer.js';
-import { curTod } from '../engine/sky.js';
+import { curTod } from '../engine/sky';
 import { GRAV, TAU, _m4, _v1, clamp, lerp, rand } from '../engine/util.js';
 import { G, shake } from '../game/state.js';
 import { pushOut, resolveStatic } from '../world/collision.js';

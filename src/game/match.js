@@ -10,7 +10,7 @@ import { tickCarWeapons, updateMines, updateProjectiles } from '../combat/weapon
 import { clearDebris } from '../engine/debris.js';
 import { FX_ADD, PSYS, fxScale } from '../engine/particles.js';
 import { camera } from '../engine/renderer.js';
-import { applyTod } from '../engine/sky.js';
+import { applyTod } from '../engine/sky';
 import { $, loadStore, rand, store } from '../engine/util.js';
 import { CAM } from './camera.js';
 import { TAGS, bigText, buildTags, feed, hud } from './hud.js';

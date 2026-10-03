@@ -2,7 +2,7 @@ import { ensureAudio, setSound } from '../audio/audio.js';
 import { buildCarModel, disposeCarModel } from '../cars/model/build.js';
 import { CARS, CAR_BY_ID } from '../cars/roster.js';
 import { camera, scene } from '../engine/renderer.js';
-import { applyTod, curTod } from '../engine/sky.js';
+import { applyTod, curTod } from '../engine/sky';
 import { $ } from '../engine/util.js';
 import { CAM } from './camera.js';
 import { applyQuality, resize } from './loop.js';
@@ -37,7 +37,7 @@ export function buildGarage() {
     seg.querySelectorAll('button').forEach(btn => btn.addEventListener('click', () => {
       const v = key === 'opponents' || key === 'difficulty' ? +btn.dataset.v : btn.dataset.v;
       G.settings[key] = v; saveSettings(); syncSegs();
-      if (key === 'tod') { applyTod(v); if (G.showcase) { for (const b of G.showcase.beams) b.visible = curTod.night; G.showcase.lights(curTod.night, false, true); } }
+      if (key === 'tod') { applyTod(String(v)); if (G.showcase) { for (const b of G.showcase.beams) b.visible = curTod.night; G.showcase.lights(curTod.night, false, true); } }
       if (key === 'quality') applyQuality();
       if (key === 'sound') { ensureAudio(); setSound(v === 'on'); }
     }));
