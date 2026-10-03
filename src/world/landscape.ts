@@ -70,13 +70,13 @@ function sandTint(x: number, y: number, z: number, out: THREE.Color) {
 /** Split an indexed mesh into pieces by a key per triangle (null drops the triangle), keeping its normals, so
  *  each piece gets its own bounds and can be culled. */
 function splitByTriangle(g: THREE.BufferGeometry, keyOf: (cx: number, cy: number, cz: number) => number | null): THREE.BufferGeometry[] {
-  const idx = g.index!.array, pos = g.attributes.position, buckets = new Map<number, number[]>();
+  const idx = g.index!.array, P = g.attributes.position.array, buckets = new Map<number, number[]>();
   for (let i = 0; i < idx.length; i += 3) {
-    const a = idx[i], b = idx[i + 1], c = idx[i + 2];
-    const k = keyOf((pos.getX(a) + pos.getX(b) + pos.getX(c)) / 3, (pos.getY(a) + pos.getY(b) + pos.getY(c)) / 3, (pos.getZ(a) + pos.getZ(b) + pos.getZ(c)) / 3);
+    const a = idx[i] * 3, b = idx[i + 1] * 3, c = idx[i + 2] * 3;
+    const k = keyOf((P[a] + P[b] + P[c]) / 3, (P[a + 1] + P[b + 1] + P[c + 1]) / 3, (P[a + 2] + P[b + 2] + P[c + 2]) / 3);
     if (k == null) continue;
     if (!buckets.has(k)) buckets.set(k, []);
-    buckets.get(k)!.push(a, b, c);
+    buckets.get(k)!.push(idx[i], idx[i + 1], idx[i + 2]);
   }
   const out: THREE.BufferGeometry[] = [];
   for (const tris of buckets.values()) {

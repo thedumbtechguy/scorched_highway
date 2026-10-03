@@ -58,9 +58,11 @@ export function signTexture(text, bg, fg, w, h, font) {
     x.fillStyle = bg; x.fillRect(0, 0, cv.width, cv.height);
     x.strokeStyle = fg; x.lineWidth = 6; x.strokeRect(10, 10, cv.width - 20, cv.height - 20);
     x.fillStyle = fg; x.textAlign = 'center'; x.textBaseline = 'middle';
-    let size = cv.height * 0.58;
-    x.font = (font || "400 ") + size + "px Shrikhand, 'Cooper Black', 'Arial Black', serif";
-    while (x.measureText(text).width > cv.width - 50 && size > 12) { size -= 4; x.font = (font || "400 ") + size + "px Shrikhand, 'Cooper Black', 'Arial Black', serif"; }
+    // measure once at full size and scale the font down to fit (text width is proportional to font size)
+    const face = (font || "400 "), fam = "px Shrikhand, 'Cooper Black', 'Arial Black', serif";
+    let size = cv.height * 0.58; x.font = face + size + fam;
+    const wid = x.measureText(text).width, room = cv.width - 50;
+    if (wid > room) { size = Math.max(12, Math.floor(size * room / wid)); x.font = face + size + fam; }
     x.fillText(text, cv.width / 2, cv.height / 2 + size * 0.06);
   };
   paint();

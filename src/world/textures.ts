@@ -8,12 +8,15 @@ type Field = Float32Array; // size*size values, roughly 0..1
 function valueNoise(size: number, period: number, seed: number): Field {
   const r = mulberry32(seed), grid = new Float32Array(period * period).map(() => r());
   const out = new Float32Array(size * size), k = period / size;
-  for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
-    const fx = x * k, fy = y * k, x0 = Math.floor(fx), y0 = Math.floor(fy);
-    let tx = fx - x0, ty = fy - y0; tx = tx * tx * (3 - 2 * tx); ty = ty * ty * (3 - 2 * ty);
-    const x1 = (x0 + 1) % period, y1 = (y0 + 1) % period;
-    const a = grid[y0 * period + x0], b = grid[y0 * period + x1], c = grid[y1 * period + x0], d = grid[y1 * period + x1];
-    out[y * size + x] = (a + (b - a) * tx) * (1 - ty) + (c + (d - c) * tx) * ty;
+  // per-column cell index and smoothed weight, computed once instead of per pixel
+  const i0 = new Int32Array(size), i1 = new Int32Array(size), tx = new Float32Array(size), col = new Float32Array(period);
+  for (let x = 0; x < size; x++) { const f = x * k, c = Math.floor(f), t = f - c; i0[x] = c; i1[x] = (c + 1) % period; tx[x] = t * t * (3 - 2 * t); }
+  for (let y = 0; y < size; y++) {
+    // blend the two grid rows once per output row, then each pixel is one lerp between columns
+    const f = y * k, y0 = Math.floor(f), t = f - y0, ty = t * t * (3 - 2 * t), r0 = y0 * period, r1 = ((y0 + 1) % period) * period;
+    for (let c = 0; c < period; c++) col[c] = grid[r0 + c] + (grid[r1 + c] - grid[r0 + c]) * ty;
+    const o = y * size;
+    for (let x = 0; x < size; x++) { const a = col[i0[x]]; out[o + x] = a + (col[i1[x]] - a) * tx[x]; }
   }
   return out;
 }

@@ -1,5 +1,5 @@
 // Repeatable performance benchmark: boot timings, then a scripted 6-car match driven frame by frame.
-//   npm run perf -- [--quality high|low] [--frames 60] [--out name]
+//   npm run perf -- [--quality high|low] [--phone] [--frames 60] [--out name]
 // Reports per-frame CPU time (simulation vs. render submission), GPU-inclusive render time, draw calls,
 // triangles, memory, and the hottest functions from a CPU profile. Writes shots/perf-<name>.json.
 // Absolute times here come from a software GPU (SwiftShader), which also stalls the first time it sees each new
@@ -9,19 +9,29 @@ import { chromium } from '@playwright/test';
 import { mkdirSync, writeFileSync } from 'node:fs';
 
 const args = process.argv.slice(2), opt = (k, d) => { const i = args.indexOf('--' + k); return i >= 0 ? args[i + 1] : d; };
-const quality = opt('quality', 'high'), FRAMES = +opt('frames', 60), name = opt('out', quality);
+const phone = args.includes('--phone'); // mobile viewport + touch (the game then picks Fast graphics) + 4x slower CPU
+const quality = opt('quality', phone ? 'low' : 'high'), FRAMES = +opt('frames', 60), name = opt('out', phone ? 'phone' : quality);
 
 const server = await createServer({ server: { port: 5196, strictPort: false }, logLevel: 'error' });
 await server.listen();
 const browser = await chromium.launch({ args: ['--use-gl=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
 try {
-  const page = await browser.newPage({ viewport: { width: 1280, height: 720 }, ignoreHTTPSErrors: true });
+  const page = await browser.newPage(phone ? { viewport: { width: 412, height: 915 }, deviceScaleFactor: 2.6, isMobile: true, hasTouch: true, ignoreHTTPSErrors: true } : { viewport: { width: 1280, height: 720 }, ignoreHTTPSErrors: true });
+  const cdp = await page.context().newCDPSession(page);
+  if (phone) await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 }); // roughly a mid-range phone's CPU (the GPU can't be emulated)
   page.on('pageerror', e => console.error('page error:', e.message));
   await page.addInitScript(q => { try { localStorage.setItem('shwy_settings', JSON.stringify({ quality: q, opponents: 5, tod: 'sunset', car: 'sundowner' })); } catch { /* storage blocked */ } }, quality);
   await page.route(/fonts\.(googleapis|gstatic)\.com/, r => r.fulfill({ status: 200, contentType: 'text/css', body: '' })); // deterministic, offline
   await page.goto(server.resolvedUrls.local[0]);
   await page.waitForFunction(() => window.SH && window.SH.G.state === 'title', null, { timeout: 120_000 });
-  const boot = await page.evaluate(() => Object.fromEntries(performance.getEntriesByType('measure').filter(m => m.name.startsWith('boot:')).map(m => [m.name.slice(5), Math.round(m.duration)])));
+  // boot: median of three warm reloads (the first load is dominated by dev-server transforms and JIT warm-up)
+  const bootRuns = [];
+  for (let k = 0; k < 3; k++) {
+    await page.reload(); await page.waitForFunction(() => window.SH && window.SH.G.state === 'title', null, { timeout: 120_000 });
+    bootRuns.push(await page.evaluate(() => Object.fromEntries(performance.getEntriesByType('measure').filter(m => m.name.startsWith('boot:')).map(m => [m.name.slice(5), m.duration]))));
+  }
+  const boot = Object.fromEntries(Object.keys(bootRuns[0]).map(k => [k, Math.round(bootRuns.map(r => r[k]).sort((a, b) => a - b)[1])]));
+  boot.total = Object.values(boot).reduce((a, b) => a + b, 0);
 
   // set up the match and warm up shaders and caches
   await page.evaluate(() => {
@@ -30,7 +40,6 @@ try {
     G.player.input = { throttle: 1, steer: 0.25, handbrake: false };
     for (let i = 0; i < 30; i++) step(1 / 60, 1 / 60);
   });
-  const cdp = await page.context().newCDPSession(page);
   await cdp.send('Profiler.enable'); await cdp.send('Profiler.setSamplingInterval', { interval: 200 });
   const run = n => page.evaluate(n => {
     const { G, tick, renderer } = window.SH, gl = renderer.getContext();
@@ -82,7 +91,7 @@ try {
   });
   const out = { quality, boot, breakdown, ...Object.fromEntries(Object.entries(r).map(([k, v]) => [k, typeof v === 'number' ? +v.toFixed(2) : v])), hot };
   mkdirSync('shots', { recursive: true }); writeFileSync(`shots/perf-${name}.json`, JSON.stringify(out, null, 2));
-  console.log(`boot (ms): ${JSON.stringify(boot)}`);
+  console.log(`boot (ms, median of 3 warm loads): ${JSON.stringify(boot)}`);
   console.log(`frame time: median ${out.medianMs} ms, p95 ${out.p95Ms}, worst ${out.worstMs}; ${out.hitches} hitches over 33 ms; ${out.compiledDuringRun} shaders compiled mid-run`);
   console.log(`  average split: sim ${out.simMs} + render submit ${out.renderCpuMs} + gpu wait ${out.gpuMs}`);
   console.log(`draw calls ${out.calls}, triangles ${Math.round(out.tris)}, geometries ${out.geometries}, textures ${out.textures}, programs ${out.programs}, vertex data ${out.vertexMB.toFixed(1)} MB`);
