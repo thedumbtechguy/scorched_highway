@@ -11,10 +11,12 @@ import { GRAV, TAU, _m4, _v1, clamp, lerp, rand } from '../engine/util.js';
 import { G, shake } from '../game/state.js';
 import { pushOut, resolveStatic } from '../world/collision.js';
 import { PROPS, breakProp, damageProp } from '../world/props.js';
-import { ground } from '../world/terrain.js';
+import { drawnGround } from '../world/surface.js';
+import { ground, rampHeight } from '../world/terrain.js';
 
 // ================= car physics =================
 const _fwd = new THREE.Vector3(), _xAx = new THREE.Vector3(), _nrm = new THREE.Vector3();
+const DROOP = 0.14; // how far a wheel can hang below its rest position to reach the ground
 export class Car {
   constructor(def, isPlayer) {
     this.def = def; this.isPlayer = isPlayer;
@@ -23,6 +25,9 @@ export class Car {
     this.radius = 1.9; this.mass = def.mass; this.up = new THREE.Vector3(0, 1, 0);
     this.input = { throttle: 0, steer: 0, handbrake: false };
     this.speedK = 1; // top-speed scale; AI difficulty lowers it
+    // each wheel's position in the car's frame and the drawn ground under it, for resting the car on its wheels
+    this.contacts = this.model.wheels.map(w => ({ wheel: w, lx: w.x, ly: w.y, lz: w.z, r: w.r, h: 0, need: 0 }));
+    this.lift = 0; // visual ride height above the physics position
     this.reset(0, 0, 0);
   }
   reset(x, z, yaw) {
@@ -39,7 +44,7 @@ export class Car {
     this.tumble = 0; this.tumbleV = 0; this.tumbleAxis = 0; this.wheelRot = 0; this.steerVis = 0; this.lean = 0; this.pitch = 0; this.lastVF = 0;
     this.smokeT = 0; this.dustT = 0; this.airT = 0; this.deathTime = 0; this.wreckT = 0; this.stuckT = 0; this.resetCd = 0;
     this.input.throttle = 0; this.input.steer = 0; this.input.handbrake = false;
-    this.up.set(0, 1, 0);
+    this.lift = 0; this.sampleContacts(); this.groundNormal(this.up);
     this.obj.visible = true; this.model.tint(1, 1, 1); this.model.emit(0, 0, 0);
     for (const w of this.model.wheels) w.on = true;
     this.body.rotation.set(0, 0, 0);
@@ -118,10 +123,9 @@ export class Car {
     if (!this.grounded) this.tumble += this.tumbleV * dt;
     else if (this.tumble !== 0) { const tgt = Math.round(this.tumble / TAU) * TAU; this.tumble = lerp(this.tumble, tgt, 1 - Math.exp(-14 * dt)); if (Math.abs(this.tumble - tgt) < 0.02) { this.tumble = 0; this.tumbleV = 0; } }
     // orientation
-    if (this.grounded) {
-      const e = 1.3; const hx = ground(this.x + e, this.z) - ground(this.x - e, this.z), hz = ground(this.x, this.z + e) - ground(this.x, this.z - e);
-      _nrm.set(-hx, 2 * e, -hz).normalize(); this.up.lerp(_nrm, 1 - Math.exp(-12 * dt)).normalize();
-    } else {
+    this.sampleContacts();
+    if (this.grounded) this.up.lerp(this.groundNormal(_nrm), 1 - Math.exp(-50 * dt)).normalize();
+    else {
       _nrm.set(0, 1, 0); _nrm.x -= Math.sin(this.yaw) * clamp(this.vy * 0.012, -0.4, 0.4); _nrm.z -= Math.cos(this.yaw) * clamp(this.vy * 0.012, -0.4, 0.4);
       this.up.lerp(_nrm.normalize(), 1 - Math.exp(-2.5 * dt)).normalize();
     }
@@ -141,12 +145,38 @@ export class Car {
     if (hard > 26 && this.alive) damageCar(this, (hard - 26) * 0.5, null, 'fall');
     if (this.isPlayer) shake(this.x, this.z, clamp(hard / 40, 0.1, 0.5));
   }
+  /** Height of the drawn ground under each wheel (ramps only within climbing reach of the car's centre). */
+  sampleContacts() {
+    const c = Math.cos(this.yaw), s = Math.sin(this.yaw), reach = rampHeight(this.x, this.z) + 0.8;
+    for (const k of this.contacts) k.h = drawnGround(this.x + k.lx * c + k.lz * s, this.z - k.lx * s + k.lz * c, reach);
+  }
+  /** Up vector of the plane through the wheels' ground points, tilt limited to about 40 degrees. */
+  groundNormal(out) {
+    let fz = 0, fh = 0, nf = 0, bz = 0, bh = 0, nb = 0, px = 0, ph = 0, np = 0, mx = 0, mh = 0, nm = 0;
+    for (const k of this.contacts) {
+      if (k.lz >= 0) { fz += k.lz; fh += k.h; nf++; } else { bz += k.lz; bh += k.h; nb++; }
+      if (k.lx >= 0) { px += k.lx; ph += k.h; np++; } else { mx += k.lx; mh += k.h; nm++; }
+    }
+    const sF = clamp((fh / nf - bh / nb) / (fz / nf - bz / nb), -0.8, 0.8), sS = clamp((ph / np - mh / nm) / (px / np - mx / nm), -0.8, 0.8);
+    // the car's x axis is (cos, 0, -sin) and forward is (sin, 0, cos); the plane h = sS*x + sF*z has normal (-sS, 1, -sF)
+    const c = Math.cos(this.yaw), s = Math.sin(this.yaw);
+    return out.set(-sS * c - sF * s, 1, sS * s - sF * c).normalize();
+  }
   syncModel(dt) {
     _fwd.set(Math.sin(this.yaw), 0, Math.cos(this.yaw));
     const u = this.up; _fwd.addScaledVector(u, -_fwd.dot(u)).normalize();
     _xAx.crossVectors(u, _fwd).normalize();
     _m4.makeBasis(_xAx, u, _fwd); this.obj.quaternion.setFromRotationMatrix(_m4);
-    this.obj.position.set(this.x, this.y, this.z);
+    // ride height: the physics only knows the height under the car's centre, so on the ground the car is
+    // set down on its wheels instead (the one needing the most height touches, the others drop to meet the
+    // ground), and in the air it is only kept from sinking a wheel into the ground below
+    let need = -Infinity;
+    for (const k of this.contacts) { k.need = k.h - (k.lx * _xAx.y + (k.ly - k.r) * u.y + k.lz * _fwd.y); if (k.need > need) need = k.need; }
+    const minLift = need - this.y, target = this.grounded ? Math.max(minLift, -0.35) : Math.max(minLift, 0);
+    this.lift = Math.max(minLift, lerp(this.lift, target, 1 - Math.exp(-25 * dt)));
+    const Y = this.y + this.lift;
+    this.obj.position.set(this.x, Y, this.z);
+    for (const k of this.contacts) k.wheel.drop = Math.min((Y - k.need) / Math.max(u.y, 0.3), DROOP);
     this.body.rotation.set(this.pitch + (this.tumbleAxis === 0 ? this.tumble : 0), 0, this.lean + (this.tumbleAxis === 1 ? this.tumble : 0));
     this.body.position.y = 0.04 * Math.sin(this.wheelRot * 0.37) * (this.grounded ? clamp(this.speed / 30, 0, 1) : 0);
     this.model.poseWheels(this.wheelRot, this.steerVis);

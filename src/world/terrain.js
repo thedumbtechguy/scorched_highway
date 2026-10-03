@@ -38,7 +38,7 @@ export function baseHeight(x, z) {
   if (r > 168) h += 30 * smooth(168, 214, r);
   return h;
 }
-function rampHeight(x, z) {
+export function rampHeight(x, z) {
   for (let i = 0; i < RAMPS.length; i++) {
     const R = RAMPS[i]; const dx = x - R.x, dz = z - R.z;
     const u = dx * R.s + dz * R.c; if (u < -R.len / 2 || u > R.len / 2) continue;
@@ -48,3 +48,18 @@ function rampHeight(x, z) {
   return 0;
 }
 export function ground(x, z) { return baseHeight(x, z) + rampHeight(x, z); }
+
+// The drawn terrain is a grid of baseHeight samples joined by flat triangles, so between vertices it can sit
+// a few centimetres above or below baseHeight (more on the coarser "Fast" grid). surfaceHeight() follows
+// those triangles exactly, for placing things that must look like they touch the ground.
+let gridSize = 0, gridSeg = 0;
+export function setTerrainGrid(size, seg) { gridSize = size; gridSeg = seg; }
+export function surfaceHeight(x, z) {
+  if (!gridSeg) return baseHeight(x, z);
+  const s = gridSize / gridSeg, half = gridSize / 2, fx = (x + half) / s, fz = (z + half) / s;
+  if (fx < 0 || fz < 0 || fx >= gridSeg || fz >= gridSeg) return baseHeight(x, z);
+  const ix = Math.floor(fx), iz = Math.floor(fz), u = fx - ix, v = fz - iz, x0 = ix * s - half, z0 = iz * s - half;
+  // PlaneGeometry (rotated flat) splits each cell along the diagonal from (x0 + s, z0) to (x0, z0 + s)
+  if (u + v <= 1) { const h = baseHeight(x0, z0); return h + u * (baseHeight(x0 + s, z0) - h) + v * (baseHeight(x0, z0 + s) - h); }
+  const h = baseHeight(x0 + s, z0 + s); return h + (1 - u) * (baseHeight(x0, z0 + s) - h) + (1 - v) * (baseHeight(x0 + s, z0) - h);
+}

@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import { addToScene } from '../engine/renderer.js';
 import { TAU, clamp, mulberry32, smooth } from '../engine/util.js';
-import { ARENA_R, baseHeight } from './terrain.js';
+import { ARENA_R, baseHeight, setTerrainGrid } from './terrain.js';
 import { rockTexture, sandNormal, sandTexture, strataTexture } from './textures';
 import { boulderGeometry } from './flora';
 
@@ -96,6 +96,7 @@ function splitByTriangle(g: THREE.BufferGeometry, keyOf: (cx: number, cy: number
 // ---------- terrain ----------
 export function buildTerrainMesh(lowQ: boolean) {
   const SIZE = 440, SEG = lowQ ? 110 : 180;
+  setTerrainGrid(SIZE, SEG);
   const g = new THREE.PlaneGeometry(SIZE, SIZE, SEG, SEG); g.rotateX(-Math.PI / 2);
   const p = g.attributes.position;
   for (let i = 0; i < p.count; i++) p.setY(i, baseHeight(p.getX(i), p.getZ(i)));
