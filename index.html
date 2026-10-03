@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#2a1838">
+<title>Scorched Highway</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=Shrikhand&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="src/style.css">
+</head>
+<body>
+<div id="stage"></div>
+
+<div id="loading"><div class="stripes"></div><div>Warming up the engine…</div></div>
+
+<section id="title" class="screen" hidden>
+  <div class="title-wrap">
+    <div class="stripes"></div>
+    <h1 class="logo">Scorched<br>Highway</h1>
+    <p class="tagline">Summer, 1977. Six drivers, one ghost town, and a trunk full of rockets. The desert belongs to whoever's still driving.</p>
+    <div class="row">
+      <button class="btn primary" id="toGarage">Choose your car</button>
+      <button class="btn ghost" id="toHelp">How to play</button>
+    </div>
+  </div>
+</section>
+
+<section id="garage" class="screen" hidden>
+  <div class="gpanel">
+    <div class="ghead"><button class="back" id="gBack" aria-label="Back to title">‹</button><h2>Choose your car</h2></div>
+    <div class="gscroll">
+      <div class="cars" id="carList"></div>
+      <div class="detail">
+        <h3 id="cName"></h3>
+        <p class="driver" id="cDriver"></p>
+        <p class="blurb" id="cBlurb"></p>
+        <div class="stats" id="cStats"></div>
+        <div class="special"><strong id="cSpecial"></strong><span id="cSpecialDesc"></span></div>
+      </div>
+      <div class="opts">
+        <div class="opt"><span>Opponents</span><div class="seg" data-opt="opponents"><button data-v="2">2</button><button data-v="3">3</button><button data-v="4">4</button><button data-v="5">5</button></div></div>
+        <div class="opt"><span>Difficulty</span><div class="seg" data-opt="difficulty"><button data-v="0">Easy</button><button data-v="1">Normal</button><button data-v="2">Hard</button></div></div>
+        <div class="opt"><span>Time of day</span><div class="seg" data-opt="tod"><button data-v="noon">Noon</button><button data-v="sunset">Sunset</button><button data-v="night">Night</button></div></div>
+        <div class="opt"><span>Graphics</span><div class="seg" data-opt="quality"><button data-v="low">Fast</button><button data-v="high">Pretty</button></div></div>
+        <div class="opt"><span>Sound</span><div class="seg" data-opt="sound"><button data-v="on">On</button><button data-v="off">Off</button></div></div>
+      </div>
+    </div>
+    <button class="btn primary go" id="startBtn">Start the fight</button>
+  </div>
+</section>
+
+<section id="pause" class="screen modal" hidden>
+  <div class="card">
+    <div class="stripes"></div>
+    <h2>Paused</h2>
+    <p>The dust can wait.</p>
+    <div class="row" style="margin-top:16px">
+      <button class="btn primary" id="resumeBtn">Resume</button>
+      <button class="btn ghost" id="restartBtn">Restart</button>
+      <button class="btn ghost" id="quitBtn">Back to garage</button>
+      <button class="btn ghost" id="pHelpBtn">Controls</button>
+    </div>
+  </div>
+</section>
+
+<section id="over" class="screen modal" hidden>
+  <div class="card">
+    <div class="stripes"></div>
+    <h2 id="overTitle">Last one standing</h2>
+    <p id="overSub"></p>
+    <div class="results">
+      <div><b id="rPlace">1st</b><span>Finish</span></div>
+      <div><b id="rKills">0</b><span>Wrecks</span></div>
+      <div><b id="rDmg">0</b><span>Damage dealt</span></div>
+      <div><b id="rTime">0:00</b><span>Survived</span></div>
+    </div>
+    <div class="row">
+      <button class="btn primary" id="againBtn">Fight again</button>
+      <button class="btn ghost" id="oGarageBtn">Change car</button>
+    </div>
+  </div>
+</section>
+
+<section id="help" class="screen modal" hidden>
+  <div class="card help">
+    <div class="stripes"></div>
+    <h2>How to play</h2>
+    <p>Free-for-all in a desert ghost town. Grab weapon crates, wreck everyone else, and be the last car running. Green crates repair you, purple ones refill your special.</p>
+    <h3>Keyboard</h3>
+    <table>
+      <tr><td><kbd>W A S D</kbd> or arrows</td><td>Drive and steer</td></tr>
+      <tr><td><kbd>Space</kbd></td><td>Handbrake, for drifting round corners</td></tr>
+      <tr><td><kbd>J</kbd> or <kbd>Z</kbd></td><td>Machine gun (hold)</td></tr>
+      <tr><td><kbd>K</kbd> or <kbd>X</kbd></td><td>Fire selected weapon</td></tr>
+      <tr><td><kbd>L</kbd> or <kbd>C</kbd></td><td>Special weapon</td></tr>
+      <tr><td><kbd>Q</kbd> <kbd>E</kbd></td><td>Switch weapon</td></tr>
+      <tr><td><kbd>R</kbd></td><td>Flip back onto the road if stuck</td></tr>
+      <tr><td><kbd>P</kbd> or <kbd>Esc</kbd></td><td>Pause</td></tr>
+    </table>
+    <h3>Combo moves</h3>
+    <p>Tap <kbd>↑</kbd> <kbd>↑</kbd> then fire for a weapon's first combo, or <kbd>↓</kbd> <kbd>↓</kbd> then fire for its second. On touch screens, swipe up or down on the Fire button. Combos cost 3 ammo.</p>
+    <table>
+      <tr><td>Homing missiles</td><td>Rattler volley, Sky strike</td></tr>
+      <tr><td>Mortar</td><td>Carpet barrage, Bunker buster</td></tr>
+      <tr><td>Mines</td><td>Mine toss, Minefield</td></tr>
+      <tr><td>Torch</td><td>Ring of fire, Fireball</td></tr>
+    </table>
+    <h3>Touch and gamepad</h3>
+    <p>Left thumb drives with the stick. Right side has Gun, Fire, Special, Swap and Drift. On a gamepad, triggers drive, X is the gun, A fires, Y is special, B drifts, bumpers switch weapons.</p>
+    <h3>Tips</h3>
+    <p>Missiles lose you behind buildings. Mortars arc over cover. Red barrels and gas pumps explode. Ramps and dunes launch you, and the water tower can come down on someone's head.</p>
+    <div class="row" style="margin-top:16px"><button class="btn primary" id="helpClose">Got it</button></div>
+  </div>
+</section>
+
+<div id="hud" hidden>
+  <div id="vign"></div>
+  <div id="tags"></div>
+  <div id="lock"></div>
+  <div class="hud-tl">
+    <div class="me"><span id="hName"></span><span id="hHp"></span></div>
+    <div class="hpbar" id="hpBar"><i id="hpFill"></i></div>
+    <div class="wpn"><canvas id="wIcon" width="80" height="80"></canvas><div><div id="wName">Machine gun only</div><div id="wAmmo">–</div></div></div>
+    <div class="spec"><span>Special</span><span id="sPips"></span></div>
+    <div id="comboHint"></div>
+  </div>
+  <div class="hud-tc"><span id="alive"></span><span id="clock">0:00</span></div>
+  <div id="feed"></div>
+  <div class="hud-tr"><button id="pauseBtn" aria-label="Pause">❚❚</button><canvas id="radar" width="264" height="264"></canvas></div>
+  <div id="big"></div>
+  <div id="speedo"><b id="spd">0</b><span>mph</span></div>
+  <div id="touch">
+    <div id="stickZone"><div id="stickBase"><div id="stickKnob"></div></div></div>
+    <div id="tbtns">
+      <button class="tb" id="bGun">Gun</button>
+      <button class="tb" id="bFire">Fire<small>swipe ↑↓</small></button>
+      <button class="tb" id="bSpec">Special</button>
+      <button class="tb" id="bSwap">Swap</button>
+      <button class="tb" id="bDrift">Drift</button>
+    </div>
+    <button id="bReset" hidden>Flip back</button>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="src/core.js"></script>
+<script src="src/world.js"></script>
+<script src="src/cars.js"></script>
+<script src="src/weapons.js"></script>
+<script src="src/ai.js"></script>
+<script src="src/input-audio.js"></script>
+<script src="src/game.js"></script>
+</body>
+</html>
