@@ -62,6 +62,7 @@ function drawRadar() {
   x.strokeStyle = 'rgba(246,234,212,0.35)'; x.lineWidth = 3; x.stroke();
   x.strokeStyle = 'rgba(246,234,212,0.12)'; x.lineWidth = 2; x.beginPath(); x.arc(R, R, R * 0.5, 0, TAU); x.stroke();
   const cy = Math.cos(p.yaw), sy = Math.sin(p.yaw);
+  /** @type {(wx: number, wz: number) => [number, number, boolean]} */
   const toR = (wx, wz) => { const dx = wx - p.x, dz = wz - p.z; const lx = dx * cy - dz * sy, lz = dx * sy + dz * cy; return [R - lx / range * (R - 8), R - lz / range * (R - 8), Math.hypot(lx, lz) < range]; };
   // arena edge
   const [ax, ay] = toR(0, 0); x.strokeStyle = 'rgba(232,102,42,0.5)'; x.lineWidth = 2; x.save(); x.beginPath(); x.arc(R, R, R - 4, 0, TAU); x.clip();

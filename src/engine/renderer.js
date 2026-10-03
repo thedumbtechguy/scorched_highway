@@ -8,7 +8,8 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.getElementById('stage').appendChild(renderer.domElement);
 export const scene = new THREE.Scene();
 export const camera = new THREE.PerspectiveCamera(62, 1, 0.3, 2400);
-scene.fog = new THREE.Fog(0xe89a5c, 130, 560);
+export const fog = new THREE.Fog(0xe89a5c, 130, 560);
+scene.fog = fog;
 
 export const hemi = new THREE.HemisphereLight(0x86b4c0, 0x7a3b26, 0.6); scene.add(hemi);
 export const sun = new THREE.DirectionalLight(0xffb070, 1.1);

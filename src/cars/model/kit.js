@@ -7,7 +7,9 @@ import { TAU, lerp } from '../../engine/util.js';
 
 // ----- car kit: what each car's recipe uses -----
 export class CarKit {
-  constructor(def) { this.def = def; this.mb = new MB(def.dirt == null ? 0.35 : def.dirt); this.decals = []; this.wheels = []; this.heads = []; this.tails = []; this.parts = []; }
+  constructor(def) {
+    /** @type {THREE.Mesh[] | null} */ this.siren = null; // light-bar lenses that blink (Lawdog)
+    this.def = def; this.mb = new MB(def.dirt == null ? 0.35 : def.dirt); this.decals = []; this.wheels = []; this.heads = []; this.tails = []; this.parts = []; }
   box(mi, w, h, d, c, x, y, z, rx, ry, rz) { this.mb.geo(mi, GEO.box, mat4(x, y, z, rx, ry, rz, w, h, d), c); return this; }
   rbox(mi, w, h, d, r, c, x, y, z, rx, ry, rz) { this.mb.loft(rboxLoft(w, h, d, r), [mi, c], mat4(x, y, z, rx, ry, rz)); return this; }
   cyl(mi, rt, rb, h, seg, c, x, y, z, rx, ry, rz) { this.mb.geo(mi, cylGeo(rt, rb, h, seg), mat4(x, y, z, rx, ry, rz), c); return this; }

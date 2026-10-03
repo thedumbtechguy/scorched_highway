@@ -15,7 +15,7 @@ Needs Node 20+.
 ```sh
 npm install
 npm run dev        # dev server with hot reload at http://localhost:5173
-npm run check      # lint + build + smoke tests, the same as CI
+npm run check      # lint + typecheck + build + smoke tests, the same as CI
 ```
 
 | Script | What it does |
@@ -23,6 +23,7 @@ npm run check      # lint + build + smoke tests, the same as CI
 | `npm run dev` | Vite dev server |
 | `npm run build` / `npm run preview` | Production build into `dist/`, and serve it |
 | `npm run lint` | ESLint, which catches undefined names, unused code and writes to imported values |
+| `npm run typecheck` | TypeScript checks the JavaScript (loose mode) against Three.js's types; catches wrong property names and argument types |
 | `npm test` | Playwright smoke tests against the build: boot, every car model, garage, a fast-forwarded match |
 | `npm run shots -- [--tod noon\|sunset\|night] [car ids]` | Renders each car from three angles plus a contact sheet into `shots/` |
 
@@ -81,6 +82,8 @@ ES modules bundled by Vite, with Three.js (pinned to r128) from npm. Modules are
 | `src/game/` | Game state and settings, HUD, camera, menus, match flow, main loop and quality |
 | `src/style.css` | Menus, HUD, touch controls |
 | `tests/`, `tools/` | Smoke tests; the car screenshot tool |
+
+New modules can be written in TypeScript (`.ts`) directly; Vite compiles them and `npm run typecheck` checks them alongside the JavaScript. Add JSDoc types (`/** @type {...} */`) when the checker can't infer something.
 
 Everything visual is built from code. There are no image, model or audio files.
 

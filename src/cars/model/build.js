@@ -8,12 +8,18 @@ import { CAR_RECIPES } from '../recipes/index.js';
 import { curTod, glowTexture } from '../../engine/sky.js';
 import { G } from '../../game/state.js';
 
+/** @typedef {THREE.MeshStandardMaterial & { clearcoat?: number, clearcoatRoughness?: number }} LitMaterial Standard, or Physical with clear coat */
+
+/** @returns {[LitMaterial, LitMaterial, LitMaterial, LitMaterial, THREE.MeshBasicMaterial, LitMaterial]} indexed by the M_* constants */
 function carMaterials(livery, hi) {
   const env = CAR_ENV.tex;
   const P = hi ? THREE.MeshPhysicalMaterial : THREE.MeshStandardMaterial;
+  /** @type {LitMaterial} */
   const paint = new P({ vertexColors: true, roughness: 0.42, metalness: 0.12, envMap: env, envMapIntensity: 0.9 });
+  /** @type {LitMaterial} */
   const decal = new P({ vertexColors: true, map: livery, transparent: true, depthWrite: false, alphaTest: 0.02, roughness: 0.4, metalness: 0.08, envMap: env, envMapIntensity: 0.9, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
   if (hi) for (const m of [paint, decal]) { m.clearcoat = 1; m.clearcoatRoughness = 0.12; }
+  /** @type {[LitMaterial, LitMaterial, LitMaterial, LitMaterial, THREE.MeshBasicMaterial, LitMaterial]} */
   const mats = [
     paint,
     new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.16, metalness: 1, envMap: env, envMapIntensity: 1.25 }),
@@ -22,7 +28,7 @@ function carMaterials(livery, hi) {
     new THREE.MeshBasicMaterial({ vertexColors: true }),
     decal,
   ];
-  for (const m of mats) if (m.envMap !== undefined) { CAR_ENV.mats.add(m); m.userData.env = m.envMapIntensity; }
+  for (const m of /** @type {LitMaterial[]} */ ([0, 1, 2, 3, 5].map(i => mats[i]))) { CAR_ENV.mats.add(m); m.userData.env = m.envMapIntensity; }
   return mats;
 }
 
@@ -41,10 +47,11 @@ export function buildCarModel(def) {
   // lamp glows (night, brakes)
   if (!glowTex) glowTex = glowTexture('rgba(255,255,255,1)', 'rgba(255,255,255,0.25)');
   const glows = { heads: [], tails: [] };
-  for (const [list, col, key] of [[K.heads, 0xffe6b0, 'heads'], [K.tails, 0xff2a14, 'tails']]) for (const g of list) {
+  const addGlows = (list, col, out) => { for (const g of list) {
     const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: col, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false }));
-    s.position.set(g.x, g.y, g.z); s.visible = false; body.add(s); glows[key].push(s);
-  }
+    s.position.set(g.x, g.y, g.z); s.visible = false; body.add(s); out.push(s);
+  } };
+  addGlows(K.heads, 0xffe6b0, glows.heads); addGlows(K.tails, 0xff2a14, glows.tails);
   const beams = [];
   for (const sx of [-0.7, 0.7]) { const bm = new THREE.Mesh(beamGeo, beamMat); bm.position.set(sx, 0.9, def.front); bm.rotation.x = 0.06; bm.visible = false; body.add(bm); beams.push(bm); }
   const ws = [];
@@ -53,7 +60,7 @@ export function buildCarModel(def) {
     const m = new THREE.Mesh(buildWheelGeo(w.style), mats); m.castShadow = true; if (s < 0) m.scale.x = -1;
     pivot.add(m); group.add(pivot); ws.push({ pivot, mesh: m, front: !!w.front, r: w.r });
   }
-  const lit = [0, 1, 2, 3, 5].map(i => mats[i]);
+  const lit = /** @type {LitMaterial[]} */ ([0, 1, 2, 3, 5].map(i => mats[i]));
   const model = {
     group, body, wheels: ws, mats, mat: mats[0], siren, beams, bodyMesh, glows,
     // darken for damage / wrecks: reflections and clear coat fade with the paint

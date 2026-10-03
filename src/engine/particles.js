@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { scene } from './renderer.js';
+import { fog, scene } from './renderer.js';
 
 // ================= particles =================
 const P_VS = `
@@ -83,7 +83,7 @@ class Particles {
   }
   setUniforms(scale) {
     this.mat.uniforms.scale.value = scale;
-    this.mat.uniforms.fogCol.value.copy(scene.fog.color); this.mat.uniforms.fogNear.value = scene.fog.near; this.mat.uniforms.fogFar.value = scene.fog.far;
+    this.mat.uniforms.fogCol.value.copy(fog.color); this.mat.uniforms.fogNear.value = fog.near; this.mat.uniforms.fogFar.value = fog.far;
   }
 }
 export const FX_ADD = new Particles(1400, true);
