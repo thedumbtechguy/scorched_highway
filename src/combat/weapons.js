@@ -9,9 +9,9 @@ import { TAU, _v1, _v2, angDiff, clamp, rand } from '../engine/util.js';
 import { bigText } from '../game/hud.js';
 import { G, shake } from '../game/state.js';
 import { lineOfSight, outOfBounds, pointBlocked } from '../world/collision.js';
-import { REGION_X, inTunnel } from '../race/track';
+import { mapAt } from '../maps/registry';
 import { PROPS, breakProp, damageProp } from '../world/props.js';
-import { ARENA_R, ground } from '../world/terrain.js';
+import { ground } from '../world/terrain.js';
 
 // ================= targeting =================
 /**
@@ -36,7 +36,7 @@ export function findTarget(c, range, cone, needSight = false, yaw = c.yaw) {
 }
 /** Clear line of sight to a car: not behind a building or the ground, and not through smoke. */
 export function canSee(x, y, z, o) {
-  if (o.x > REGION_X && inTunnel(o.x, o.z) !== inTunnel(x, z)) return false; // nothing homes into or out of the mine shaft
+  const m = mapAt(o.x); if (m.sees && !m.sees(x, z, o.x, o.z)) return false; // the map's own sight rules (e.g. Route 67's mine shaft)
   return lineOfSight(x, y, z, o.x, o.y + 1.2, o.z) && !smokeBetween(x, z, o.x, o.z);
 }
 /** Does the line between two points pass through a smoke cloud? */
@@ -415,9 +415,9 @@ function impact(p, car, prop) {
     }
     case 'bomblet': explode(p.x, p.y, p.z, 4.5, 10, o, { direct: car, size: 0.8, push: 6, lift: 6 }); break;
     case 'minetoss': {
-      const onRoute = p.x > REGION_X, x = onRoute ? p.x : clamp(p.x, -ARENA_R, ARENA_R), z = onRoute ? p.z : clamp(p.z, -ARENA_R, ARENA_R);
       if (car) explode(p.x, p.y, p.z, 6, 24, o, { direct: car, size: 1.3, push: 10, lift: 14 });
-      else { addMine(x, z, o); const m = MINES[MINES.length - 1]; m.arm = 0.3; m.grace = 0.3; }
+      else if (mapAt(p.x).blocked(p.x, p.z, 0)) sparks(p.x, p.y, p.z, 4); // landed somewhere it can't sit: it fizzles
+      else { addMine(p.x, p.z, o); const m = MINES[MINES.length - 1]; m.arm = 0.3; m.grace = 0.3; }
       break;
     }
   }

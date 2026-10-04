@@ -46,9 +46,7 @@ body[data-device="keys"] .press [data-dev="keys"],body[data-device="pad"] .press
 .btn{font-family:var(--ui);font-weight:700;font-size:18px;padding:13px 22px;border-radius:10px;letter-spacing:.2px;transition:transform .12s}
 .btn:active{transform:scale(.97)}
 .btn.primary{background:var(--sun);color:var(--ink);box-shadow:0 4px 0 var(--brick)}
-.btn.primary:hover{background:#ffc453}
 .btn.ghost{background:rgba(246,234,212,.08);border:1.5px solid var(--line);color:var(--bone)}
-.btn.ghost:hover{background:rgba(246,234,212,.16)}
 .hint{font-size:14px;color:var(--muted);margin-top:14px}
 
 /* garage: one car per screen */
@@ -62,9 +60,10 @@ body[data-device="keys"] .press [data-dev="keys"],body[data-device="pad"] .press
 .dots{display:flex;gap:8px;justify-content:center}
 .dots button{width:12px;height:12px;border-radius:50%;background:rgba(246,234,212,.28);transition:transform .15s}
 .dots button[aria-pressed="true"]{background:var(--c);transform:scale(1.35);box-shadow:0 0 0 2px rgba(30,17,42,.8)}
-.back{width:42px;height:42px;border-radius:50%;background:rgba(30,17,42,.6);border:1.5px solid var(--line);font-size:26px;line-height:38px;text-align:center}
-.arrow{position:absolute;top:44%;transform:translateY(-50%);width:64px;height:64px;border-radius:50%;background:rgba(30,17,42,.6);border:2px solid rgba(246,234,212,.35);font-size:40px;line-height:56px;color:var(--bone);transition:background .12s,transform .12s}
-.arrow:hover{background:rgba(242,177,52,.85);color:var(--ink)}
+.back{width:42px;height:42px;border-radius:50%;background:rgba(30,17,42,.6);border:1.5px solid var(--line);display:grid;place-items:center}
+/* chevrons are drawn, not typed, so they sit dead centre in their buttons */
+.chev{width:55%;height:55%;fill:none;stroke:currentColor;stroke-width:2.8;stroke-linecap:round;stroke-linejoin:round}
+.arrow{position:absolute;top:44%;transform:translateY(-50%);width:64px;height:64px;border-radius:50%;background:rgba(30,17,42,.6);border:2px solid rgba(246,234,212,.35);color:var(--bone);display:grid;place-items:center;transition:background .12s,transform .12s}
 .arrow:active{transform:translateY(-50%) scale(.93)}
 .arrow.prev{left:max(18px,env(safe-area-inset-left))}
 .arrow.next{right:max(18px,env(safe-area-inset-right))}
@@ -82,8 +81,17 @@ body[data-device="keys"] .press [data-dev="keys"],body[data-device="pad"] .press
 .special strong{display:block;font-size:16px;color:#d8c6ff}
 .cyc{display:flex;align-items:center;background:rgba(246,234,212,.07);border-radius:9px}
 .cyc span{flex:1;text-align:center;font-weight:700;font-size:16px}
-.cyc button{width:40px;height:36px;font-size:24px;line-height:32px;color:var(--muted);border-radius:9px}
-.cyc button:hover{color:var(--bone);background:rgba(246,234,212,.1)}
+.cyc button{width:40px;height:36px;color:var(--muted);border-radius:9px;display:grid;place-items:center}
+.cyc button .chev{width:20px;height:20px}
+.cyc button:disabled{opacity:.25;cursor:default}
+/* hover only where there's a real pointer: on touch screens :hover sticks to the last thing tapped */
+@media (hover:hover){
+  .btn.primary:hover{background:#ffc453}
+  .btn.ghost:hover{background:rgba(246,234,212,.16)}
+  .arrow:hover{background:rgba(242,177,52,.85);color:var(--ink)}
+  .cyc button:not(:disabled):hover{color:var(--bone);background:rgba(246,234,212,.1)}
+}
+.cyc button:not(:disabled):active{color:var(--bone);background:rgba(246,234,212,.14)}
 .opts{margin-top:16px;display:grid;gap:9px}
 .opt{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:15px;color:var(--muted)}
 .seg{display:flex;background:rgba(246,234,212,.07);border-radius:9px;padding:3px}
@@ -225,9 +233,14 @@ kbd{font-family:var(--ui);font-weight:700;background:rgba(246,234,212,.12);borde
   .gkicker{display:none}
   .gcard{padding:10px 12px}
   .special{margin-top:8px;padding:6px 10px;font-size:13px}
-  .cyc button{height:30px;line-height:26px}
+  .cyc button{height:30px}
+  /* two pickers per row, so the card stays clear of the car arrows */
+  .gcard.setup{width:min(430px,48vw);grid-template-columns:1fr 1fr;gap:6px}
+  .gcard.setup .go{grid-column:1 / -1}
+  .cyc span{font-size:14px}
+  .cyc button{width:32px}
   .go{font-size:17px;padding:10px 16px}
-  .arrow{width:52px;height:52px;line-height:44px;font-size:32px}
+  .arrow{width:52px;height:52px}
   #wName{font-size:13px}
   #wAmmo{font-size:20px}
   .wpn{margin-top:6px;padding:4px 8px 4px 4px}

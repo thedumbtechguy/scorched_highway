@@ -1,23 +1,10 @@
-// Roads as ground-hugging ribbons with painted textures: cracked asphalt with lane markings, and
-// dirt tracks with tyre ruts. Edges fade out so they sit in the sand instead of on it.
+// Road surfaces for any map: ground-hugging ribbons with painted textures (cracked asphalt with lane markings,
+// dirt with tyre ruts) whose edges fade out so they sit in the sand instead of on it.
 import * as THREE from 'three';
 import { addToScene } from '../engine/renderer.js';
 import { mulberry32 } from '../engine/util.js';
 import { ground } from './terrain.js';
-import { REGION_X, trackRoadLift } from '../race/track';
 
-// where the roads run; buildRoads() draws them and roadLift() lets things sit on them
-const HIGHWAY = { half: 6.5, lift: 0.05 }, TRACK = { half: 4.5, lift: 0.04 };
-const northX = (z: number) => 4 + 12 * Math.sin(Math.max(0, z - 30) * 0.02);
-const southX = (z: number) => -18 + 10 * Math.sin((z + 26) * 0.025);
-/** How far the road surface floats above the ground at (x, z): 0 off the roads. */
-export function roadLift(x: number, z: number): number {
-  if (x > REGION_X) return trackRoadLift(x, z);
-  if (Math.abs(z) < HIGHWAY.half && Math.abs(x) <= 214) return HIGHWAY.lift;
-  if (z >= 12 && z <= 214 && Math.abs(x - northX(z)) < TRACK.half) return TRACK.lift;
-  if (z <= -26 && z >= -214 && Math.abs(x - southX(z)) < TRACK.half) return TRACK.lift;
-  return 0;
-}
 import { fbm } from './textures';
 
 const W = 256, H = 512; // texture: across the road x along it
@@ -84,12 +71,3 @@ export function ribbon(points: Array<[number, number]>, width: number, yOff: num
 // No polygon offset: it scales with depth-buffer precision, so far away it lifted the road through the
 // bottom of distant cars. The ribbons sit a few centimetres above the ground instead.
 export const roadMat = (map: THREE.Texture, rough: number) => new THREE.MeshStandardMaterial({ map, roughness: rough, metalness: 0, transparent: true, depthWrite: false });
-
-export function buildRoads() {
-  const hw: Array<[number, number]> = []; for (let x = -214; x <= 214; x += 3) hw.push([x, 0]);
-  ribbon(hw, HIGHWAY.half * 2, HIGHWAY.lift, 13, roadMat(asphalt(), 0.85));
-  const mud = roadMat(dirt(), 1);
-  const north: Array<[number, number]> = []; for (let z = 12; z <= 214; z += 3) north.push([northX(z), z]);
-  const south: Array<[number, number]> = []; for (let z = -26; z >= -214; z -= 3) south.push([southX(z), z]);
-  ribbon(north, TRACK.half * 2, TRACK.lift, 9, mud); ribbon(south, TRACK.half * 2, TRACK.lift, 9, mud);
-}

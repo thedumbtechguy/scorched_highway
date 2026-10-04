@@ -1,21 +1,20 @@
-// Route 67: a canyon race track with three forks. It lives in the same world as the arena but 6 km east of it,
-// far past the fog, so the two never see each other. terrain.js and collision.js hand any point east of
-// REGION_X to the functions here.
+// Route 67's course: a canyon race track with three forks, in the band of world 6 km east of the ghost town
+// (see maps/registry). The map module (index.ts) hands the world's ground, collision and sight queries here.
 //
 // The track is a loop of sections. Plain sections have one path; at a fork the section has two paths that
 // split at one node and meet again at the next. The ground is a height field carved around the paths'
 // centre lines: inside a path's corridor it's the canyon floor, away from every path it rises to the plateau,
 // so forks and the rock between branches fall out of the same function.
 import * as THREE from 'three';
-import { clamp, lerp } from '../engine/util.js';
+import { clamp, lerp } from '../../engine/util.js';
+import type { Progress } from '../types';
 
-export const REGION_X = 3000; // everything east of this is Route 67
 export const OX = 6000, OZ = 0; // the track's origin in the world
 const SCALE = 1.25; // layout units to metres
 export const LAPS = 3;
 
 export type Surface = 'dirt' | 'tunnel' | 'asphalt' | 'sand';
-interface PathDef { name: string; half: number; surface: Surface; pts: number[][]; gap?: [number, number]; ramp?: boolean }
+interface PathDef { name: string; half: number; surface: Surface; pts: number[][]; gap?: [number, number]; ramp?: boolean; risky?: boolean }
 interface SectionDef { paths: PathDef[]; fork?: string }
 
 // layout: x, z (layout units) and floor height y (metres); paths in a section share their first and last point
@@ -25,7 +24,7 @@ const SECTIONS: SectionDef[] = [
   {
     fork: 'Mine shaft or canyon road',
     paths: [
-      { name: 'Mine shaft', half: 6, surface: 'tunnel', pts: [N1, [185, 140, 4], [215, 200, 5], N2] },
+      { name: 'Mine shaft', risky: true, half: 6, surface: 'tunnel', pts: [N1, [185, 140, 4], [215, 200, 5], N2] },
       { name: 'Canyon road', half: 9, surface: 'dirt', pts: [N1, [230, 75, 4], [300, 120, 6], [300, 190, 6], [255, 240, 5], N2] },
     ],
   },
@@ -33,7 +32,7 @@ const SECTIONS: SectionDef[] = [
   {
     fork: 'Gorge jump or switchback',
     paths: [
-      { name: 'Gorge jump', half: 8, surface: 'dirt', ramp: true, gap: [0.42, 0.47], pts: [N3, [-20, 352, 8], [-90, 350, 8], [-140, 345, 8], N4] },
+      { name: 'Gorge jump', risky: true, half: 8, surface: 'dirt', ramp: true, gap: [0.42, 0.47], pts: [N3, [-20, 352, 8], [-90, 350, 8], [-140, 345, 8], N4] },
       { name: 'Switchback', half: 8, surface: 'dirt', pts: [N3, [20, 410, 9], [-40, 440, 10], [-110, 430, 10], [-150, 390, 9], N4] },
     ],
   },
@@ -41,7 +40,7 @@ const SECTIONS: SectionDef[] = [
   {
     fork: 'Old highway or riverbed',
     paths: [
-      { name: 'Old highway', half: 8, surface: 'asphalt', pts: [N5, [-345, 100, 4], [-330, 50, 3], N6] },
+      { name: 'Old highway', risky: true, half: 8, surface: 'asphalt', pts: [N5, [-345, 100, 4], [-330, 50, 3], N6] },
       { name: 'Dry riverbed', half: 13, surface: 'sand', pts: [N5, [-265, 110, 4], [-265, 60, 3], N6] },
     ],
   },
@@ -51,7 +50,7 @@ const SECTIONS: SectionDef[] = [
 // ---------- sampled paths ----------
 const STEP = 3; // metres between samples
 export interface Path {
-  name: string; half: number; surface: Surface; section: number; index: number;
+  name: string; half: number; surface: Surface; section: number; index: number; risky: boolean;
   x: Float32Array; z: Float32Array; y: Float32Array; tx: Float32Array; tz: Float32Array; s: Float32Array; len: number;
   gap: [number, number] | null; // metres along the path where the gorge drops away
 }
@@ -72,7 +71,7 @@ function samplePath(def: PathDef, section: number, index: number): Path {
     tx[i] = dx / L; tz[i] = dz / L;
   }
   const len = s[n];
-  return { name: def.name, half: def.half, surface: def.surface, section, index, x, z, y, tx, tz, s, len, gap: def.gap ? [def.gap[0] * len, def.gap[1] * len] : null };
+  return { name: def.name, half: def.half, surface: def.surface, section, index, risky: !!def.risky, x, z, y, tx, tz, s, len, gap: def.gap ? [def.gap[0] * len, def.gap[1] * len] : null };
 }
 SECTIONS.forEach((sd, k) => {
   const paths = sd.paths.map((p, i) => samplePath(p, k, i));
@@ -245,8 +244,6 @@ export function surfaceSpeed(x: number, z: number): number {
 }
 
 // ---------- race progress ----------
-/** Where a car is along the track: which section and path, how far along it, and its lap. */
-export interface Progress { section: number; path: number; i: number; s: number; lap: number }
 /** Nearest sample on one path to (x, z), searching around a hint first. */
 function onPath(p: Path, x: number, z: number, hint: number): [number, number] {
   let bi = 0, bd = Infinity;

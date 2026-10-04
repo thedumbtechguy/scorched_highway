@@ -1,12 +1,14 @@
 import * as THREE from 'three';
-import { signTexture } from '../engine/geometry.js';
-import { addToScene } from '../engine/renderer.js';
-import { TAU, mulberry32 } from '../engine/util.js';
+import { signTexture } from '../../engine/geometry.js';
+import { addToScene } from '../../engine/renderer.js';
+import { onTod } from '../../engine/sky';
+import { TAU, mulberry32 } from '../../engine/util.js';
+import { addBoulders, addMesas } from '../../world/landscape';
+import { PROPS, finishProps, placeProp } from '../../world/props.js';
 import { ARENA_R, RAMPS, baseHeight } from './terrain.js';
-import { addBoulders, addMesas, buildCanyonWall, buildTerrainMesh } from './landscape';
+import { buildCanyonWall, buildTerrainMesh } from './landscape';
 import { SIGNS, buildTown } from './town';
 import { buildRoads } from './roads';
-import { PROPS } from './props.js';
 
 // ================= collision data =================
 export const BOXES = [];   // {minX,maxX,minZ,maxZ,h}
@@ -14,6 +16,8 @@ export const CIRCLES = []; // {x,z,r,h}
 function addBox(cx, cz, w, d, h) { BOXES.push({ minX: cx - w / 2, maxX: cx + w / 2, minZ: cz - d / 2, maxZ: cz + d / 2, h }); }
 
 export const SIGN_MESHES = [];
+// painted signs glow faintly at night
+onTod(t => { for (const s of SIGN_MESHES) if (s.material.emissive) s.material.emissive.setHex(t.night ? 0x3a2a20 : 0); });
 export function buildTerrain(lowQ) {
   buildTerrainMesh(lowQ); buildCanyonWall(lowQ);
 }
@@ -97,4 +101,24 @@ export function clearSpot(x, z, m) {
   for (const m2 of MESAS) if (Math.hypot(x - m2.x, z - m2.z) < m2.r + m) return false;
   if (Math.abs(z) < 8 + m * 0.3) return false;
   return true;
+}
+
+/** The town's props: water tower, billboards, gas pumps, barrels and cacti. */
+export function buildProps() {
+  placeProp('tower', -24, 38);
+  placeProp('billboard', -82, 16, { text: 'Sundown Springs', bg: '#27888a', fg: '#f6ead4', yaw: 0 });
+  placeProp('billboard', 92, -16, { text: 'Cold Pop 10 Miles', bg: '#f2b134', fg: '#7a2a1f', yaw: Math.PI });
+  placeProp('billboard', 28, 96, { text: 'Hollis Salvage', bg: '#c0392b', fg: '#f6ead4', yaw: Math.PI * 0.85 });
+  placeProp('pump', 31, -24); placeProp('pump', 37, -24);
+  for (const [x, z] of [[-50, -10.5], [-48.6, -10], [-49.4, -8.8], [47, 10.5], [48.2, 11.4], [26, -33], [-8, 11], [-30, -11], [58, -8], [-62, 9]]) placeProp('barrel', x, z);
+  const cr = mulberry32(99);
+  let n = 0;
+  for (let t = 0; t < 400 && n < 34; t++) {
+    const a = cr() * TAU, R = 72 + cr() * 105; const x = Math.sin(a) * R, z = Math.cos(a) * R;
+    if (!clearSpot(x, z, 4)) continue;
+    let bad = false; for (const p of PROPS) if (Math.hypot(p.x - x, p.z - z) < 8) bad = true; if (bad) continue;
+    placeProp('cactus', x, z, { s: 0.8 + cr() * 0.5 }); n++;
+  }
+  for (const [x, z] of [[-66, 22], [64, -24], [8, 42], [-12, -40], [70, 14]]) placeProp('cactus', x, z, { s: 0.9 });
+  finishProps();
 }

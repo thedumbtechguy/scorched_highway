@@ -34,7 +34,7 @@
 
 <section id="garage" class="screen" hidden>
   <div class="gtop">
-    <button class="back" id="gBack" aria-label="Back to title">‹</button>
+    <button class="back" id="gBack" aria-label="Back to title"><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
     <div class="gname">
       <div class="gkicker">Choose your car</div>
       <h2 id="cName"></h2>
@@ -42,8 +42,8 @@
       <div class="dots" id="carDots"></div>
     </div>
   </div>
-  <button class="arrow prev" id="carPrev" aria-label="Previous car">‹</button>
-  <button class="arrow next" id="carNext" aria-label="Next car">›</button>
+  <button class="arrow prev" id="carPrev" aria-label="Previous car"><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
+  <button class="arrow next" id="carNext" aria-label="Next car"><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
   <div class="gbottom">
     <div class="gcard detail">
       <p class="blurb" id="cBlurb"></p>
@@ -51,11 +51,12 @@
       <div class="special"><strong id="cSpecial"></strong><span id="cSpecialDesc"></span></div>
     </div>
     <div class="gcard setup">
-      <div class="cyc" data-opt="mode" data-vals="arena,route67" data-labels="Arena,Route 67 race"></div>
+      <div class="cyc" data-opt="mode"></div>
+      <div class="cyc" data-opt="map"></div>
       <div class="cyc" data-opt="opponents" data-vals="2,3,4,5" data-labels="2 opponents,3 opponents,4 opponents,5 opponents"></div>
       <div class="cyc" data-opt="difficulty" data-vals="0,1,2" data-labels="Easy,Normal,Hard"></div>
       <div class="cyc" data-opt="tod" data-vals="noon,sunset,night" data-labels="Noon,Sunset,Night"></div>
-      <button class="btn primary go" id="startBtn">Start the fight</button>
+      <button class="btn primary go" id="startBtn">Enter the Arena</button>
     </div>
   </div>
 </section>
@@ -81,11 +82,7 @@
     <h2 id="overTitle">Last one standing</h2>
     <p id="overSub"></p>
     <div class="oplace"><b id="rPlace">1st</b><span id="rOf">of 6</span></div>
-    <div class="results">
-      <div><b id="rKills">0</b><span>Wrecks</span></div>
-      <div><b id="rDmg">0</b><span id="rDmgL">Damage dealt</span></div>
-      <div><b id="rTime">0:00</b><span id="rTimeL">Survived</span></div>
-    </div>
+    <div class="results" id="rTiles"></div>
     <div class="badges" id="rBadges"></div>
     <h3>Standings</h3>
     <ol class="standings" id="rStandings"></ol>

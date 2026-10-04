@@ -1,71 +1,17 @@
-import { lerp, smooth } from '../engine/util.js';
-import { REGION_X, trackHeight, trackRamp, trackSurface } from '../race/track';
+// Ground height anywhere in the world. Every map owns a band of x (see maps/registry), so these ask the map
+// at that point. Physics uses ground(); things that must look like they touch the drawn ground use drawnGround()
+// in surface.js.
+import { mapAt } from '../maps/registry';
 
-// ================= terrain =================
-export const ARENA_R = 184;
-const DUNES = [
-  { x1: -150, z1: 60, x2: -95, z2: 105, h: 2.9, w: 11 },
-  { x1: 125, z1: -70, x2: 160, z2: 10, h: 3.1, w: 11 },
-  { x1: -70, z1: -138, x2: 15, z2: -152, h: 2.8, w: 11 },
-  { x1: 35, z1: 62, x2: 78, z2: 45, h: 2.6, w: 10 },
-  { x1: -135, z1: -110, x2: -100, z2: -135, h: 3.0, w: 11 },
-];
-for (const d of DUNES) { d.dx = d.x2 - d.x1; d.dz = d.z2 - d.z1; d.L2 = d.dx * d.dx + d.dz * d.dz; }
-function rawHeight(x, z) {
-  let h = 1.8 * Math.sin(x * 0.018 + 0.7) * Math.cos(z * 0.015 - 0.4) + 1.1 * Math.sin(x * 0.041 - z * 0.033 + 2.1) + 0.45 * Math.sin(x * 0.09 + z * 0.11);
-  for (const d of DUNES) {
-    let t = ((x - d.x1) * d.dx + (z - d.z1) * d.dz) / d.L2; t = t < 0 ? 0 : (t > 1 ? 1 : t);
-    const px = d.x1 + d.dx * t - x, pz = d.z1 + d.dz * t - z;
-    const q2 = (px * px + pz * pz) / (d.w * d.w);
-    if (q2 < 1) { const k = 1 - q2; h += d.h * k * k; }
-  }
-  return h;
-}
-const FLATS = [{ x: 0, z: 0, r: 64, f: 20, h: 0 }];
-export const RAMPS = [
-  { x: -100, z: 0, yaw: Math.PI / 2, len: 16, w: 9, h: 4.2 },
-  { x: 120, z: 20, yaw: 0, len: 16, w: 9, h: 4.2 },
-  { x: -18, z: -96, yaw: Math.PI, len: 16, w: 9, h: 4.4 },
-  { x: 70, z: 100, yaw: -Math.PI / 2, len: 16, w: 9, h: 4.0 },
-].map(r => ({ ...r, s: Math.sin(r.yaw), c: Math.cos(r.yaw), base: rawHeight(r.x, r.z) }));
-for (const r of RAMPS) FLATS.push({ x: r.x, z: r.z, r: 14, f: 10, h: r.base });
-/** Is (x, z) on Route 67 rather than in the arena? */
-export const onTrack = x => x > REGION_X;
-export function baseHeight(x, z) {
-  if (x > REGION_X) return trackHeight(x, z);
-  let h = rawHeight(x, z);
-  for (let i = 0; i < FLATS.length; i++) {
-    const f = FLATS[i]; const dx = x - f.x, dz = z - f.z; const d2 = dx * dx + dz * dz; const R = f.r + f.f;
-    if (d2 < R * R) { const d = Math.sqrt(d2); h = lerp(h, f.h, 1 - smooth(f.r, R, d)); }
-  }
-  const r = Math.sqrt(x * x + z * z);
-  if (r > 168) h += 30 * smooth(168, 214, r);
-  return h;
-}
-export function rampHeight(x, z) {
-  if (x > REGION_X) return trackRamp(x, z);
-  for (let i = 0; i < RAMPS.length; i++) {
-    const R = RAMPS[i]; const dx = x - R.x, dz = z - R.z;
-    const u = dx * R.s + dz * R.c; if (u < -R.len / 2 || u > R.len / 2) continue;
-    const v = dx * R.c - dz * R.s; if (v > R.w / 2 || v < -R.w / 2) continue;
-    return (u + R.len / 2) / R.len * R.h;
-  }
-  return 0;
-}
-export function ground(x, z) { return baseHeight(x, z) + rampHeight(x, z); }
-
-// The drawn terrain is a grid of baseHeight samples joined by flat triangles, so between vertices it can sit
-// a few centimetres above or below baseHeight (more on the coarser "Fast" grid). surfaceHeight() follows
-// those triangles exactly, for placing things that must look like they touch the ground.
-let gridSize = 0, gridSeg = 0;
-export function setTerrainGrid(size, seg) { gridSize = size; gridSeg = seg; }
-export function surfaceHeight(x, z) {
-  if (x > REGION_X) return trackSurface(x, z);
-  if (!gridSeg) return baseHeight(x, z);
-  const s = gridSize / gridSeg, half = gridSize / 2, fx = (x + half) / s, fz = (z + half) / s;
-  if (fx < 0 || fz < 0 || fx >= gridSeg || fz >= gridSeg) return baseHeight(x, z);
-  const ix = Math.floor(fx), iz = Math.floor(fz), u = fx - ix, v = fz - iz, x0 = ix * s - half, z0 = iz * s - half;
-  // PlaneGeometry (rotated flat) splits each cell along the diagonal from (x0 + s, z0) to (x0, z0 + s)
-  if (u + v <= 1) { const h = baseHeight(x0, z0); return h + u * (baseHeight(x0 + s, z0) - h) + v * (baseHeight(x0, z0 + s) - h); }
-  const h = baseHeight(x0 + s, z0 + s); return h + (1 - u) * (baseHeight(x0, z0 + s) - h) + (1 - v) * (baseHeight(x0 + s, z0) - h);
-}
+/** Terrain height, ramps excluded. */
+export const baseHeight = (x, z) => mapAt(x).height(x, z);
+/** Extra height of a ramp at (x, z), 0 off ramps. */
+export const rampHeight = (x, z) => mapAt(x).ramp(x, z);
+/** Physics ground: terrain plus ramps. */
+export const ground = (x, z) => { const m = mapAt(x); return m.height(x, z) + m.ramp(x, z); };
+/** Height of the terrain as drawn (its flat triangles), for resting things on it. */
+export const surfaceHeight = (x, z) => mapAt(x).drawn(x, z);
+/** How far a road surface floats above the terrain at (x, z), 0 off roads. */
+export const roadLift = (x, z) => mapAt(x).roadLift(x, z);
+/** Top-speed factor of the ground at (x, z): 1 on dirt, less on sand. */
+export const groundSpeed = (x, z) => mapAt(x).speed(x, z);

@@ -6,15 +6,15 @@ import { spawnDebris } from '../engine/debris.js';
 import { MAT_VC, PB, signTexture } from '../engine/geometry.js';
 import { FX_SMOKE, fxScale } from '../engine/particles.js';
 import { addToScene } from '../engine/renderer.js';
-import { TAU, _q1, mulberry32, rand, srand } from '../engine/util.js';
+import { TAU, _q1, rand, srand } from '../engine/util.js';
 import { G, shake } from '../game/state.js';
-import { clearSpot } from './scenery.js';
 import { ground } from './terrain.js';
 import { queueCactus } from './flora';
 
 // ================= destructible props =================
 export const PROPS = [];
-function makeProp(kind, x, z, opts) {
+/** Put a prop (tower, billboard, pump, barrel, cactus) on the ground at (x, z). */
+export function placeProp(kind, x, z, opts) {
   const y = ground(x, z);
   const group = new THREE.Group(); group.position.set(x, y, z);
   const pb = new PB();
@@ -57,24 +57,8 @@ function makeProp(kind, x, z, opts) {
   const p = { kind, x, z, y, r, h, hp, maxHp: hp, solid, breakOnRam, explosive, topple, debrisCol, group, alive: true, fall: null, rot0: group.rotation.y };
   PROPS.push(p); return p;
 }
-export function buildProps() {
-  makeProp('tower', -24, 38);
-  makeProp('billboard', -82, 16, { text: 'Sundown Springs', bg: '#27888a', fg: '#f6ead4', yaw: 0 });
-  makeProp('billboard', 92, -16, { text: 'Cold Pop 10 Miles', bg: '#f2b134', fg: '#7a2a1f', yaw: Math.PI });
-  makeProp('billboard', 28, 96, { text: 'Hollis Salvage', bg: '#c0392b', fg: '#f6ead4', yaw: Math.PI * 0.85 });
-  makeProp('pump', 31, -24); makeProp('pump', 37, -24);
-  for (const [x, z] of [[-50, -10.5], [-48.6, -10], [-49.4, -8.8], [47, 10.5], [48.2, 11.4], [26, -33], [-8, 11], [-30, -11], [58, -8], [-62, 9]]) makeProp('barrel', x, z);
-  const cr = mulberry32(99);
-  let n = 0;
-  for (let t = 0; t < 400 && n < 34; t++) {
-    const a = cr() * TAU, R = 72 + cr() * 105; const x = Math.sin(a) * R, z = Math.cos(a) * R;
-    if (!clearSpot(x, z, 4)) continue;
-    let bad = false; for (const p of PROPS) if (Math.hypot(p.x - x, p.z - z) < 8) bad = true; if (bad) continue;
-    makeProp('cactus', x, z, { s: 0.8 + cr() * 0.5 }); n++;
-  }
-  for (const [x, z] of [[-66, 22], [64, -24], [8, 42], [-12, -40], [70, 14]]) makeProp('cactus', x, z, { s: 0.9 });
-  buildCactusInstances(); buildKindInstances();
-}
+/** Finish placing props: merge cacti into the scatter cells and instance barrels and pumps. Call once after placeProp(). */
+export function finishProps() { buildCactusInstances(); buildKindInstances(); }
 // cacti are merged into the scatter cells (see flora.ts); each keeps a handle to hide it when it breaks
 function buildCactusInstances() {
   PROPS.filter(p => p.kind === 'cactus').forEach((p, i) => { p.group.updateMatrix(); p.cactus = queueCactus(p.group.matrix, i); });

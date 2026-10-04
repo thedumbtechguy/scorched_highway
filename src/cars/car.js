@@ -12,7 +12,7 @@ import { G, shake } from '../game/state.js';
 import { pushOut, resolveStatic } from '../world/collision.js';
 import { PROPS, breakProp, damageProp } from '../world/props.js';
 import { drawnGround } from '../world/surface.js';
-import { ground, rampHeight } from '../world/terrain.js';
+import { ground, rampHeight, groundSpeed } from '../world/terrain.js';
 
 // ================= car physics =================
 const _fwd = new THREE.Vector3(), _xAx = new THREE.Vector3(), _nrm = new THREE.Vector3();
@@ -25,7 +25,7 @@ export class Car {
     this.radius = 1.9; this.mass = def.mass; this.up = new THREE.Vector3(0, 1, 0);
     this.input = { throttle: 0, steer: 0, handbrake: false };
     this.speedK = 1; // top-speed scale; AI difficulty lowers it
-    /** @type {import('../race/race').RaceState | null} progress on Route 67 */ this.race = null;
+    /** @type {import('../modes/race').RaceState | null} progress in a race */ this.race = null;
     // each wheel's position in the car's frame and the drawn ground under it, for resting the car on its wheels
     this.contacts = this.model.wheels.map(w => ({ wheel: w, lx: w.x, ly: w.y, lz: w.z, r: w.r, h: 0, need: 0 }));
     this.lift = 0; // visual ride height above the physics position
@@ -61,7 +61,7 @@ export class Car {
     if (!this.alive) { inp.throttle = 0; inp.steer = 0; inp.handbrake = true; }
     const fx = Math.sin(this.yaw), fz = Math.cos(this.yaw), rx = -fz, rz = fx;
     let vF = this.vx * fx + this.vz * fz, vL = this.vx * rx + this.vz * rz;
-    let maxS = d.max * (this.frozen > 0 ? 0.45 : 1) * this.speedK; if (this.boost > 0) maxS *= 1.7;
+    let maxS = d.max * (this.frozen > 0 ? 0.45 : 1) * this.speedK * groundSpeed(this.x, this.z); // sand slows you if (this.boost > 0) maxS *= 1.7;
     if (this.grounded) {
       const thr = inp.throttle;
       if (this.boost > 0) vF += d.accel * 2.4 * dt;
@@ -222,7 +222,7 @@ export class Car {
     // headlight beams at night
     for (const bm of this.model.beams) bm.visible = curTod.night;
   }
-  /** Bring a wrecked car back (Route 67): half health and no pickup weapons; score, special ammo and race state carry over. */
+  /** Bring a wrecked car back (in a race): half health and no pickup weapons; score, special ammo and race state carry over. */
   respawn(x, z, yaw) {
     const keep = { kills: this.kills, dealt: this.dealt, special: this.special, race: this.race, pref: this.pref, speedK: this.speedK };
     this.reset(x, z, yaw); Object.assign(this, keep); this.hp = this.def.hp * 0.5; this.resetCd = 2;
