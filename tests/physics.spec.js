@@ -25,7 +25,7 @@ const ram = (page, x, z, yaw, speed) => page.evaluate(([x, z, yaw, speed]) => {
 test('Route 67: glancing and head-on wall hits stay planted', async ({ page }) => {
   test.slow();
   await boot(page, { mode: 'race', map: 'route67', quality: 'low' });
-  for (const [k, ang, speed] of [[0, 0.6, 40], [4, 0.35, 45], [2, 1.2, 30]]) {
+  for (const [k, ang, speed] of [[0, 0.6, 40], [6, 0.35, 45], [2, 1.2, 30]]) {
     const at = await page.evaluate(([k]) => { const p = window.SH.G.map.course.sections[k].paths[0], i = 25; return [p.x[i], p.z[i], Math.atan2(p.tx[i], p.tz[i])]; }, [k]);
     const r = await ram(page, at[0], at[1], at[2] + ang, speed);
     expect(r.lift, `section ${k}`).toBeLessThan(1); expect(r.tilt, `section ${k}`).toBeLessThan(25); expect(r.air, `section ${k}`).toBeLessThan(0.2);

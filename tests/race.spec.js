@@ -52,9 +52,10 @@ test('a wreck respawns three seconds later at the start of that stretch, with ha
 
 test('dropping into the gorge wrecks the car; driving backwards warns', async ({ page }) => {
   const r = await page.evaluate(() => {
-    const { G, step } = window.SH, p = G.player, course = G.map.course, jump = course.sections[3].paths[0];
+    const { G, step } = window.SH, p = G.player, course = G.map.course, jump = course.sections.flatMap(s => s.paths).find(q => q.gap);
     const i = jump.s.findIndex(v => v > (jump.gap[0] + jump.gap[1]) / 2);
-    p.race.progress = { section: 3, path: 0, i, s: 0, lap: 1 }; p.x = jump.x[i]; p.z = jump.z[i];
+    const k = course.sections.findIndex(s => s.paths.includes(jump));
+    p.race.progress = { section: k, path: course.sections[k].paths.indexOf(jump), i, s: 0, lap: 1 }; p.x = jump.x[i]; p.z = jump.z[i];
     for (let f = 0; f < 120 && p.alive; f++) step(1 / 60, 1 / 60);
     const fell = !p.alive;
     for (let f = 0; f < 60 * 3.2; f++) step(1 / 60, 1 / 60);
@@ -74,4 +75,48 @@ test('the bots race: after a minute every one has got past the first fork', asyn
     return G.cars.filter(c => !c.isPlayer).map(c => c.race.progress.lap * 10 + c.race.progress.section);
   });
   for (const s of sections) expect(s).toBeGreaterThanOrEqual(12); // lap 1, section 2 or later
+});
+
+test('off the cliff road: you land on the boulder alley below, still running', async ({ page }) => {
+  const r = await page.evaluate(() => {
+    const { G, step } = window.SH, p = G.player, course = G.map.course, paths = course.sections.flatMap(s => s.paths);
+    const cliff = paths.find(q => q.name === 'Cliff road'), k = course.sections.findIndex(s => s.paths.includes(cliff)), i = Math.round(cliff.x.length * 0.45);
+    // face the drop (the open side) and drive off
+    const yaw = Math.atan2(cliff.tx[i], cliff.tz[i]) - cliff.open * Math.PI / 2;
+    p.reset(cliff.x[i], cliff.z[i], yaw); p.race.progress = { section: k, path: course.sections[k].paths.indexOf(cliff), i, s: 0, lap: 1 };
+    const top = p.y;
+    // the player's input comes from the controls each frame, so push it over the edge instead
+    for (let f = 0; f < 60 * 3; f++) { if (f < 40) { p.vx = Math.sin(yaw) * 12; p.vz = Math.cos(yaw) * 12; } step(1 / 60, 1 / 60); }
+    return { top, y: p.y, alive: p.alive, on: course.sections[p.race.progress.section].paths[p.race.progress.path].name };
+  });
+  expect(r.top).toBeGreaterThan(15); // it really was up on the ledge
+  expect(r.alive).toBe(true);
+  expect(r.on).toBe('Boulder alley');
+  expect(r.y).toBeLessThan(5);
+});
+
+test('sinkholes wreck you; boulders on the road stop you', async ({ page }) => {
+  const r = await page.evaluate(() => {
+    const { G, step } = window.SH, p = G.player, { rocks, holes } = G.map.obstacles;
+    const h = holes[0]; p.reset(h.x, h.z, 0);
+    let fell = false; for (let f = 0; f < 120 && !fell; f++) { step(1 / 60, 1 / 60); fell = !p.alive; }
+    for (let f = 0; f < 60 * 3.2; f++) step(1 / 60, 1 / 60); // respawn
+    const rock = rocks[0]; p.reset(rock.x - 20, rock.z, Math.PI / 2);
+    let closest = 99; for (let f = 0; f < 90; f++) { if (f < 50) { p.vx = 20; p.vz = 0; } step(1 / 60, 1 / 60); closest = Math.min(closest, Math.hypot(p.x - rock.x, p.z - rock.z)); }
+    return { fell, closest, r: rock.r };
+  });
+  expect(r.fell).toBe(true);
+  expect(r.closest).toBeGreaterThan(r.r); // never drove through it
+  expect(r.closest).toBeLessThan(r.r + 4); // but did reach it
+});
+
+test('races have weapon crates on the course', async ({ page }) => {
+  const r = await page.evaluate(() => {
+    const { G, step, pickups } = window.SH, p = G.player;
+    const here = pickups.filter(k => G.map.x0 <= k.x && k.x < G.map.x1 && k.pool.includes('missile'));
+    const crate = here[0]; p.reset(crate.x, crate.z, 0);
+    step(1 / 60, 1 / 60);
+    return { count: here.length, took: !crate.active, armed: Object.values(p.ammo).some(a => a > 0) };
+  });
+  expect(r.count).toBeGreaterThan(4); expect(r.took).toBe(true); expect(r.armed).toBe(true);
 });

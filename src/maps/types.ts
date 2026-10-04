@@ -50,6 +50,8 @@ export interface GameMap {
   spawns?(n: number): Spot[];
   /** A closed course, for race modes. */
   course?: Course;
+  /** Fixed hazards on the course: rocks to steer round and holes that wreck you (radar, tests). */
+  obstacles?: { rocks: Array<{ x: number; z: number; r: number }>; holes: Array<{ x: number; z: number; r: number }> };
 
   /** Draw the map's static features on the radar; `toR` turns world x, z into radar x, y and whether it's in range. */
   drawRadar(ctx: CanvasRenderingContext2D, toR: (x: number, z: number) => [number, number, boolean], R: number, range: number): void;
@@ -58,6 +60,8 @@ export interface GameMap {
 /** A sampled path of a course: centre line, tangent and distance along it. */
 export interface CoursePath {
   name: string; half: number; risky: boolean;
+  /** A ledge's open side (the drop), 0 for none; lateral offsets are tz * lat, -tx * lat. */
+  open: number;
   x: Float32Array; z: Float32Array; tx: Float32Array; tz: Float32Array; s: Float32Array; len: number;
 }
 /**

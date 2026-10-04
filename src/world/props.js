@@ -57,17 +57,18 @@ export function placeProp(kind, x, z, opts) {
   const p = { kind, x, z, y, r, h, hp, maxHp: hp, solid, breakOnRam, explosive, topple, debrisCol, group, alive: true, fall: null, rot0: group.rotation.y };
   PROPS.push(p); return p;
 }
-/** Finish placing props: merge cacti into the scatter cells and instance barrels and pumps. Call once after placeProp(). */
-export function finishProps() { buildCactusInstances(); buildKindInstances(); }
+/** Finish the props placed since the last call: merge cacti into the scatter cells, instance barrels and pumps. A map calls it once after placing its props. */
+let finished = 0;
+export function finishProps() { const fresh = PROPS.slice(finished); finished = PROPS.length; buildCactusInstances(fresh); buildKindInstances(fresh); }
 // cacti are merged into the scatter cells (see flora.ts); each keeps a handle to hide it when it breaks
-function buildCactusInstances() {
-  PROPS.filter(p => p.kind === 'cactus').forEach((p, i) => { p.group.updateMatrix(); p.cactus = queueCactus(p.group.matrix, i); });
+function buildCactusInstances(props) {
+  props.filter(p => p.kind === 'cactus').forEach((p, i) => { p.group.updateMatrix(); p.cactus = queueCactus(p.group.matrix, i); });
 }
 // barrels and pumps: one instanced mesh per kind; a broken one collapses its instance
 const INSTANCED = ['barrel', 'pump'], KIND_GEO = {}, _hidden = new THREE.Matrix4().makeScale(0, 0, 0);
-function buildKindInstances() {
+function buildKindInstances(props) {
   for (const kind of INSTANCED) {
-    const mine = PROPS.filter(p => p.kind === kind); if (!mine.length) continue;
+    const mine = props.filter(p => p.kind === kind); if (!mine.length) continue;
     const mesh = new THREE.InstancedMesh(KIND_GEO[kind], MAT_VC, mine.length); mesh.castShadow = true; mesh.frustumCulled = false; // spread over town
     mine.forEach((p, i) => { p.group.updateMatrix(); p.inst = { mesh, i, m: p.group.matrix.clone() }; mesh.setMatrixAt(i, p.inst.m); });
     addToScene(mesh, 'props');

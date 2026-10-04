@@ -6,6 +6,7 @@ import { clamp, rand } from '../engine/util.js';
 import { bigText, feed } from '../game/hud.js';
 import { G, later } from '../game/state.js';
 import type { Course, CoursePath, Progress } from '../maps/types';
+import { collectPickups } from './shared';
 import type { Bot, Car, GameMode } from './types';
 
 export interface RaceState { progress: Progress; finished: number; lapStart: number; lapTimes: number[]; respawnT: number; wrongT: number; best: number }
@@ -55,20 +56,28 @@ function pick(bot: Bot, k: number): number {
   if (c.def.max < 38) chance *= 0.5;
   const path = Math.random() < chance ? risky : safe; routes[k] = { lap, path }; return path;
 }
+/** The sample of path p nearest (x, z). */
+function nearestSample(p: CoursePath, x: number, z: number) {
+  let bi = 0, bd = Infinity; for (let i = 0; i < p.x.length; i++) { const d = (p.x[i] - x) ** 2 + (p.z[i] - z) ** 2; if (d < bd) { bd = d; bi = i; } }
+  return bi;
+}
 /** A point on the racing line ahead of the bot, and the speed the bend beyond it allows. */
 function drive(bot: Bot) {
   const c = bot.car as Car & { race: RaceState }, pr = c.race.progress, n = course.sections.length;
   const lane = (bot.mem.lane ??= rand(-0.35, 0.35)) as number;
   let k = pr.section, p: CoursePath = course.sections[k].paths[pr.path], i = pr.i;
+  // at a fork, keep to the branch picked even where it overlaps the other one (a ledge climbing away from the road below)
+  const chosen = course.sections[k].paths[pick(bot, k)];
+  if (chosen !== p) { const j = nearestSample(chosen, c.x, c.z); if (Math.hypot(chosen.x[j] - c.x, chosen.z[j] - c.z) < chosen.half + 3) { p = chosen; i = j; } }
   const walk = (dist: number) => { // follow the chosen paths `dist` metres on
     while (dist > 0) { if (i >= p.x.length - 1) { k = (k + 1) % n; p = course.sections[k].paths[pick(bot, k)]; i = 0; } dist -= p.s[i + 1] - p.s[i]; i++; }
   };
   const t0x = p.tx[i], t0z = p.tz[i];
   walk(9 + c.speed * 0.5);
-  const lat = lane * p.half, x = p.x[i] + p.tz[i] * lat, z = p.z[i] - p.tx[i] * lat;
+  const lat = (p.open ? p.open * 0.25 : lane) * p.half, x = p.x[i] + p.tz[i] * lat, z = p.z[i] - p.tx[i] * lat; // on a ledge, hug the wall
   walk(26);
   const turn = Math.acos(clamp(t0x * p.tx[i] + t0z * p.tz[i], -1, 1)); // how much the road bends over the next stretch
-  return { x, z, want: c.def.max * c.speedK * (1 - 0.5 * clamp(turn / 1.3, 0, 1)) };
+  return { x, z, want: c.def.max * c.speedK * (1 - (p.open ? 0.8 : 0.5) * clamp(turn / 1.3, 0, 1)) }; // and take its bends gently
 }
 
 export const race: GameMode = {
@@ -110,6 +119,7 @@ export const race: GameMode = {
     for (const c of cars()) if (!c.isPlayer) c.speedK = diff.speed * (1 + clamp((pd - course.distance(c.race.progress)) / 600, -0.05, 0.05));
     if (p.alive && p.race.wrongT > 1 && (G.time % 1.2) < dt) bigText('Wrong way!', 0.7);
     if (endT > 0 && G.endT < 0 && (endT -= rdt) <= 0) G.endT = 0.5;
+    collectPickups();
   },
   wrecked(c) {
     (c as Car & { race: RaceState }).race.respawnT = RESPAWN_DELAY; // nobody is out: back on the track shortly

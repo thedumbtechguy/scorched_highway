@@ -5,8 +5,11 @@ import { MAT_VC, PB, signTexture } from '../../engine/geometry.js';
 import { addToScene } from '../../engine/renderer.js';
 import { TAU, clamp, mulberry32 } from '../../engine/util.js';
 import { addBoulders, addMesas, desertMaterial } from '../../world/landscape';
+import { saguaroGeometry } from '../../world/flora';
+import { buildPickups } from '../../world/pickups';
+import { finishProps, placeProp } from '../../world/props.js';
 import { asphalt, dirt, ribbon, roadMat } from '../../world/roads';
-import { BOUNDS, OX, OZ, PATHS, PORTAL, RIBBON, ROAD_LIFT, ROOF, SECTIONS_BUILT, TRACK_RAMPS, type Path, nearest, pathsNear, setTrackGrid, trackHeight } from './track';
+import { BARRELS, BOUNDS, CRATE_SPOTS, OBSTACLES, OX, OZ, PATHS, PORTAL, RIBBON, ROAD_LIFT, ROOF, SECTIONS_BUILT, TRACK_RAMPS, type Path, nearest, pathsNear, place, setTrackGrid, trackHeight } from './track';
 
 let built = false;
 export const isBuilt = () => built;
@@ -20,7 +23,7 @@ function buildTerrain(lowQ: boolean) {
   const x0 = Math.floor(BOUNDS.minX / TILE) * TILE, z0 = Math.floor(BOUNDS.minZ / TILE) * TILE, x1 = Math.ceil(BOUNDS.maxX / TILE) * TILE, z1 = Math.ceil(BOUNDS.maxZ / TILE) * TILE;
   const nx = (x1 - x0) / S + 1, nz = (z1 - z0) / S + 1, H = new Float32Array(nx * nz);
   for (let i = 0; i < nx; i++) for (let j = 0; j < nz; j++) H[i * nz + j] = trackHeight(x0 + i * S, z0 + j * S);
-  setTrackGrid(S);
+  setTrackGrid(S, x0, z0, nx, nz, H);
   const h = (i: number, j: number) => H[clamp(i, 0, nx - 1) * nz + clamp(j, 0, nz - 1)];
   const mat = desertMaterial(), c = new THREE.Color(), per = TILE / S;
   for (let tx = x0; tx < x1; tx += TILE) for (let tz = z0; tz < z1; tz += TILE) {
@@ -149,16 +152,49 @@ function buildRocks() {
     const n = nearest(x, z); if (n && n.e < 0.8) continue; // never on the road
     list.push([x, trackHeight(x, z) - 0.4 * sc, z, sc, sc * (0.6 + r() * 0.4), sc, r() * TAU, Math.floor(r() * 1000)]);
   }
+  // boulders on the road itself (they collide; see track.ts)
+  OBSTACLES.forEach((o, k) => list.push([o.x, trackHeight(o.x, o.z) + 0.25 * o.r, o.z, o.r * 1.15, o.r * 0.95, o.r * 1.05, r() * TAU, 500 + k]));
   if (list.length) addBoulders(list).userData.layer = 'track';
   const cx = (BOUNDS.minX + BOUNDS.maxX) / 2, cz = (BOUNDS.minZ + BOUNDS.maxZ) / 2, R = Math.hypot(BOUNDS.maxX - cx, BOUNDS.maxZ - cz), buttes: number[][] = [];
   for (let k = 0; k < 11; k++) { const a = k / 11 * TAU + r() * 0.3, d = R + 120 + r() * 260; buttes.push([cx + Math.sin(a) * d, cz + Math.cos(a) * d, 26, 40 + r() * 50, 45 + r() * 50, 300 + k]); }
   addMesas(buttes, 40, false).userData.layer = 'track';
 }
 
+/** Saguaros and boulders scattered over the open desert, merged into one mesh (scenery only, off the road). */
+function buildDesertPlants() {
+  const r = mulberry32(1967), parts: THREE.BufferGeometry[] = [], m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler();
+  for (const p of PATHS) {
+    if (p.style !== 'desert') continue;
+    for (let s = 8; s < p.len - 8; s += 9 + r() * 8) {
+      const i = p.s.findIndex(v => v >= s), side = r() < 0.5 ? -1 : 1, lat = side * (p.half + 7 + r() * r() * 70);
+      const x = p.x[i] + p.tz[i] * lat, z = p.z[i] - p.tx[i] * lat, n = nearest(x, z);
+      if (!n || n.e < 4) continue; // keep clear of every road
+      const y = trackHeight(x, z); if (y > p.y[i] + 6) continue; // not up on the mesas
+      const g = saguaroGeometry(0.8 + r() * 0.6, Math.floor(r() * 1e4)).toNonIndexed();
+      g.applyMatrix4(m.compose(new THREE.Vector3(x, y - 0.2, z), q.setFromEuler(e.set(0, r() * TAU, 0)), new THREE.Vector3(1, 1, 1)));
+      parts.push(g);
+    }
+  }
+  if (!parts.length) return;
+  const out = new THREE.BufferGeometry();
+  for (const name of ['position', 'normal', 'color']) {
+    const size = parts[0].attributes[name].itemSize, arr = new Float32Array(parts.reduce((a, g) => a + g.attributes[name].count, 0) * size); let o = 0;
+    for (const g of parts) { arr.set(g.attributes[name].array as Float32Array, o); o += g.attributes[name].array.length; g.dispose(); }
+    out.setAttribute(name, new THREE.BufferAttribute(arr, size));
+  }
+  out.computeBoundingSphere();
+  const mesh = new THREE.Mesh(out, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, metalness: 0 }));
+  mesh.castShadow = true; mesh.receiveShadow = true; addToScene(mesh, 'track');
+}
+
 /** Build everything once. */
 export function buildRoute67(lowQ: boolean) {
   if (built) return; built = true;
-  buildTerrain(lowQ); buildRoads(); buildRamps(); buildStart(); buildForkSigns(); buildRocks();
+  buildTerrain(lowQ); buildRoads(); buildRamps(); buildStart(); buildForkSigns(); buildRocks(); buildDesertPlants();
   for (const p of PATHS) if (p.surface === 'tunnel') buildTunnel(p);
+  // explosive barrels in threes, and the weapon crates
+  for (const b of BARRELS) { const at = place(b); for (const [dx, dz] of [[0, 0], [1.3, 0.5], [0.4, 1.4]]) placeProp('barrel', at.x + dx, at.z + dz); }
+  finishProps();
+  buildPickups(CRATE_SPOTS);
 }
 export const ROUTE_CENTER = { x: OX, z: OZ };

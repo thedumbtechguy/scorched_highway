@@ -19,6 +19,7 @@ import { buildGarage, goGarage, goTitle, selectCar, show } from './game/screens.
 import { G } from './game/state.js';
 import { LAST, setupTouch } from './input/input.js';
 import { ground } from './world/terrain.js';
+import { PICKUPS } from './world/pickups';
 
 // ================= boot =================
 /** The help screen's controls table, for one device (it opens on the one the player is using). */
@@ -77,7 +78,7 @@ function testPark(d) {
   put(p, 0, 118, Math.PI); put(o, 0, 118 - d, 0);
   rest.forEach((c, i) => put(c, Math.sin(2 + i * 1.3) * 150, Math.cos(2 + i * 1.3) * 150, 0));
 }
-window.SH = { getMap, allMaps, allModes, testPark, combat: { PROJ, MINES, SMOKES, giveAmmo }, G, CARS, step, tick, startMatch, goGarage, selectCar, damageCar, buildCarModel, disposeCarModel, applyTod, applyQuality, camera, renderer, scene };
+window.SH = { pickups: PICKUPS, getMap, allMaps, allModes, testPark, combat: { PROJ, MINES, SMOKES, giveAmmo }, G, CARS, step, tick, startMatch, goGarage, selectCar, damageCar, buildCarModel, disposeCarModel, applyTod, applyQuality, camera, renderer, scene };
 
 (function start() {
   let done = false; const go = () => { if (done) return; done = true; try { boot(); } catch (e) { console.error(e); $('#loading').lastChild.textContent = 'Something went wrong starting the game: ' + e.message; } };
