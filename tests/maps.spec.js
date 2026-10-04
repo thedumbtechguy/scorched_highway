@@ -47,6 +47,7 @@ test('garage: picking a mode offers only the maps that host it', async ({ page }
   const mode = page.locator('.cyc[data-opt="mode"]'), map = page.locator('.cyc[data-opt="map"]');
   await expect(mode.locator('span')).toHaveText('Deathmatch');
   await expect(map.locator('span')).toHaveText('Ghost Town');
+  await expect(page.locator('#startBtn')).toHaveText('Enter the Arena');
   await mode.locator('button').last().click();
   await expect(mode.locator('span')).toHaveText('Race');
   await expect(map.locator('span')).toHaveText('Route 67');

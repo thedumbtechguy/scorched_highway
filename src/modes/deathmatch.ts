@@ -22,7 +22,7 @@ function collect(c: Car, p: Pickup) {
 }
 
 export const deathmatch: GameMode = {
-  id: 'deathmatch', name: 'Deathmatch', startLabel: 'Start the fight', againLabel: 'Fight again', lights: false,
+  id: 'deathmatch', name: 'Deathmatch', startLabel: 'Enter the Arena', againLabel: 'Fight again', lights: false,
   unarmedHint: 'Grab a crate for heavy weapons',
   setup(cars, map) {
     const spots = map.spawns!(cars.length);

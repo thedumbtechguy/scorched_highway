@@ -52,7 +52,7 @@ test('gamepad: d-pad switches cars, A starts, Start pauses, B resumes', async ({
   const first = await car(page);
   await padPress(page, 15); // d-pad right
   expect(await car(page)).not.toBe(first);
-  await padPress(page, 0); // A: Start the fight
+  await padPress(page, 0); // A: Enter the Arena
   expect(await state(page)).toBe('playing');
   await page.evaluate(() => { window.SH.G.countdown = 0; });
   await padPress(page, 9); // Start: pause
