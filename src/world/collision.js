@@ -3,6 +3,7 @@ import { G } from '../game/state.js';
 import { PROPS } from './props.js';
 import { BOXES, CIRCLES } from './scenery.js';
 import { ARENA_R, ground } from './terrain.js';
+import { REGION_X, keepOnTrack, offTrack, trackSolid } from '../race/track';
 
 // ================= static collision queries =================
 export function pushOut(c, nx, nz, e) { // bounce velocity for moving object c
@@ -14,7 +15,8 @@ export function resolveStatic(c) {
   let impact = 0;
   const rad = c.radius;
   const r = Math.hypot(c.x, c.z);
-  if (r > ARENA_R - rad) { const k = (ARENA_R - rad) / r; c.x *= k; c.z *= k; impact = Math.max(impact, pushOut(c, -c.x / r, -c.z / r, 0.3)); }
+  if (c.x > REGION_X) impact = keepOnTrack(c); // Route 67: canyon walls
+  else if (r > ARENA_R - rad) { const k = (ARENA_R - rad) / r; c.x *= k; c.z *= k; impact = Math.max(impact, pushOut(c, -c.x / r, -c.z / r, 0.3)); }
   for (let i = 0; i < BOXES.length; i++) {
     const b = BOXES[i]; if (c.y > b.h) continue;
     const px = clamp(c.x, b.minX, b.maxX), pz = clamp(c.z, b.minZ, b.maxZ);
@@ -36,7 +38,7 @@ export function resolveStatic(c) {
   return impact;
 }
 export function blockedAt(x, z, m, ignore) {
-  if (Math.hypot(x, z) > ARENA_R - 3 - m) return true;
+  if (x > REGION_X ? offTrack(x, z, m) : Math.hypot(x, z) > ARENA_R - 3 - m) return true;
   for (const b of BOXES) if (x > b.minX - m && x < b.maxX + m && z > b.minZ - m && z < b.maxZ + m) return true;
   for (const o of CIRCLES) { const dx = x - o.x, dz = z - o.z, R = o.r + m; if (dx * dx + dz * dz < R * R) return true; }
   for (const p of PROPS) if (p.solid && (p.kind === 'tower' || p.kind === 'billboard' || p.kind === 'pump')) { const dx = x - p.x, dz = z - p.z, R = p.r + m; if (dx * dx + dz * dz < R * R) return true; }
@@ -45,10 +47,13 @@ export function blockedAt(x, z, m, ignore) {
 }
 export function pointBlocked(x, y, z) { // for projectiles & line of sight
   if (y < ground(x, z) - 0.2) return true;
+  if (x > REGION_X) return trackSolid(x, y, z);
   for (const b of BOXES) if (y < b.h && x > b.minX && x < b.maxX && z > b.minZ && z < b.maxZ) return true;
   for (const o of CIRCLES) if (y < o.h) { const dx = x - o.x, dz = z - o.z; if (dx * dx + dz * dz < o.r * o.r) return true; }
   return false;
 }
+/** Far outside the playable world: projectiles stop here. */
+export function outOfBounds(x, z) { return x > REGION_X ? offTrack(x, z, -40) : Math.hypot(x, z) > 215; }
 export function lineOfSight(x1, y1, z1, x2, y2, z2) {
   const d = Math.hypot(x2 - x1, y2 - y1, z2 - z1); const n = Math.ceil(d / 4);
   for (let i = 1; i < n; i++) { const t = i / n; if (pointBlocked(x1 + (x2 - x1) * t, y1 + (y2 - y1) * t, z1 + (z2 - z1) * t)) return false; }

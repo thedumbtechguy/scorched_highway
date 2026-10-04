@@ -1,4 +1,6 @@
 import { ensureAudio } from './audio/audio.js';
+import { SECTIONS_BUILT, heading, offTrack } from './race/track';
+import { isBuilt } from './race/scenery';
 import { lockLandscape, watchOrientation } from './game/orientation';
 import { controlsTable } from './input/bindings';
 import { giveAmmo } from './combat/arsenal';
@@ -32,7 +34,13 @@ function wireUI() {
   $('#toHelp').addEventListener('click', () => { G.helpFrom = G.state; showHelp(); });
   $('#helpClose').addEventListener('click', () => { if (G.helpFrom === 'paused') show('pause'); else if (G.helpFrom === 'title') show('title'); else show(null); });
   $('#gBack').addEventListener('click', goTitle);
-  $('#startBtn').addEventListener('click', () => { lockLandscape(); startMatch(); });
+  $('#startBtn').addEventListener('click', () => {
+    lockLandscape();
+    if (G.settings.mode !== 'route67' || isBuilt()) return startMatch();
+    // Route 67 is built the first time it's raced: say so, let the page paint, then build
+    const b = $('#startBtn'); b.textContent = 'Building Route 67…'; b.disabled = true;
+    requestAnimationFrame(() => requestAnimationFrame(() => { b.disabled = false; startMatch(); b.textContent = 'Start the race'; }));
+  });
   $('#resumeBtn').addEventListener('click', resumeGame);
   $('#restartBtn').addEventListener('click', startMatch);
   $('#quitBtn').addEventListener('click', goGarage);
@@ -70,7 +78,7 @@ function testPark(d) {
   put(p, 0, 118, Math.PI); put(o, 0, 118 - d, 0);
   rest.forEach((c, i) => put(c, Math.sin(2 + i * 1.3) * 150, Math.cos(2 + i * 1.3) * 150, 0));
 }
-window.SH = { testPark, combat: { PROJ, MINES, SMOKES, giveAmmo }, G, CARS, step, tick, startMatch, goGarage, selectCar, damageCar, buildCarModel, disposeCarModel, applyTod, applyQuality, camera, renderer, scene };
+window.SH = { race: { SECTIONS_BUILT, offTrack, heading }, testPark, combat: { PROJ, MINES, SMOKES, giveAmmo }, G, CARS, step, tick, startMatch, goGarage, selectCar, damageCar, buildCarModel, disposeCarModel, applyTod, applyQuality, camera, renderer, scene };
 
 (function start() {
   let done = false; const go = () => { if (done) return; done = true; try { boot(); } catch (e) { console.error(e); $('#loading').lastChild.textContent = 'Something went wrong starting the game: ' + e.message; } };
