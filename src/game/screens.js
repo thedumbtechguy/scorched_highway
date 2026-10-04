@@ -7,6 +7,7 @@ import { $ } from '../engine/util.js';
 import { CAM } from './camera.js';
 import { applyQuality, resize } from './loop.js';
 import { clearMatch } from './match.js';
+import { showRecord } from './results';
 import { G, saveSettings } from './state.js';
 import { PICKUPS } from '../world/pickups';
 import { drawnGround } from '../world/surface.js';
@@ -14,7 +15,7 @@ import { drawnGround } from '../world/surface.js';
 // ================= screens =================
 export function show(id) { for (const s of ['title', 'garage', 'pause', 'over', 'help', 'settings']) $('#' + s).hidden = s !== id; }
 export function goTitle() {
-  G.state = 'title'; show('title'); $('#hud').hidden = true; camera.clearViewOffset(); clearShowcase();
+  G.state = 'title'; show('title'); $('#hud').hidden = true; camera.clearViewOffset(); clearShowcase(); clearMatch(); showRecord();
   for (const pk of PICKUPS) pk.visible = true;
 }
 export const SHOW_POS = { x: -72, z: 3 };

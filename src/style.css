@@ -24,8 +24,21 @@ button:focus-visible,.seg button:focus-visible{outline:3px solid var(--sun);outl
 
 /* screens */
 .screen{position:fixed;inset:0;z-index:20;display:flex}
-#title{align-items:flex-end;background:linear-gradient(0deg,rgba(42,24,56,.92) 0%,rgba(42,24,56,.55) 38%,rgba(42,24,56,0) 70%)}
-.title-wrap{padding:0 max(28px,env(safe-area-inset-left)) calc(28px + env(safe-area-inset-bottom)) ;max-width:900px}
+#title{align-items:flex-end;justify-content:space-between;gap:24px;padding:0 max(28px,env(safe-area-inset-right)) calc(28px + env(safe-area-inset-bottom)) max(28px,env(safe-area-inset-left));
+  background:linear-gradient(0deg,rgba(42,24,56,.92) 0%,rgba(42,24,56,.55) 38%,rgba(42,24,56,0) 70%),linear-gradient(90deg,rgba(42,24,56,.45) 0%,rgba(42,24,56,0) 45%)}
+.title-wrap{position:relative;max-width:720px}
+/* a striped 70s sunset behind the logo */
+.sun{position:absolute;left:-4%;bottom:62%;width:min(360px,34vw);aspect-ratio:1;border-radius:50%;z-index:-1;opacity:.92;
+  background:linear-gradient(var(--sun) 0%,var(--flare) 60%,var(--brick) 100%);
+  -webkit-mask-image:linear-gradient(#000 0 50%,transparent 50% 54%,#000 54% 62%,transparent 62% 67%,#000 67% 74%,transparent 74% 80%,#000 80% 86%,transparent 86% 93%,#000 93%);
+  mask-image:linear-gradient(#000 0 50%,transparent 50% 54%,#000 54% 62%,transparent 62% 67%,#000 67% 74%,transparent 74% 80%,#000 80% 86%,transparent 86% 93%,#000 93%)}
+.record{margin:0;font-size:15px;font-weight:700;letter-spacing:.5px;color:var(--sun);text-transform:uppercase}
+.title-menu{display:grid;gap:10px;width:min(280px,32vw);flex:none}
+.title-menu .btn{width:100%;text-align:center}
+.btn.big{font-size:26px;padding:16px 22px}
+.press{margin:4px 0 0;text-align:center;font-size:14px;color:var(--muted)}
+.press [data-dev]{display:none}
+body[data-device="keys"] .press [data-dev="keys"],body[data-device="pad"] .press [data-dev="pad"]{display:inline}
 .logo{font-family:var(--display);font-weight:400;font-size:clamp(46px,10.5vw,132px);line-height:.86;margin:14px 0 10px;color:var(--sun);
   text-shadow:4px 4px 0 var(--flare),8px 8px 0 var(--brick),12px 12px 0 var(--plum);transform:rotate(-4deg);transform-origin:left bottom;letter-spacing:.5px}
 .tagline{font-size:clamp(16px,2.2vw,21px);max-width:34em;margin:18px 0 20px;color:var(--bone);line-height:1.35}
@@ -83,10 +96,35 @@ button:focus-visible,.seg button:focus-visible{outline:3px solid var(--sun);outl
 .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:24px 26px;max-width:min(560px,92vw);max-height:88vh;overflow:auto;touch-action:pan-y}
 .card h2{font-family:var(--display);font-weight:400;font-size:40px;margin:6px 0 6px;color:var(--sun);line-height:1}
 .card p{font-size:17px;line-height:1.4;margin:8px 0}
-.results{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:16px 0 20px}
-.results div{background:rgba(246,234,212,.06);border-radius:10px;padding:10px}
-.results b{display:block;font-family:var(--display);font-weight:400;font-size:28px;color:var(--bone)}
+/* results: a panel on the left, the camera circling your car on the right */
+#over{background:linear-gradient(90deg,rgba(30,17,42,.55) 0%,rgba(30,17,42,0) 60%)}
+.opanel{width:min(480px,50vw);height:100%;overflow:hidden;touch-action:pan-y;background:var(--panel);border-right:1px solid var(--line);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+  padding:calc(20px + env(safe-area-inset-top)) 24px calc(20px + env(safe-area-inset-bottom)) max(24px,env(safe-area-inset-left));display:flex;flex-direction:column}
+.opanel h2{font-family:var(--display);font-weight:400;font-size:clamp(34px,5vw,52px);margin:12px 0 4px;color:var(--sun);line-height:1;text-shadow:3px 3px 0 var(--brick)}
+.opanel h2.lost{color:#ff8a6a;text-shadow:3px 3px 0 rgba(0,0,0,.45)}
+.opanel p{margin:4px 0 0;font-size:16px;line-height:1.35}
+.oplace{display:flex;align-items:baseline;gap:8px;margin:12px 0 4px}
+.oplace b{font-family:var(--display);font-weight:400;font-size:64px;line-height:1}
+.oplace span{font-size:18px;color:var(--muted);font-weight:700}
+.results{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:8px 0}
+.results div{background:rgba(246,234,212,.06);border-radius:10px;padding:8px 10px}
+.results b{display:block;font-family:var(--display);font-weight:400;font-size:26px;color:var(--bone)}
 .results span{font-size:13px;color:var(--muted)}
+.badges{display:flex;flex-wrap:wrap;gap:6px}
+.badges span{background:var(--sun);color:var(--ink);font-weight:700;font-size:13px;padding:3px 10px;border-radius:12px}
+.opanel h3{font-size:14px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin:14px 0 6px}
+.standings{list-style:none;margin:0 -4px 10px 0;padding:0 4px 0 0;display:grid;gap:4px;align-content:start;flex:1 1 auto;min-height:80px;overflow-y:auto}
+.standings li{display:grid;grid-template-columns:34px 10px 1fr auto;grid-template-rows:auto auto;column-gap:10px;align-items:center;padding:6px 10px;border-radius:9px;background:rgba(246,234,212,.04)}
+.standings li.me{background:rgba(242,177,52,.16);outline:1.5px solid rgba(242,177,52,.5)}
+.standings b{grid-row:span 2;font-size:15px;color:var(--muted)}
+.standings i{grid-row:span 2;width:10px;height:28px;border-radius:3px}
+.standings .who{font-weight:700;font-size:15px}
+.standings small{font-weight:500;color:var(--muted);font-size:13px;margin-left:4px}
+.standings .k{font-size:13px;color:var(--bone);text-align:right}
+.standings .fate{grid-column:3 / span 2;font-size:13px;color:var(--muted)}
+.orow{flex-wrap:nowrap;padding-top:4px}
+.orow .btn{white-space:nowrap;padding-left:16px;padding-right:16px}
+.orow .btn.primary{flex:1}
 .help h3{font-size:18px;margin:16px 0 6px;color:var(--sun)}
 .help table{border-collapse:collapse;font-size:15px;width:100%}
 .help td{padding:4px 8px 4px 0;vertical-align:top}
@@ -194,8 +232,20 @@ kbd{font-family:var(--ui);font-weight:700;background:rgba(246,234,212,.12);borde
   #wAmmo{font-size:20px}
   .wpn{margin-top:6px;padding:4px 8px 4px 4px}
   #wIcon{width:32px;height:32px}
-  .logo{font-size:clamp(40px,9vh,76px);margin-top:8px}
-  .tagline{margin:10px 0 12px;font-size:15px}
+  .logo{font-size:clamp(44px,13vh,76px);margin-top:8px}
+  .tagline{margin:10px 0 8px;font-size:15px}
+  .sun{width:min(150px,20vw);bottom:66%}
+  .title-wrap .stripes{width:min(240px,40vw)}
+  .btn.big{font-size:21px;padding:11px 18px}
+  .opanel{padding-top:calc(12px + env(safe-area-inset-top))}
+  .opanel h2{font-size:28px;margin-top:6px}
+  .opanel p{font-size:14px}
+  .oplace{margin:4px 0 0}
+  .orow .btn{font-size:15px;padding:9px 12px}
+  .opanel h3{margin:8px 0 4px}
+  .oplace b{font-size:44px}
+  .results b{font-size:20px}
+  .standings li{padding:4px 8px}
   .btn{padding:10px 18px;font-size:16px}
   #big{top:28%}
 }

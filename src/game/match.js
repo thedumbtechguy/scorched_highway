@@ -11,11 +11,12 @@ import { clearDebris } from '../engine/debris.js';
 import { FX_ADD, PSYS, fxScale } from '../engine/particles.js';
 import { camera, renderer, scene } from '../engine/renderer.js';
 import { applyTod } from '../engine/sky';
-import { $, loadStore, rand, store } from '../engine/util.js';
+import { $, rand } from '../engine/util.js';
 import { CAM } from './camera.js';
 import { TAGS, bigText, buildTags, feed, hud } from './hud.js';
 import { resize } from './loop.js';
 import { clearShowcase, show } from './screens.js';
+import { showResults } from './results';
 import { G, later } from './state.js';
 import { KEYS, readPlayerInput } from '../input/input.js';
 import { PICK, PICKUPS, resetPickups, updatePickups } from '../world/pickups';
@@ -54,6 +55,7 @@ export function startMatch() {
 }
 let lastCount = 4;
 export function onCarKilled(c, by) {
+  c.wreckedBy = by || null;
   if (by && by.isPlayer) { G.slowT = 0.55; bigText('Wrecked ' + c.def.driver.split(' ')[0] + '!', 1.1, true); }
   if (c.isPlayer) { G.slowT = 0.8; bigText('Wrecked!', 2); G.endT = 3.2; G.result = { win: false, by }; }
   const alive = G.cars.filter(o => o.alive);
@@ -61,14 +63,8 @@ export function onCarKilled(c, by) {
 }
 function endMatch() {
   G.state = 'over'; const p = G.player, r = G.result || { win: p.alive };
-  const place = p.alive ? 1 : p.place;
-  $('#overTitle').textContent = r.win ? 'Last one standing' : 'Wrecked';
-  $('#overSub').textContent = r.win ? `${p.def.driver} rolls out of town with the ${p.def.name} still smoking.` : (r.by ? `${r.by.def.driver} got the better of you this time.` : 'The desert got the better of you this time.');
-  $('#rPlace').textContent = place + (['th', 'st', 'nd', 'rd'][place] || 'th');
-  $('#rKills').textContent = p.kills; $('#rDmg').textContent = Math.round(p.dealt);
-  const s = G.clock | 0; $('#rTime').textContent = (s / 60 | 0) + ':' + String(s % 60).padStart(2, '0');
-  show('over'); $('#hud').hidden = true;
-  const best = loadStore('best', { wins: 0, kills: 0 }); if (r.win) best.wins++; best.kills += p.kills; store('best', best);
+  showResults(!!r.win, r.by || null);
+  show('over'); $('#hud').hidden = true; resize();
 }
 export function pauseGame() { if (G.state !== 'playing') return; G.state = 'paused'; show('pause'); for (const k in KEYS) KEYS[k] = false; }
 export function resumeGame() { if (G.state !== 'paused') return; G.state = 'playing'; show(null); }

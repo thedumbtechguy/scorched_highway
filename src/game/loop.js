@@ -92,6 +92,9 @@ export function resize() {
   renderer.setSize(W, H, false); camera.aspect = W / H;
   if (G.state === 'garage') {
     camera.setViewOffset(W, H, 0, -H * 0.04, W, H); // nudge the car up, clear of the bottom cards
+  } else if (G.state === 'over') {
+    const panel = document.querySelector('.opanel'); const pw = panel ? panel.getBoundingClientRect().width : 0;
+    camera.setViewOffset(W, H, -pw * 0.5, 0, W, H); // centre your car in the space beside the results
   } else camera.clearViewOffset();
   camera.fov = G.state === 'playing' || G.state === 'paused' ? playFov() : baseFov(); camera.updateProjectionMatrix();
 }

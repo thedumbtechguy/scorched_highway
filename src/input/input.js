@@ -16,6 +16,8 @@ export const KEYS = {};
 const INP = { wPress: false, combo: 0, sPress: false, cycle: 0, target: false, reset: false };
 /** The device the player last used, so hints show the right buttons. */
 export const LAST = { device: /** @type {import('./bindings').Device} */ (isTouch ? 'touch' : 'keys') };
+/** Remember the device the player is using; the page shows hints for it via body[data-device]. */
+function useDevice(d) { if (LAST.device !== d || document.body.dataset.device !== d) { LAST.device = d; document.body.dataset.device = d; } }
 const GAME_KEYS = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'Tab']);
 addEventListener('keydown', e => {
   if (GAME_KEYS.has(e.code) && G.state === 'playing') e.preventDefault();
@@ -23,7 +25,7 @@ addEventListener('keydown', e => {
   if (G.state !== 'playing' && menuKey(e)) return;
   if (!first || e.repeat) return;
   const a = actionForKey(e.code); if (!a) return;
-  LAST.device = 'keys';
+  useDevice('keys');
   if (G.state === 'playing') press(a, e.code === 'KeyQ' ? -1 : 1);
   if (a === 'pause' && G.state === 'playing') pauseGame();
 });
@@ -89,7 +91,8 @@ export function setupTouch() {
     const tag = /** @type {HTMLElement} */ (e.target).closest('.tag'); if (!tag || !G.player) return;
     const t = TAGS.find(t => t.el === tag); if (t) { e.preventDefault(); G.player.pref = t.c; }
   });
-  addEventListener('pointerdown', e => { if (e.pointerType === 'touch') LAST.device = 'touch'; }, { capture: true });
+  addEventListener('pointerdown', e => { if (e.pointerType === 'touch') useDevice('touch'); }, { capture: true });
+  useDevice(LAST.device);
   $('#bReset').addEventListener('pointerdown', e => { e.preventDefault(); INP.reset = true; });
   // fire: tap = fire, hold = hold (torch), swipe up/down = combo
   const fb = $('#bFire'); let fid = null, fy0 = 0, fstate = '', ftimer = 0;
@@ -121,7 +124,7 @@ export function pollGamepad() {
   PAD.thr = bv(7) - bv(6);
   PAD.mg = b(2); PAD.w = b(0); PAD.hb = b(1);
   const used = Math.abs(ax) > 0.3 || PAD.thr !== 0 || gp.buttons.some(x => x.pressed);
-  if (used) LAST.device = 'pad';
+  if (used) useDevice('pad');
   PAD.active = PAD.active || used;
   if (G.state === 'playing') { for (const [i, a, dir] of PAD_PRESS) if (edge(i)) press(a, dir); }
   else if (currentScreen()) { // menus: d-pad or stick moves, A selects, B goes back

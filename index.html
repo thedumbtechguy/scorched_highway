@@ -18,15 +18,18 @@
 
 <section id="title" class="screen" hidden>
   <div class="title-wrap">
+    <div class="sun" aria-hidden="true"></div>
     <div class="stripes"></div>
     <h1 class="logo">Scorched<br>Highway</h1>
     <p class="tagline">Summer, 1977. Six drivers, one ghost town, and a trunk full of rockets. The desert belongs to whoever's still driving.</p>
-    <div class="row">
-      <button class="btn primary" id="toGarage">Choose your car</button>
-      <button class="btn ghost" id="toHelp">How to play</button>
-      <button class="btn ghost" id="toSettings">Settings</button>
-    </div>
+    <p class="record" id="record" hidden></p>
   </div>
+  <nav class="title-menu">
+    <button class="btn primary big" id="toGarage">Play</button>
+    <button class="btn ghost" id="toHelp">How to play</button>
+    <button class="btn ghost" id="toSettings">Settings</button>
+    <p class="press"><span data-dev="keys">Press <kbd>Enter</kbd> to play</span><span data-dev="pad">Press <kbd>A</kbd> to play</span></p>
+  </nav>
 </section>
 
 <section id="garage" class="screen" hidden>
@@ -71,20 +74,24 @@
   </div>
 </section>
 
-<section id="over" class="screen modal" hidden>
-  <div class="card">
+<section id="over" class="screen" hidden>
+  <div class="opanel">
     <div class="stripes"></div>
     <h2 id="overTitle">Last one standing</h2>
     <p id="overSub"></p>
+    <div class="oplace"><b id="rPlace">1st</b><span id="rOf">of 6</span></div>
     <div class="results">
-      <div><b id="rPlace">1st</b><span>Finish</span></div>
       <div><b id="rKills">0</b><span>Wrecks</span></div>
       <div><b id="rDmg">0</b><span>Damage dealt</span></div>
       <div><b id="rTime">0:00</b><span>Survived</span></div>
     </div>
-    <div class="row">
+    <div class="badges" id="rBadges"></div>
+    <h3>Standings</h3>
+    <ol class="standings" id="rStandings"></ol>
+    <div class="row orow">
       <button class="btn primary" id="againBtn">Fight again</button>
       <button class="btn ghost" id="oGarageBtn">Change car</button>
+      <button class="btn ghost" id="oTitleBtn">Title</button>
     </div>
   </div>
 </section>

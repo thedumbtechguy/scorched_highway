@@ -39,7 +39,7 @@ export class Car {
     /** @type {any} */ this.flare = null; /** @type {Car|null} chosen target */ this.pref = null; this.flameOn = false; this.mgHeld = false; this.wHeld = false; this.wFire = false; this.wCombo = 0; this.sFire = false;
     // status effects and scoring
     this.boost = 0; this.frozen = 0; this.burning = 0; /** @type {Car|null} */ this.burnBy = null; /** @type {Car|null} */ this.lastHitBy = null;
-    this.lastHitTime = -99; this.kills = 0; this.dealt = 0; this.flash = 0; this.place = 0;
+    this.lastHitTime = -99; this.kills = 0; this.dealt = 0; this.flash = 0; this.place = 0; /** @type {Car|null} */ this.wreckedBy = null;
     // body motion and visuals
     this.tumble = 0; this.tumbleV = 0; this.tumbleAxis = 0; this.wheelRot = 0; this.steerVis = 0; this.lean = 0; this.pitch = 0; this.lastVF = 0;
     this.smokeT = 0; this.dustT = 0; this.airT = 0; this.deathTime = 0; this.wreckT = 0; this.stuckT = 0; this.resetCd = 0;
