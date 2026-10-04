@@ -1,5 +1,6 @@
 import { playSfx } from '../audio/audio.js';
-import { COMBOS, findTarget } from '../combat/weapons.js';
+import { COMBOS, CONE, RANGE } from '../combat/arsenal';
+import { findTarget } from '../combat/weapons.js';
 import { camera } from '../engine/renderer.js';
 import { $, TAU, _v1 } from '../engine/util.js';
 import { G } from './state.js';
@@ -107,7 +108,7 @@ function updateTags() {
   }
   // lock-on
   let lt = null;
-  if (p.alive && (p.weapon === 'missile' || p.weapon === 'mortar' || p.def.id === 'bigchill')) lt = findTarget(p, p.weapon === 'mortar' ? 95 : 120, p.weapon === 'mortar' ? 0.45 : 0.55);
+  if (p.alive && (p.weapon === 'missile' || p.weapon === 'mortar' || p.def.id === 'bigchill')) lt = findTarget(p, p.weapon === 'mortar' ? RANGE.mortar : RANGE.missile, p.weapon === 'mortar' ? CONE.mortar : CONE.missile);
   if (lt) {
     _v1.set(lt.x, lt.y + 1.2, lt.z).project(camera);
     if (_v1.z < 1) { hud.lock.style.transform = `translate(${((_v1.x * 0.5 + 0.5) * W).toFixed(1)}px,${((-_v1.y * 0.5 + 0.5) * H).toFixed(1)}px)`; hud.lock.classList.add('on'); } else lt = null;

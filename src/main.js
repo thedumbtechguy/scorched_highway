@@ -1,5 +1,6 @@
 import { ensureAudio } from './audio/audio.js';
-import { initPools } from './combat/pools.js';
+import { giveAmmo } from './combat/arsenal';
+import { MINES, PROJ, SMOKES, initPools } from './combat/pools.js';
 import { applyTod } from './engine/sky';
 import { camera, renderer, scene } from './engine/renderer.js';
 import { buildCarModel, disposeCarModel } from './cars/model/build.js';
@@ -48,7 +49,7 @@ function boot() {
   startLoop();
 }
 // handle for tests, tools and the browser console
-window.SH = { G, CARS, step, tick, startMatch, goGarage, selectCar, damageCar, buildCarModel, disposeCarModel, applyTod, applyQuality, camera, renderer, scene };
+window.SH = { combat: { PROJ, MINES, SMOKES, giveAmmo }, G, CARS, step, tick, startMatch, goGarage, selectCar, damageCar, buildCarModel, disposeCarModel, applyTod, applyQuality, camera, renderer, scene };
 
 (function start() {
   let done = false; const go = () => { if (done) return; done = true; try { boot(); } catch (e) { console.error(e); $('#loading').lastChild.textContent = 'Something went wrong starting the game: ' + e.message; } };

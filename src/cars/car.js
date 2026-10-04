@@ -34,9 +34,9 @@ export class Car {
     this.x = x; this.z = z; this.yaw = yaw; this.vx = 0; this.vz = 0; this.vy = 0; this.y = ground(x, z); this.prevG = this.y; this.grounded = true;
     this.hp = this.def.hp; this.alive = true;
     // weapons
-    this.ammo = { missile: 0, mortar: 0, mines: 0, flame: 0 }; /** @type {string|null} */ this.weapon = null;
+    this.ammo = { missile: 0, rockets: 0, mortar: 0, mines: 0, flame: 0 }; /** @type {string|null} */ this.weapon = null;
     this.special = 3; this.cdMG = 0; this.cdW = 0; this.cdS = 0; this.gunSide = 1;
-    this.flameOn = false; this.mgHeld = false; this.wHeld = false; this.wFire = false; this.wCombo = 0; this.sFire = false;
+    /** @type {any} */ this.flare = null; this.flameOn = false; this.mgHeld = false; this.wHeld = false; this.wFire = false; this.wCombo = 0; this.sFire = false;
     // status effects and scoring
     this.boost = 0; this.frozen = 0; this.burning = 0; /** @type {Car|null} */ this.burnBy = null; /** @type {Car|null} */ this.lastHitBy = null;
     this.lastHitTime = -99; this.kills = 0; this.dealt = 0; this.flash = 0; this.place = 0;

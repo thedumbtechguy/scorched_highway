@@ -3,18 +3,18 @@ import { FX_ADD, fxScale } from '../engine/particles.js';
 import { addToScene } from '../engine/renderer.js';
 import { TAU, pick, rand, srand } from '../engine/util.js';
 import { ground } from './terrain.js';
+import { CRATE_AMMO } from '../combat/arsenal';
 
 // ================= pickups =================
 export const PICK: Record<string, { color: number; css: string; amt: number; label: string }> = {
-  missile: { color: 0xe8433a, css: '#e8433a', amt: 8, label: 'Homing missiles' },
-  mortar: { color: 0x2fb5b0, css: '#2fb5b0', amt: 6, label: 'Mortar' },
-  mines: { color: 0xf4cf3a, css: '#f4cf3a', amt: 6, label: 'Mines' },
-  flame: { color: 0xff7a1f, css: '#ff7a1f', amt: 8, label: 'Torch' },
+  missile: { color: 0xe8433a, css: '#e8433a', amt: CRATE_AMMO.missile, label: 'Homing missiles' },
+  rockets: { color: 0xff9a3c, css: '#ff9a3c', amt: CRATE_AMMO.rockets, label: 'Rocket pods' },
+  mortar: { color: 0x2fb5b0, css: '#2fb5b0', amt: CRATE_AMMO.mortar, label: 'Mortar' },
+  mines: { color: 0xf4cf3a, css: '#f4cf3a', amt: CRATE_AMMO.mines, label: 'Mines' },
+  flame: { color: 0xff5a2a, css: '#ff5a2a', amt: CRATE_AMMO.flame, label: 'Torch' },
   repair: { color: 0x5fd068, css: '#5fd068', amt: 55, label: 'Repair' },
   special: { color: 0x9b6bff, css: '#9b6bff', amt: 2, label: 'Special ammo' },
 };
-export const AMMO_CAP: Record<string, number> = { missile: 16, mortar: 12, mines: 12, flame: 16 };
-export const WEAPON_ORDER = ['missile', 'mortar', 'mines', 'flame'];
 export function drawGlyph(ctx: CanvasRenderingContext2D, type: string, s: number, color: string) {
   ctx.save(); ctx.translate(s / 2, s / 2); const k = s / 100;
   ctx.fillStyle = color; ctx.strokeStyle = color; ctx.lineWidth = 9 * k; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
@@ -24,6 +24,9 @@ export function drawGlyph(ctx: CanvasRenderingContext2D, type: string, s: number
       ctx.rotate(Math.PI / 4);
       ctx.beginPath(); ctx.moveTo(0, -40 * k); ctx.quadraticCurveTo(13 * k, -24 * k, 11 * k, 18 * k); ctx.lineTo(-11 * k, 18 * k); ctx.quadraticCurveTo(-13 * k, -24 * k, 0, -40 * k); ctx.fill();
       P([-11, 4, -24, 26, -11, 20]); P([11, 4, 24, 26, 11, 20]); ctx.globalAlpha = 0.7; P([-6, 22, 0, 40, 6, 22]); break;
+    case 'rockets':
+      for (const x of [-22, 0, 22]) { const y = x ? 8 : -4; P([x, y - 34, x + 8, y - 22, x + 8, y + 24, x - 8, y + 24, x - 8, y - 22]); ctx.globalAlpha = 0.7; P([x - 5, y + 28, x, y + 40, x + 5, y + 28]); ctx.globalAlpha = 1; }
+      break;
     case 'mortar':
       ctx.beginPath(); ctx.arc(14 * k, 14 * k, 18 * k, 0, TAU); ctx.fill();
       ctx.setLineDash([8 * k, 9 * k]); ctx.lineWidth = 7 * k; ctx.beginPath(); ctx.moveTo(-38 * k, 34 * k); ctx.quadraticCurveTo(-30 * k, -40 * k, 2 * k, -6 * k); ctx.stroke(); break;
@@ -54,14 +57,14 @@ function iconAtlas(): THREE.CanvasTexture {
   });
   return new THREE.CanvasTexture(cv);
 }
-const W_POOL = ['missile', 'missile', 'mortar', 'mines', 'flame', 'missile', 'mortar', 'special'];
+const W_POOL = ['missile', 'rockets', 'mortar', 'mines', 'flame', 'missile', 'rockets', 'special'];
 export interface Pickup { x: number; z: number; y: number; pool: string[]; type: string; active: boolean; visible: boolean; respawn: number; ph: number; i: number }
 export const PICKUPS: Pickup[] = [];
 const PICK_SPOTS: Array<[number, number, string[]]> = [
   [0, 0, ['repair']], [-120, -20, ['repair']], [130, 60, ['repair']],
   [-38, 3, W_POOL], [36, -3, W_POOL], [4, 28, W_POOL], [-14, -32, W_POOL],
   [-80, -80, W_POOL], [-140, 40, W_POOL], [-60, 80, W_POOL], [10, 80, W_POOL], [80, 20, W_POOL], [120, -40, W_POOL],
-  [40, -80, W_POOL], [-20, -122, W_POOL], [-100, 130, W_POOL], [90, -110, W_POOL], [150, -10, ['special', 'missile']], [-150, -40, ['special', 'mortar']],
+  [40, -80, W_POOL], [-20, -122, W_POOL], [-100, 130, W_POOL], [90, -110, W_POOL], [150, -10, ['special', 'rockets']], [-150, -40, ['special', 'mortar']],
 ];
 // Every pickup's crate, ring and icon are instances of three meshes (3 draw calls for all of them);
 // a hidden or collected pickup's instances are collapsed to nothing.

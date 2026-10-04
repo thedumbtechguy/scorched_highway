@@ -2,7 +2,10 @@ import { DIFF } from '../combat/damage.js';
 import { TAU, angDiff, clamp, rand } from '../engine/util.js';
 import { G } from '../game/state.js';
 import { blockedAt, lineOfSight } from '../world/collision.js';
-import { WEAPON_ORDER, nearestPickup } from '../world/pickups';
+import { COMBO_COST, RANGE, WEAPON_ORDER } from '../combat/arsenal';
+import { PROJ } from '../combat/pools.js';
+import { smokeBetween } from '../combat/weapons.js';
+import { nearestPickup } from '../world/pickups';
 
 // ================= AI =================
 const PERS = {
@@ -14,7 +17,7 @@ export class AI {
   constructor(car) {
     this.car = car; this.pers = car.def.ai; this.P = PERS[this.pers];
     this.target = null; this.goal = { type: 'wander' }; this.think = rand(0, 0.3); this.stuck = 0; this.reverseT = 0; this.revSteer = 1;
-    this.cd = rand(0.8, 2); this.targetT = 0; this.strafe = Math.random() < 0.5 ? 1 : -1; this.los = false; this.mgOn = false; this.wander = null; this.wanderT = 0;
+    this.cd = rand(0.8, 2); this.defCd = 0; this.targetT = 0; this.strafe = Math.random() < 0.5 ? 1 : -1; this.los = false; this.mgOn = false; this.wander = null; this.wanderT = 0;
   }
   decide() {
     const c = this.car, diff = DIFF[G.settings.difficulty];
@@ -37,7 +40,7 @@ export class AI {
     }
     const t = this.target;
     const dT = t ? Math.hypot(t.x - c.x, t.z - c.z) : 999;
-    this.los = t ? lineOfSight(c.x, c.y + 1.4, c.z, t.x, t.y + 1.2, t.z) : false;
+    this.los = t ? lineOfSight(c.x, c.y + 1.4, c.z, t.x, t.y + 1.2, t.z) && !smokeBetween(c.x, c.z, t.x, t.z) : false;
     this.mgOn = Math.random() < diff.mg;
     // flee to repair
     if (hpF < this.P.flee) {
@@ -117,27 +120,46 @@ export class AI {
     }
     return false;
   }
+  /** A defensive combo when one fits the moment: flares or smoke against incoming homing shots, kickback or ring of fire when crowded, rear rockets at a tailgater. */
+  defend(d, a) {
+    const c = this.car, has = w => c.ammo[w] >= COMBO_COST;
+    let incoming = false; for (const p of PROJ) if (p.turn && p.target === c && Math.hypot(p.x - c.x, p.z - c.z) < 35) { incoming = true; break; }
+    let crowd = 99; for (const o of G.cars) if (o !== c && o.alive) crowd = Math.min(crowd, Math.hypot(o.x - c.x, o.z - c.z));
+    if (incoming && has('missile')) return 'missile';
+    if (incoming && has('mortar')) return 'mortar';
+    if (crowd < 8 && has('mines')) return 'mines';
+    if (crowd < 9 && has('flame')) return 'flame';
+    if (a > 2.5 && d < 40 && this.los && has('rockets')) return 'rockets';
+    return null;
+  }
   combat(dt) {
     const c = this.car, t = this.target; c.mgHeld = false; c.wHeld = false;
     if (!t || !t.alive || G.countdown > 0) return;
     const diff = DIFF[G.settings.difficulty];
     const dx = t.x - c.x, dz = t.z - c.z, d = Math.hypot(dx, dz);
     const a = Math.abs(angDiff(c.yaw, Math.atan2(dx, dz)));
-    c.mgHeld = this.mgOn && this.los && d < 70 && a < 0.24;
+    c.mgHeld = this.mgOn && this.los && d < RANGE.mg && a < 0.24;
+    this.defCd -= dt;
+    if (this.defCd <= 0) {
+      this.defCd = rand(0.3, 0.5);
+      const w = this.defend(d, a);
+      if (w && Math.random() < diff.combo * 2) { c.weapon = w; c.wFire = true; c.wCombo = 2; this.defCd = 2.5; return; }
+    }
     // flame is continuous
     if (c.ammo.flame > 0.3 && d < 14 && a < 0.45) { c.weapon = 'flame'; c.wHeld = true; return; }
     this.cd -= dt; if (this.cd > 0) return;
     let choice = null, combo = 0;
-    const cmb = () => (Math.random() < diff.combo ? (Math.random() < 0.6 ? 1 : 2) : 0);
+    const cmb = w => (c.ammo[w] >= COMBO_COST && Math.random() < diff.combo ? 1 : 0);
     if (c.special > 0 && this.specialOK(d, a)) choice = 'special';
-    else if (c.ammo.missile >= 1 && this.los && d < 110 && a < 0.45) { choice = 'missile'; if (c.ammo.missile >= 3) combo = cmb(); }
-    else if (c.ammo.mortar >= 1 && d > 18 && d < 85 && a < 0.35) { choice = 'mortar'; if (c.ammo.mortar >= 3) combo = cmb(); }
-    else if (c.ammo.mines >= 1 && d < 28 && a > 2.3) { choice = 'mines'; if (c.ammo.mines >= 3 && Math.random() < diff.combo) combo = 2; }
-    else if (c.ammo.mines >= 3 && d < 40 && d > 20 && a < 0.3 && Math.random() < diff.combo) { choice = 'mines'; combo = 1; }
-    else if (c.ammo.flame >= 3 && d < 45 && d > 14 && a < 0.3 && Math.random() < 0.3) { choice = 'flame'; combo = 2; }
+    else if (c.ammo.rockets >= 1 && this.los && d < RANGE.rockets * 0.8 && a < 0.12) { choice = 'rockets'; if (d < 40) combo = cmb('rockets'); }
+    else if (c.ammo.missile >= 1 && this.los && d < RANGE.missile && a < 0.45) { choice = 'missile'; combo = cmb('missile'); }
+    else if (c.ammo.mortar >= 1 && d > 18 && d < RANGE.mortar && a < 0.35) { choice = 'mortar'; combo = cmb('mortar'); }
+    else if (c.ammo.mines >= 1 && d < 28 && a > 2.3) choice = 'mines';
+    else if (c.ammo.mines >= COMBO_COST && d < 40 && d > 20 && a < 0.3 && Math.random() < diff.combo) { choice = 'mines'; combo = 1; }
+    else if (c.ammo.flame >= COMBO_COST && d < 45 && d > 14 && a < 0.3 && Math.random() < 0.3) { choice = 'flame'; combo = 1; }
     if (!choice) return;
     if (Math.random() > diff.fire) { this.cd = rand(0.4, 0.9); return; }
     if (choice === 'special') c.sFire = true; else { c.weapon = choice; c.wFire = true; c.wCombo = combo; }
-    this.cd = diff.react + rand(0.25, 1.1);
+    this.cd = choice === 'rockets' && !combo ? 0.32 + diff.react * 0.4 : diff.react + rand(0.25, 1.1);
   }
 }
