@@ -81,21 +81,21 @@ export function buildCarModel(def) {
   for (const list of byStyle.values()) {
     const near = view(buildWheelGeo(list[0].style)), far = view(buildWheelGeo(list[0].style, true));
     const mesh = new THREE.InstancedMesh(near, mats, list.length * 2); mesh.castShadow = true; mesh.userData.lod = { near, far }; group.add(mesh); wheelMeshes.push(mesh);
-    list.forEach((w, k) => { for (const s of [-1, 1]) ws.push({ x: s * w.x, y: w.y, z: w.z, r: w.r, front: !!w.front, on: true, mesh, i: k * 2 + (s > 0 ? 1 : 0), sw: w.w / list[0].w, sr: w.r / list[0].r }); });
+    list.forEach((w, k) => { for (const s of [-1, 1]) ws.push({ x: s * w.x, y: w.y, z: w.z, r: w.r, drop: 0, front: !!w.front, on: true, mesh, i: k * 2 + (s > 0 ? 1 : 0), sw: w.w / list[0].w, sr: w.r / list[0].r }); });
   }
   const lit = [mats[CAR_BODY], mats[CAR_SKIN]];
   const model = {
     group, body, wheels: ws, wheelMeshes, mats, mat: mats[0], siren, beams, bodyMesh, skinMesh, glows,
-    /** Spin and steer the wheels; detached wheels collapse to nothing. */
+    /** Spin and steer the wheels, each lowered by its suspension `drop`; detached wheels collapse to nothing. */
     poseWheels(rot, steer) {
       for (const w of ws) {
         if (!w.on) _m.makeScale(0, 0, 0);
-        else { _e.set(rot * 0.48 / w.r, w.front ? steer : 0, 0, 'YXZ'); _m.compose(_p.set(w.x, w.y, w.z), _q.setFromEuler(_e), _s.set(w.sw, w.sr, w.sr)); }
+        else { _e.set(rot * 0.48 / w.r, w.front ? steer : 0, 0, 'YXZ'); _m.compose(_p.set(w.x, w.y - w.drop, w.z), _q.setFromEuler(_e), _s.set(w.sw, w.sr, w.sr)); }
         w.mesh.setMatrixAt(w.i, _m);
       }
       for (const m of wheelMeshes) m.instanceMatrix.needsUpdate = true;
     },
-    wheelWorldPos(w, out) { return out.set(w.x, w.y, w.z).applyMatrix4(group.matrixWorld); },
+    wheelWorldPos(w, out) { return out.set(w.x, w.y - w.drop, w.z).applyMatrix4(group.matrixWorld); },
     /** Distant cars get simple wheels (no tread or rim detail); a little hysteresis avoids flicker. */
     lod(cam) {
       const d = group.position.distanceTo(cam);

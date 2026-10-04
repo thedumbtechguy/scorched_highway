@@ -9,7 +9,7 @@ import { applyQuality, resize } from './loop.js';
 import { clearMatch } from './match.js';
 import { G, saveSettings } from './state.js';
 import { PICKUPS } from '../world/pickups';
-import { ground } from '../world/terrain.js';
+import { drawnGround } from '../world/surface.js';
 
 // ================= screens =================
 export function show(id) { for (const s of ['title', 'garage', 'pause', 'over', 'help']) $('#' + s).hidden = s !== id; }
@@ -21,8 +21,11 @@ export const SHOW_POS = { x: -72, z: 3 };
 export function clearShowcase() { if (G.showcase) { disposeCarModel(G.showcase); G.showcase = null; } }
 function setShowcase(def) {
   clearShowcase();
-  const m = buildCarModel(def); const y = ground(SHOW_POS.x, SHOW_POS.z);
-  m.group.position.set(SHOW_POS.x, y, SHOW_POS.z); m.group.rotation.y = 0.6; addToScene(m.group, 'cars'); G.showcase = m;
+  const m = buildCarModel(def), yaw = 0.6, c = Math.cos(yaw), s = Math.sin(yaw);
+  // stand it on the highest of the ground points under its wheels (the showroom spot is on the road)
+  let y = -Infinity;
+  for (const w of m.wheels) y = Math.max(y, drawnGround(SHOW_POS.x + w.x * c + w.z * s, SHOW_POS.z - w.x * s + w.z * c) - (w.y - w.r));
+  m.group.position.set(SHOW_POS.x, y, SHOW_POS.z); m.group.rotation.y = yaw; addToScene(m.group, 'cars'); G.showcase = m;
   for (const b of m.beams) b.visible = curTod.night;
 }
 export function buildGarage() {
