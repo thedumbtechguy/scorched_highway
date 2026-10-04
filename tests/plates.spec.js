@@ -63,9 +63,9 @@ test('a rockfall hurts whoever is under it and leaves boulders on the road', asy
     hazards.triggerHazard(site, by);
     for (let i = 0; i < 60 * 6; i++) { victim.x = d.tx; victim.z = d.tz; victim.vx = victim.vz = 0; step(1 / 60, 1 / 60); }
     const resting = hazards.ROCKS.filter(k => k.phase === 'rest').length;
-    return { lost: hp - victim.hp, credit: victim.lastHitBy === by, resting, of: site.drops.length };
+    return { lost: hp - victim.hp, hit: 35 * Math.pow(victim.mass, -0.7), credit: victim.lastHitBy === by, resting, of: site.drops.length }; // heavier cars take less
   });
-  expect(r.lost).toBeGreaterThan(25); expect(r.credit).toBe(true);
+  expect(r.lost).toBeGreaterThan(r.hit * 0.99); expect(r.credit).toBe(true);
   expect(r.resting).toBe(r.of);
 });
 
