@@ -11,7 +11,7 @@ import { buildPickups } from '../../world/pickups';
 import { buildPlates } from '../../world/plates';
 import { finishProps, placeProp } from '../../world/props.js';
 import { asphalt, dirt, ribbon, roadMat } from '../../world/roads';
-import { BARRELS, BOUNDS, CRATE_SPOTS, PLATE_SPOTS, buildHazardSites, OBSTACLES, OX, OZ, PATHS, PORTAL, RIBBON, ROAD_LIFT, ROOF, SECTIONS_BUILT, TRACK_RAMPS, type Path, nearest, pathsNear, place, setTrackGrid, trackHeight } from './track';
+import { BARRELS, BOUNDS, CRATE_SPOTS, PLATE_SPOTS, buildHazardSites, OBSTACLES, OX, OZ, PATHS, PORTAL, RIBBON, ROAD_LIFT, ROOF, SECTIONS_BUILT, TRACK_RAMPS, type Path, nearest, pathsNear, place, setTrackGrid, trackHeight, trackSurface } from './track';
 
 let built = false;
 export const isBuilt = () => built;
@@ -109,7 +109,7 @@ function buildRamps() {
     g.computeVertexNormals();
     const cv = document.createElement('canvas'); cv.width = 64; cv.height = 256; const x = cv.getContext('2d')!;
     for (let k = 0; k < 16; k++) { x.fillStyle = k % 2 ? '#8a5a36' : '#7a4d2e'; x.fillRect(0, k * 16, 64, 16); x.fillStyle = 'rgba(0,0,0,.35)'; x.fillRect(0, k * 16, 64, 2); }
-    const m = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ map: new THREE.CanvasTexture(cv) }));
+    const m = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ map: new THREE.CanvasTexture(cv), polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
     m.position.set(R.x, R.base, R.z); m.rotation.y = R.yaw; m.castShadow = true; m.receiveShadow = true; addToScene(m, 'track');
   }
 }
@@ -129,8 +129,10 @@ function buildStart() {
   gantry(p, 0, 'ROUTE 67', ['#c0392b', '#f6ead4']);
   const cv = document.createElement('canvas'); cv.width = 256; cv.height = 32; const x = cv.getContext('2d')!;
   for (let i = 0; i < 16; i++) for (let j = 0; j < 2; j++) { x.fillStyle = (i + j) % 2 ? '#f6ead4' : '#1e1322'; x.fillRect(i * 16, j * 16, 16, 16); }
-  const line = new THREE.Mesh(new THREE.PlaneGeometry(p.half * 2 * RIBBON.dirt, 2), new THREE.MeshLambertMaterial({ map: new THREE.CanvasTexture(cv) }));
-  line.rotation.set(-Math.PI / 2, 0, -Math.atan2(p.tx[0], p.tz[0]) + Math.PI / 2); line.position.set(p.x[0], trackHeight(p.x[0], p.z[0]) + ROAD_LIFT + 0.03, p.z[0]); line.receiveShadow = true;
+  const line = new THREE.Mesh(new THREE.PlaneGeometry(p.half * 2 * RIBBON.dirt, 2), new THREE.MeshLambertMaterial({ map: new THREE.CanvasTexture(cv), polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
+  // laid flat with its long side across the road, just above the drawn ground and the road ribbon
+  line.rotation.set(-Math.PI / 2, 0, Math.atan2(p.tx[0], p.tz[0]));
+  line.position.set(p.x[0], trackSurface(p.x[0], p.z[0]) + ROAD_LIFT + 0.1, p.z[0]); line.receiveShadow = true;
   addToScene(line, 'track');
 }
 /** Banners before each fork saying which way each branch goes. */
