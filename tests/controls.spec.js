@@ -72,6 +72,7 @@ test.describe('on a phone', () => {
 });
 
 test('help screen lists every control, for each device', async ({ page }) => {
+  test.slow(); // the title screen renders on a software GPU, slower still while the other worker builds a map
   page.on('pageerror', e => { throw e; });
   await page.route(/fonts\.(googleapis|gstatic)\.com/, fonts);
   await page.goto('/');
