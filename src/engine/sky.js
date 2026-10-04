@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { hemi, renderer, scene, sun, sunDir } from './renderer.js';
+import { fog, hemi, renderer, scene, sun, sunDir } from './renderer.js';
 import { TAU, srand } from './util.js';
 
 // sky dome
@@ -51,7 +51,7 @@ export function onTod(fn) { todListeners.push(fn); }
 export function applyTod(name) {
   const t = TOD[name] || TOD.sunset; curTod = t;
   paintSky(t.top, t.mid, t.hor, t.below);
-  scene.fog.color.setHex(t.fog); scene.fog.near = t.fogNear; scene.fog.far = t.fogFar;
+  fog.color.setHex(t.fog); fog.near = t.fogNear; fog.far = t.fogFar;
   renderer.setClearColor(t.fog);
   hemi.color.setHex(t.hemiSky); hemi.groundColor.setHex(t.hemiGround); hemi.intensity = t.hemiI;
   sun.color.setHex(t.sunC); sun.intensity = t.sunI;

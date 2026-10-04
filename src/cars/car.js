@@ -22,16 +22,22 @@ export class Car {
     scene.add(this.obj);
     this.radius = 1.9; this.mass = def.mass; this.up = new THREE.Vector3(0, 1, 0);
     this.input = { throttle: 0, steer: 0, handbrake: false };
+    this.speedK = 1; // top-speed scale; AI difficulty lowers it
     this.reset(0, 0, 0);
   }
   reset(x, z, yaw) {
-    Object.assign(this, {
-      x, z, yaw, vx: 0, vz: 0, vy: 0, y: ground(x, z), prevG: ground(x, z), grounded: true, hp: this.def.hp, alive: true,
-      ammo: { missile: 0, mortar: 0, mines: 0, flame: 0 }, weapon: null, special: 3, cdMG: 0, cdW: 0, cdS: 0, gunSide: 1,
-      boost: 0, frozen: 0, burning: 0, burnBy: null, lastHitBy: null, lastHitTime: -99, kills: 0, dealt: 0, flash: 0,
-      tumble: 0, tumbleV: 0, tumbleAxis: 0, wheelRot: 0, steerVis: 0, smokeT: 0, dustT: 0, flameOn: false, mgHeld: false, wHeld: false, wFire: false, wCombo: 0, sFire: false,
-      airT: 0, deathTime: 0, wreckT: 0, lean: 0, pitch: 0, lastVF: 0, place: 0, stuckT: 0, resetCd: 0,
-    });
+    this.x = x; this.z = z; this.yaw = yaw; this.vx = 0; this.vz = 0; this.vy = 0; this.y = ground(x, z); this.prevG = this.y; this.grounded = true;
+    this.hp = this.def.hp; this.alive = true;
+    // weapons
+    this.ammo = { missile: 0, mortar: 0, mines: 0, flame: 0 }; /** @type {string|null} */ this.weapon = null;
+    this.special = 3; this.cdMG = 0; this.cdW = 0; this.cdS = 0; this.gunSide = 1;
+    this.flameOn = false; this.mgHeld = false; this.wHeld = false; this.wFire = false; this.wCombo = 0; this.sFire = false;
+    // status effects and scoring
+    this.boost = 0; this.frozen = 0; this.burning = 0; /** @type {Car|null} */ this.burnBy = null; /** @type {Car|null} */ this.lastHitBy = null;
+    this.lastHitTime = -99; this.kills = 0; this.dealt = 0; this.flash = 0; this.place = 0;
+    // body motion and visuals
+    this.tumble = 0; this.tumbleV = 0; this.tumbleAxis = 0; this.wheelRot = 0; this.steerVis = 0; this.lean = 0; this.pitch = 0; this.lastVF = 0;
+    this.smokeT = 0; this.dustT = 0; this.airT = 0; this.deathTime = 0; this.wreckT = 0; this.stuckT = 0; this.resetCd = 0;
     this.input.throttle = 0; this.input.steer = 0; this.input.handbrake = false;
     this.up.set(0, 1, 0);
     this.obj.visible = true; this.model.tint(1, 1, 1); this.model.emit(0, 0, 0);
@@ -49,7 +55,7 @@ export class Car {
     if (!this.alive) { inp.throttle = 0; inp.steer = 0; inp.handbrake = true; }
     const fx = Math.sin(this.yaw), fz = Math.cos(this.yaw), rx = -fz, rz = fx;
     let vF = this.vx * fx + this.vz * fz, vL = this.vx * rx + this.vz * rz;
-    let maxS = d.max * (this.frozen > 0 ? 0.45 : 1) * (this.speedK || 1); if (this.boost > 0) maxS *= 1.7;
+    let maxS = d.max * (this.frozen > 0 ? 0.45 : 1) * this.speedK; if (this.boost > 0) maxS *= 1.7;
     if (this.grounded) {
       const thr = inp.throttle;
       if (this.boost > 0) vF += d.accel * 2.4 * dt;

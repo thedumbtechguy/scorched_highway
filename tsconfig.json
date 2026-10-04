@@ -1,0 +1,19 @@
+{
+  // Type-checks the JavaScript (no emit; Vite does the bundling). Loose for now:
+  // new code can be .ts, and strictness gets turned on per folder as code is converted.
+  "compilerOptions": {
+    "target": "es2022",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "lib": ["es2022", "dom", "dom.iterable"],
+    "types": ["vite/client"],
+    "allowJs": true,
+    "checkJs": true,
+    "noEmit": true,
+    "strict": false,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "isolatedModules": true
+  },
+  "include": ["src"]
+}

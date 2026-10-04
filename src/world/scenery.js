@@ -13,6 +13,7 @@ export let terrainMesh, staticMesh;
 export const SIGN_MESHES = [];
 export function buildTerrain(lowQ) {
   const SIZE = 440, SEG = lowQ ? 88 : 120;
+  /** @type {THREE.BufferGeometry} */
   let g = new THREE.PlaneGeometry(SIZE, SIZE, SEG, SEG); g.rotateX(-Math.PI / 2);
   const p = g.attributes.position;
   for (let i = 0; i < p.count; i++) p.setY(i, baseHeight(p.getX(i), p.getZ(i)));

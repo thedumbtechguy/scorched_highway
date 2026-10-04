@@ -60,6 +60,7 @@ function pickAssets(type) {
 }
 const W_POOL = ['missile', 'missile', 'mortar', 'mines', 'flame', 'missile', 'mortar', 'special'];
 export const PICKUPS = [];
+/** @type {Array<[number, number, string[]]>} */
 const PICK_SPOTS = [
   [0, 0, ['repair']], [-120, -20, ['repair']], [130, 60, ['repair']],
   [-38, 3, W_POOL], [36, -3, W_POOL], [4, 28, W_POOL], [-14, -32, W_POOL],

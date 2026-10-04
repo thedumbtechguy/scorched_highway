@@ -73,7 +73,7 @@ export function applyQuality() {
   const dpr = window.devicePixelRatio || 1;
   renderer.setPixelRatio(Math.min(dpr, hi ? (isTouch ? 1.75 : 2) : (isTouch ? 1.3 : 1)));
   renderer.shadowMap.enabled = hi; sun.castShadow = hi;
-  scene.traverse(o => { if (o.material) { (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => m.needsUpdate = true); } });
+  scene.traverse(o => { const mat = /** @type {THREE.Mesh} */ (o).material; if (mat) (Array.isArray(mat) ? mat : [mat]).forEach(m => m.needsUpdate = true); });
   setFxScale(hi ? 1 : 0.55);
   pickTerrainMat();
   resize();
