@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { renderer, sunDir } from '../../engine/renderer.js';
-import { onTod } from '../../engine/sky.js';
+import { onTod } from '../../engine/sky';
 import { TAU, mulberry32 } from '../../engine/util.js';
 
 // ----- environment map for reflections, regenerated per time of day -----
@@ -23,7 +23,7 @@ export const CAR_ENV = (() => {
 onTod(updateCarEnv);
 function updateCarEnv(t) {
   const E = CAR_ENV;
-  let tex = E.cache[t.name || t.top];
+  let tex = E.cache[t.name];
   if (!tex) {
     const cT = new THREE.Color(t.top), cM = new THREE.Color(t.mid), cH = new THREE.Color(t.hor);
     const cG = new THREE.Color(t.below).lerp(new THREE.Color(t.night ? 0x120c18 : 0x6a4a34), 0.5), cN = cG.clone().multiplyScalar(0.55), c = new THREE.Color();
@@ -41,7 +41,7 @@ function updateCarEnv(t) {
     E.sunM.material.color.setHex(t.sunC).multiplyScalar(t.night ? 0.8 : 1.6);
     E.mesaMat.color.setHex(t.night ? 0x1a1424 : 0x7a3a24);
     if (!E.pm) E.pm = new THREE.PMREMGenerator(renderer);
-    tex = E.cache[t.name || t.top] = E.pm.fromScene(E.sc, 0.02).texture;
+    tex = E.cache[t.name] = E.pm.fromScene(E.sc, 0.02).texture;
   }
   E.tex = tex;
   for (const m of E.mats) { m.envMap = tex; m.needsUpdate = true; }

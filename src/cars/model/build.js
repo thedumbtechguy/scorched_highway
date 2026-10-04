@@ -5,7 +5,7 @@ import { CAR_ENV } from './env.js';
 import { CarKit } from './kit.js';
 import { buildWheelGeo } from './wheels.js';
 import { CAR_RECIPES } from '../recipes/index.js';
-import { curTod, glowTexture } from '../../engine/sky.js';
+import { curTod, glowTexture } from '../../engine/sky';
 import { G } from '../../game/state.js';
 
 /** @typedef {THREE.MeshStandardMaterial & { clearcoat?: number, clearcoatRoughness?: number }} LitMaterial Standard, or Physical with clear coat */

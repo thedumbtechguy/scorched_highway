@@ -25,7 +25,7 @@ npm run check      # lint + typecheck + build + smoke tests, the same as CI
 | `npm run lint` | ESLint, which catches undefined names, unused code and writes to imported values |
 | `npm run typecheck` | TypeScript checks the JavaScript (loose mode) against Three.js's types; catches wrong property names and argument types |
 | `npm test` | Playwright smoke tests against the build: boot, every car model, garage, a fast-forwarded match |
-| `npm run shots -- [--tod noon\|sunset\|night] [car ids]` | Renders each car from three angles plus a contact sheet into `shots/` |
+| `npm run shots -- cars\|env [--tod noon\|sunset\|night] [names]` | Screenshots into `shots/` with a contact sheet: each car from three angles, or fixed viewpoints around the arena |
 
 The first test run needs a browser: `npx playwright install chromium`.
 
@@ -73,8 +73,8 @@ ES modules bundled by Vite, with Three.js (pinned to r128) from npm. Modules are
 | Folder | What's in it |
 | --- | --- |
 | `src/main.js` | Boot: builds the world, wires the menus, starts the loop |
-| `src/engine/` | Utilities, renderer and lights, sky and time of day (`onTod` listeners), particles, debris, geometry helpers |
-| `src/world/` | Terrain and ramps, town and scenery, destructible props, collision queries, pickups |
+| `src/engine/` | Utilities, renderer and lights, sky shader and time of day (`sky.ts`, `onTod` listeners), particles, debris, geometry helpers |
+| `src/world/` | Height field and ramps (`terrain.js`), sand/sandstone terrain, canyon wall and mesas (`landscape.ts`), procedural textures (`textures.ts`), town buildings (`town.ts`), plants, ground clutter and tumbleweeds (`flora.ts`), roads (`roads.ts`), layout and collision (`scenery.js`), destructible props, collision queries, pickups |
 | `src/cars/` | `roster.js` (stats), `car.js` (driving physics, car collisions), `model/` (procedural model kit: lofted hulls, materials and reflections, painted decals, wheels) and `recipes/` (one file per car) |
 | `src/combat/` | Projectile pools, damage, explosions and effects, weapons, combos and specials |
 | `src/ai/` | Opponent behaviour |
@@ -89,4 +89,4 @@ Everything visual is built from code. There are no image, model or audio files.
 
 ### Adding a car
 
-Add its stats to `src/cars/roster.js`, write a recipe in `src/cars/recipes/<id>.js` (see `sundowner.js`: a `loftZ` body, `K.sideGlass` / `K.topGlass` windows, `K.decal` livery, lamps, `K.gun`, `K.wheel`), register it in `src/cars/recipes/index.js`, then check it with `npm run shots -- <id>`.
+Add its stats to `src/cars/roster.js`, write a recipe in `src/cars/recipes/<id>.js` (see `sundowner.js`: a `loftZ` body, `K.sideGlass` / `K.topGlass` windows, `K.decal` livery, lamps, `K.gun`, `K.wheel`), register it in `src/cars/recipes/index.js`, then check it with `npm run shots -- cars <id>`.

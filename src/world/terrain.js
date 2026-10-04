@@ -26,8 +26,8 @@ export const RAMPS = [
   { x: 120, z: 20, yaw: 0, len: 16, w: 9, h: 4.2 },
   { x: -18, z: -96, yaw: Math.PI, len: 16, w: 9, h: 4.4 },
   { x: 70, z: 100, yaw: -Math.PI / 2, len: 16, w: 9, h: 4.0 },
-];
-for (const r of RAMPS) { r.s = Math.sin(r.yaw); r.c = Math.cos(r.yaw); r.base = rawHeight(r.x, r.z); FLATS.push({ x: r.x, z: r.z, r: 14, f: 10, h: r.base }); }
+].map(r => ({ ...r, s: Math.sin(r.yaw), c: Math.cos(r.yaw), base: rawHeight(r.x, r.z) }));
+for (const r of RAMPS) FLATS.push({ x: r.x, z: r.z, r: 14, f: 10, h: r.base });
 export function baseHeight(x, z) {
   let h = rawHeight(x, z);
   for (let i = 0; i < FLATS.length; i++) {

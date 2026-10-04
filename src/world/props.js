@@ -10,6 +10,7 @@ import { TAU, _q1, mulberry32, rand, srand } from '../engine/util.js';
 import { G, shake } from '../game/state.js';
 import { clearSpot } from './scenery.js';
 import { ground } from './terrain.js';
+import { cactusMaterial, saguaroGeometry } from './flora';
 
 // ================= destructible props =================
 export const PROPS = [];
@@ -20,10 +21,8 @@ function makeProp(kind, x, z, opts) {
   let r = 0.8, h = 3, hp = 10, solid = true, breakOnRam = 0, explosive = null, topple = false, debrisCol = 0x557a3a;
   switch (kind) {
     case 'cactus': {
-      const g = 0x4f7a3a, g2 = 0x5f8c46, s = opts && opts.s || 1;
-      pb.cyl(0.42 * s, 0.5 * s, 5 * s, 7, g, 0, 2.5 * s, 0); pb.sph(0.42 * s, g2, 0, 5 * s, 0, 1, 0.7, 1);
-      pb.cyl(0.28 * s, 0.28 * s, 1.4 * s, 6, g, 0.8 * s, 2.4 * s, 0, 0, 0, Math.PI / 2); pb.cyl(0.28 * s, 0.3 * s, 1.8 * s, 6, g, 1.45 * s, 3.2 * s, 0); pb.sph(0.28 * s, g2, 1.45 * s, 4.1 * s, 0);
-      if (srand() < 0.7) { pb.cyl(0.26 * s, 0.26 * s, 1.1 * s, 6, g, -0.65 * s, 3.1 * s, 0, 0, 0, Math.PI / 2); pb.cyl(0.26 * s, 0.28 * s, 1.3 * s, 6, g, -1.15 * s, 3.7 * s, 0); pb.sph(0.26 * s, g2, -1.15 * s, 4.35 * s, 0); }
+      const s = opts && opts.s || 1;
+      const m = new THREE.Mesh(saguaroGeometry(s, PROPS.length * 7 + 1), cactusMaterial); m.castShadow = true; m.receiveShadow = true; group.add(m);
       group.rotation.y = srand() * TAU; r = 0.7; h = 5 * s; hp = 8; breakOnRam = 3; debrisCol = 0x4f7a3a; break;
     }
     case 'barrel': {
@@ -53,8 +52,8 @@ function makeProp(kind, x, z, opts) {
       group.rotation.y = opts.yaw || 0; r = 2.6; h = 9; hp = 40; topple = true; debrisCol = 0x6b4a36; break;
     }
   }
-  const mesh = new THREE.Mesh(pb.build(), MAT_VC); mesh.castShadow = true; mesh.receiveShadow = kind === 'tower';
-  group.add(mesh); scene.add(group);
+  if (pb.parts.length) { const mesh = new THREE.Mesh(pb.build(), MAT_VC); mesh.castShadow = true; mesh.receiveShadow = kind === 'tower'; group.add(mesh); }
+  scene.add(group);
   const p = { kind, x, z, y, r, h, hp, maxHp: hp, solid, breakOnRam, explosive, topple, debrisCol, group, alive: true, fall: null, rot0: group.rotation.y };
   PROPS.push(p); return p;
 }

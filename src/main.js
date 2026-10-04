@@ -1,6 +1,6 @@
 import { ensureAudio } from './audio/audio.js';
 import { initPools } from './combat/pools.js';
-import { applyTod } from './engine/sky.js';
+import { applyTod } from './engine/sky';
 import { camera, renderer, scene } from './engine/renderer.js';
 import { buildCarModel, disposeCarModel } from './cars/model/build.js';
 import { CARS } from './cars/roster.js';
@@ -13,7 +13,9 @@ import { G } from './game/state.js';
 import { setupTouch } from './input/input.js';
 import { buildPickups } from './world/pickups.js';
 import { buildProps } from './world/props.js';
-import { buildStatic, buildTerrain } from './world/scenery.js';
+import { buildStatic, buildTerrain, decorBlocked } from './world/scenery.js';
+import { buildScatter, buildTumbleweeds } from './world/flora';
+import { baseHeight } from './world/terrain.js';
 
 // ================= boot =================
 function wireUI() {
@@ -34,6 +36,7 @@ function wireUI() {
 function boot() {
   applyTod(G.settings.tod);
   buildTerrain(G.settings.quality === 'low'); buildStatic(); buildProps(); buildPickups(); initPools();
+  buildScatter({ lowQ: G.settings.quality === 'low', blocked: decorBlocked }); buildTumbleweeds(G.settings.quality === 'low' ? 4 : 8, baseHeight);
   setupTouch(); wireUI(); buildGarage();
   applyQuality();
   goTitle();

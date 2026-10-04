@@ -3,13 +3,14 @@ import { updateAudio } from '../audio/audio.js';
 import { updateDebris } from '../engine/debris.js';
 import { PSYS, setFxScale } from '../engine/particles.js';
 import { camera, headSpot, renderer, scene, sun, sunDir, updateLights } from '../engine/renderer.js';
-import { curTod, sky, stars, sunSprite } from '../engine/sky.js';
+import { curTod, updateSky } from '../engine/sky';
 import { _v1, _v2, isTouch, lerp } from '../engine/util.js';
 import { baseFov, chaseCam, orbitCam } from './camera.js';
 import { feed, updateHUD } from './hud.js';
 import { pauseGame, step } from './match.js';
 import { SHOW_POS } from './screens.js';
-import { G, pickTerrainMat } from './state.js';
+import { G } from './state.js';
+import { updateTumbleweeds } from '../world/flora';
 import { pollGamepad } from '../input/input.js';
 import { updatePickups } from '../world/pickups.js';
 import { ground } from '../world/terrain.js';
@@ -48,14 +49,12 @@ function frame(now) {
   }
   if (G.state !== 'paused') {
     for (const s of PSYS) s.update(G.state === 'playing' ? dt : rdt);
-    updateDebris(G.state === 'playing' ? dt : rdt); updateLights(rdt);
+    updateDebris(G.state === 'playing' ? dt : rdt); updateLights(rdt); updateTumbleweeds(G.state === 'playing' ? dt : rdt, now / 1000);
   }
   G.shake = Math.max(0, G.shake - rdt * 2.2);
   updateAudio(rdt);
   // sky & sun follow camera
-  sky.position.copy(camera.position);
-  sunSprite.position.copy(camera.position).addScaledVector(sunDir, 1400);
-  stars.position.copy(camera.position);
+  updateSky(camera.position, rdt);
   // shadow camera follows focus
   const f = G.player && G.state !== 'garage' && G.state !== 'title' ? G.player : (G.state === 'garage' ? { x: SHOW_POS.x, y: 0, z: SHOW_POS.z } : { x: 0, y: 0, z: 0 });
   sun.target.position.set(f.x, f.y || 0, f.z); sun.position.set(f.x + sunDir.x * 200, (f.y || 0) + Math.max(0.25, sunDir.y) * 200, f.z + sunDir.z * 200);
@@ -75,7 +74,6 @@ export function applyQuality() {
   renderer.shadowMap.enabled = hi; sun.castShadow = hi;
   scene.traverse(o => { const mat = /** @type {THREE.Mesh} */ (o).material; if (mat) (Array.isArray(mat) ? mat : [mat]).forEach(m => m.needsUpdate = true); });
   setFxScale(hi ? 1 : 0.55);
-  pickTerrainMat();
   resize();
 }
 export function resize() {
