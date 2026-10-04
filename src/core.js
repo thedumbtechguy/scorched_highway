@@ -100,6 +100,7 @@ function applyTod(name) {
   sunDir.set(t.dir[0], t.dir[1], t.dir[2]).normalize();
   sunSprite.material.color.setHex(t.spr); sunSprite.scale.set(t.sprS, t.sprS, 1);
   stars.visible = t.night;
+  if (typeof updateCarEnv === 'function') updateCarEnv(t);
   if (typeof onTodChanged === 'function') onTodChanged(t);
 }
 

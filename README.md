@@ -55,7 +55,8 @@ Plain browser scripts sharing one global scope, loaded in order by `index.html`:
 | `src/style.css` | Menus, HUD, touch controls |
 | `src/core.js` | Utilities, renderer, lighting, sky and time of day, particle systems, debris, geometry helpers |
 | `src/world.js` | Terrain and ramps, town and scenery, collision, destructible props, pickups |
-| `src/cars.js` | Car roster and stats, procedural car models, driving physics, car-to-car collisions |
+| `src/car-models.js` | Procedural car models: lofted bodies, glossy paint/chrome/glass with time-of-day reflections, canvas-painted livery decals, detailed wheels, lamps |
+| `src/cars.js` | Car roster and stats, driving physics, car-to-car collisions |
 | `src/weapons.js` | Projectiles, explosions, damage, weapons, combos and specials |
 | `src/ai.js` | Opponent behaviour |
 | `src/input-audio.js` | Keyboard, touch and gamepad input; synthesized sound effects |

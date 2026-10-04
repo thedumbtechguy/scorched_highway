@@ -8,11 +8,11 @@ const CARS = [
   { id: 'gravelqueen', name: 'Gravel Queen', driver: 'Ma Hollis', gang: 'Black Hats', tag: '#4fd0c0', color: 0x2f8f83,
     blurb: 'A salvage-yard pickup held together by spite and baling wire.',
     special: { name: 'Scrap bomb', desc: 'Lobs a bundle of junk that bursts into bomblets.' },
-    hp: 180, max: 41, accel: 23, turn: 2.15, grip: 8.0, mass: 1.3, stats: { Speed: 3, Armor: 4, Handling: 3 }, ai: 'sniper', front: 2.55, gunY: 1.5, gunX: 0.7 },
+    hp: 180, max: 41, accel: 23, turn: 2.15, grip: 8.0, mass: 1.3, stats: { Speed: 3, Armor: 4, Handling: 3 }, ai: 'sniper', front: 2.55, gunY: 1.49, gunX: 0.72, dirt: 0.6 },
   { id: 'moonbeam', name: 'Moonbeam', driver: 'Sky Farrow', gang: 'Sun Riders', tag: '#ffd35a', color: 0xf2b134,
     blurb: 'A painted van with a sound system strong enough to knock cars off the road.',
     special: { name: 'Good vibrations', desc: 'A sonic blast that shoves and shakes everything nearby.' },
-    hp: 195, max: 37, accel: 19, turn: 1.95, grip: 7.5, mass: 1.45, stats: { Speed: 2, Armor: 5, Handling: 2 }, ai: 'rammer', front: 2.7, gunY: 1.1, gunX: 0.75 },
+    hp: 195, max: 37, accel: 19, turn: 1.95, grip: 7.5, mass: 1.45, stats: { Speed: 2, Armor: 5, Handling: 2 }, ai: 'rammer', front: 2.8, gunY: 1.74, gunX: 0.66 },
   { id: 'scorcher', name: 'Scorcher', driver: 'Rex Vance', gang: 'Black Hats', tag: '#ff5a4a', color: 0xb8322a,
     blurb: 'A chopped hot rod that is mostly engine. Fragile, and very hard to catch.',
     special: { name: 'Afterburner', desc: 'A flaming burst of speed that scorches anyone behind you.' },
@@ -24,143 +24,16 @@ const CARS = [
   { id: 'bigchill', name: 'Big Chill', driver: 'Mister Frost', gang: 'Black Hats', tag: '#ff9fd0', color: 0xf1a7c3,
     blurb: 'An ice cream truck built like a bank vault. Slow, huge, and cold-hearted.',
     special: { name: 'Brain freeze', desc: 'An icy homing shot that slows and freezes its target.' },
-    hp: 225, max: 34, accel: 17, turn: 1.8, grip: 9.0, mass: 1.65, stats: { Speed: 1, Armor: 5, Handling: 1 }, ai: 'rammer', front: 2.6, gunY: 1.3, gunX: 0.8 },
+    hp: 225, max: 34, accel: 17, turn: 1.8, grip: 9.0, mass: 1.65, stats: { Speed: 1, Armor: 5, Handling: 1 }, ai: 'rammer', front: 2.6, gunY: 1.6, gunX: 0.8 },
 ];
 const CAR_BY_ID = Object.fromEntries(CARS.map(c => [c.id, c]));
-
-// ================= car models =================
-const C_GLASS = 0x33505e, C_DARK = 0x1f1b1e, C_CHROME = 0xc9c6c0, C_HEAD = 0xfff1b8, C_TAIL = 0xff2a1a;
-const tireMat = new THREE.MeshLambertMaterial({ vertexColors: true });
-const WHEEL_GEO = {};
-function wheelGeo(r, w) {
-  const k = r + '_' + w; if (WHEEL_GEO[k]) return WHEEL_GEO[k];
-  const pb = new PB();
-  pb.cyl(r, r, w, 12, 0x1c1a1a, 0, 0, 0, 0, 0, Math.PI / 2);
-  pb.cyl(r * 0.55, r * 0.55, w + 0.04, 8, C_CHROME, 0, 0, 0, 0, 0, Math.PI / 2);
-  pb.box(w + 0.06, r * 0.25, r * 1.1, 0x8a8680, 0, 0, 0);
-  return (WHEEL_GEO[k] = pb.build());
-}
-const beamMat = new THREE.MeshBasicMaterial({ color: 0xfff0c0, transparent: true, opacity: 0.06, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
-const beamGeo = (() => { const g = new THREE.ConeGeometry(3.2, 16, 12, 1, true); g.translate(0, -8, 0); g.rotateX(-Math.PI / 2); return g; })();
-
-function buildCarModel(def) {
-  const b = new PB(), L = new PB(); // body parts, emissive lights
-  const P = def.color;
-  let wheels = [];
-  const guns = (x, y, z) => { b.box(0.13, 0.13, 0.7, 0x6a6660, x, y, z); b.box(0.13, 0.13, 0.7, 0x6a6660, -x, y, z); b.box(0.28, 0.18, 0.3, 0x4a4640, x, y - 0.1, z - 0.3); b.box(0.28, 0.18, 0.3, 0x4a4640, -x, y - 0.1, z - 0.3); };
-  switch (def.id) {
-    case 'sundowner':
-      b.box(2.1, 0.62, 4.7, P, 0, 0.78, 0); b.box(2.14, 0.2, 3.6, C_DARK, 0, 0.52, 0);
-      b.box(0.8, 0.18, 1.5, P, 0, 1.16, 1.25); b.box(0.5, 0.16, 0.45, C_DARK, 0, 1.3, 1.0);
-      b.box(1.8, 0.52, 1.9, C_GLASS, 0, 1.35, -0.45); b.box(1.84, 0.1, 1.5, P, 0, 1.65, -0.55);
-      b.box(0.22, 0.02, 4.72, 0xf6ead4, 0.28, 1.1, 0); b.box(0.22, 0.02, 4.72, 0xf6ead4, -0.28, 1.1, 0);
-      b.box(0.22, 0.02, 1.52, 0xf6ead4, 0.28, 1.71, -0.55); b.box(0.22, 0.02, 1.52, 0xf6ead4, -0.28, 1.71, -0.55);
-      b.box(2.0, 0.08, 0.45, C_DARK, 0, 1.32, -2.2); b.box(0.1, 0.22, 0.1, C_DARK, 0.8, 1.2, -2.2); b.box(0.1, 0.22, 0.1, C_DARK, -0.8, 1.2, -2.2);
-      b.box(2.18, 0.18, 0.22, C_CHROME, 0, 0.6, 2.38); b.box(2.18, 0.18, 0.22, C_CHROME, 0, 0.6, -2.38); b.box(1.4, 0.28, 0.05, C_DARK, 0, 0.82, 2.36);
-      b.cyl(0.08, 0.08, 0.4, 6, C_CHROME, 0.6, 0.45, -2.42, Math.PI / 2); b.cyl(0.08, 0.08, 0.4, 6, C_CHROME, -0.6, 0.45, -2.42, Math.PI / 2);
-      L.box(0.36, 0.2, 0.06, C_HEAD, 0.72, 0.86, 2.37); L.box(0.36, 0.2, 0.06, C_HEAD, -0.72, 0.86, 2.37);
-      L.box(0.5, 0.14, 0.06, C_TAIL, 0.7, 0.9, -2.37); L.box(0.5, 0.14, 0.06, C_TAIL, -0.7, 0.9, -2.37);
-      guns(0.6, 1.2, 1.9);
-      wheels = [[1.02, 0.46, 1.45, 0.46, 0.34, 1], [-1.02, 0.46, 1.45, 0.46, 0.34, 1], [1.02, 0.5, -1.45, 0.5, 0.42, 0], [-1.02, 0.5, -1.45, 0.5, 0.42, 0]];
-      break;
-    case 'gravelqueen':
-      b.box(2.1, 0.7, 1.8, P, 0, 1.0, 1.45); b.box(2.3, 0.35, 1.2, P, 0, 0.95, 1.55);
-      b.box(2.2, 0.9, 1.4, P, 0, 1.35, 0.0); b.box(2.22, 0.5, 1.0, C_GLASS, 0, 1.55, 0.05); b.box(2.24, 0.12, 1.42, P, 0, 1.86, 0);
-      b.box(2.2, 0.2, 2.3, C_DARK, 0, 0.85, -1.75); b.box(0.14, 0.55, 2.3, P, 1.05, 1.2, -1.75); b.box(0.14, 0.55, 2.3, P, -1.05, 1.2, -1.75); b.box(2.2, 0.55, 0.14, P, 0, 1.2, -2.87);
-      b.box(0.02, 0.35, 0.8, 0x8a4a2a, 1.16, 1.0, 1.5); b.box(0.02, 0.3, 0.6, 0x8a4a2a, -1.13, 1.25, -1.2); b.box(0.9, 0.02, 0.6, 0x8a4a2a, 0.4, 1.36, 1.8);
-      b.box(0.12, 0.8, 0.12, C_CHROME, 0.95, 1.7, -0.9); b.box(0.12, 0.8, 0.12, C_CHROME, -0.95, 1.7, -0.9); b.box(2.0, 0.12, 0.12, C_CHROME, 0, 2.1, -0.9);
-      b.box(0.8, 0.5, 0.6, 0x6b5a4a, 0.4, 1.2, -1.6, 0, 0.3); b.cyl(0.35, 0.35, 0.9, 8, 0x3f5a4a, -0.5, 1.15, -2.2, 0, 0, Math.PI / 2); b.box(0.5, 0.35, 0.9, 0x7a6a50, -0.4, 1.1, -1.3, 0, -0.4);
-      b.box(2.3, 0.3, 0.3, C_CHROME, 0, 0.65, 2.42); b.box(0.12, 0.7, 0.12, C_CHROME, 0.6, 0.95, 2.5); b.box(0.12, 0.7, 0.12, C_CHROME, -0.6, 0.95, 2.5); b.box(1.4, 0.12, 0.12, C_CHROME, 0, 1.3, 2.5);
-      L.box(0.28, 0.2, 0.2, C_HEAD, 0.5, 2.25, -0.9); L.box(0.28, 0.2, 0.2, C_HEAD, -0.5, 2.25, -0.9); L.box(0.3, 0.3, 0.06, C_HEAD, 0.78, 1.05, 2.36); L.box(0.3, 0.3, 0.06, C_HEAD, -0.78, 1.05, 2.36);
-      L.box(0.2, 0.3, 0.06, C_TAIL, 0.95, 1.2, -2.95); L.box(0.2, 0.3, 0.06, C_TAIL, -0.95, 1.2, -2.95);
-      guns(0.7, 1.45, 2.0);
-      wheels = [[1.08, 0.52, 1.6, 0.52, 0.42, 1], [-1.08, 0.52, 1.6, 0.52, 0.42, 1], [1.08, 0.52, -1.5, 0.52, 0.42, 0], [-1.08, 0.52, -1.5, 0.52, 0.42, 0]];
-      break;
-    case 'moonbeam':
-      b.box(2.2, 1.75, 4.5, P, 0, 1.45, 0); b.box(2.2, 0.7, 0.5, P, 0, 0.95, 2.45);
-      b.box(2.0, 0.7, 0.1, C_GLASS, 0, 1.85, 2.26, -0.15); b.box(2.22, 0.55, 2.6, C_GLASS, 0, 1.9, -0.3);
-      b.box(2.24, 0.35, 4.52, 0x5a2d6e, 0, 1.2, 0); b.box(2.24, 0.12, 4.52, 0xd9531e, 0, 1.45, 0); b.box(2.24, 0.1, 4.52, 0xc0392b, 0, 0.98, 0);
-      b.sph(0.45, 0xf6ead4, 1.12, 1.25, -1.2, 0.1, 1, 1); b.sph(0.45, 0xf6ead4, -1.12, 1.25, -1.2, 0.1, 1, 1);
-      b.box(1.8, 0.08, 2.6, C_DARK, 0, 2.4, -0.3);
-      b.cyl(0.38, 0.3, 0.55, 10, 0x5a2d6e, 0.55, 2.72, 0.8, Math.PI / 2); b.cyl(0.38, 0.3, 0.55, 10, 0x5a2d6e, -0.55, 2.72, 0.8, Math.PI / 2);
-      b.cyl(0.3, 0.3, 0.05, 10, 0x221a26, 0.55, 2.72, 1.08, Math.PI / 2); b.cyl(0.3, 0.3, 0.05, 10, 0x221a26, -0.55, 2.72, 1.08, Math.PI / 2);
-      b.box(2.24, 0.22, 0.22, C_CHROME, 0, 0.55, 2.72); b.box(2.24, 0.22, 0.22, C_CHROME, 0, 0.55, -2.3);
-      L.box(0.32, 0.32, 0.06, C_HEAD, 0.75, 0.98, 2.72); L.box(0.32, 0.32, 0.06, C_HEAD, -0.75, 0.98, 2.72);
-      L.box(0.25, 0.4, 0.06, C_TAIL, 0.9, 1.3, -2.27); L.box(0.25, 0.4, 0.06, C_TAIL, -0.9, 1.3, -2.27);
-      guns(0.75, 1.05, 2.5);
-      wheels = [[1.05, 0.48, 1.5, 0.48, 0.38, 1], [-1.05, 0.48, 1.5, 0.48, 0.38, 1], [1.05, 0.48, -1.45, 0.48, 0.38, 0], [-1.05, 0.48, -1.45, 0.48, 0.38, 0]];
-      break;
-    case 'scorcher':
-      b.box(1.5, 0.55, 2.8, P, 0, 0.95, -0.5); b.box(1.1, 0.25, 1.6, P, 0, 0.75, 1.4);
-      b.box(0.9, 0.55, 1.0, 0x3a3a3a, 0, 1.2, 1.25); b.box(0.6, 0.3, 0.6, C_CHROME, 0, 1.6, 1.25); b.box(0.5, 0.25, 0.3, C_CHROME, 0, 1.85, 1.3);
-      for (const s of [1, -1]) { for (let k = 0; k < 3; k++) b.cyl(0.07, 0.07, 0.6, 6, C_CHROME, s * 0.62, 1.05, 0.9 + k * 0.28, 0, 0, Math.PI / 2 * s * 0.6); b.cyl(0.09, 0.09, 2.2, 6, C_CHROME, s * 0.95, 0.75, -0.2, Math.PI / 2); }
-      b.box(0.9, 0.6, 0.1, C_CHROME, 0, 1.0, 2.2);
-      b.box(1.3, 0.45, 1.0, C_GLASS, 0, 1.42, -0.75); b.box(1.34, 0.08, 0.9, P, 0, 1.68, -0.85);
-      b.box(0.02, 0.2, 1.3, 0xffb020, 0.76, 1.0, -0.2); b.box(0.02, 0.2, 1.3, 0xffb020, -0.76, 1.0, -0.2);
-      b.box(0.02, 0.12, 0.9, 0xff6a1a, 0.77, 1.14, -0.05); b.box(0.02, 0.12, 0.9, 0xff6a1a, -0.77, 1.14, -0.05);
-      b.cyl(0.06, 0.06, 1.9, 6, C_DARK, 0, 0.4, 1.95, 0, 0, Math.PI / 2);
-      b.box(0.45, 0.12, 1.3, P, 1.05, 1.3, -1.25); b.box(0.45, 0.12, 1.3, P, -1.05, 1.3, -1.25);
-      L.box(0.25, 0.25, 0.1, C_HEAD, 0.55, 1.05, 2.25); L.box(0.25, 0.25, 0.1, C_HEAD, -0.55, 1.05, 2.25);
-      L.box(0.3, 0.12, 0.06, C_TAIL, 0.5, 0.95, -1.92); L.box(0.3, 0.12, 0.06, C_TAIL, -0.5, 0.95, -1.92);
-      guns(0.5, 1.2, 1.9);
-      wheels = [[0.95, 0.4, 1.95, 0.4, 0.28, 1], [-0.95, 0.4, 1.95, 0.4, 0.28, 1], [1.05, 0.62, -1.25, 0.62, 0.55, 0], [-1.05, 0.62, -1.25, 0.62, 0.55, 0]];
-      break;
-    case 'lawdog':
-      b.box(2.1, 0.62, 4.9, 0x1b1b22, 0, 0.8, 0); b.box(2.14, 0.52, 1.9, 0xf0ede6, 0, 0.82, -0.2);
-      b.box(1.8, 0.5, 2.1, C_GLASS, 0, 1.36, -0.35); b.box(1.84, 0.1, 1.7, 0xf0ede6, 0, 1.65, -0.4);
-      b.box(0.02, 0.32, 0.32, 0xe8b02a, 1.08, 0.86, -0.2); b.box(0.02, 0.32, 0.32, 0xe8b02a, -1.08, 0.86, -0.2);
-      b.box(1.6, 0.5, 0.12, C_DARK, 0, 0.8, 2.6); b.box(0.12, 0.6, 0.3, C_DARK, 0.6, 0.8, 2.5); b.box(0.12, 0.6, 0.3, C_DARK, -0.6, 0.8, 2.5);
-      b.box(1.3, 0.12, 0.35, C_DARK, 0, 1.76, -0.2);
-      b.cyl(0.02, 0.02, 1.2, 4, C_DARK, -0.7, 2.2, -1.8);
-      b.box(2.12, 0.18, 0.2, C_CHROME, 0, 0.55, -2.48);
-      L.box(0.36, 0.2, 0.06, C_HEAD, 0.72, 0.88, 2.46); L.box(0.36, 0.2, 0.06, C_HEAD, -0.72, 0.88, 2.46);
-      L.box(0.45, 0.16, 0.06, C_TAIL, 0.7, 0.92, -2.46); L.box(0.45, 0.16, 0.06, C_TAIL, -0.7, 0.92, -2.46);
-      guns(0.6, 1.2, 2.0);
-      wheels = [[1.02, 0.46, 1.5, 0.46, 0.34, 1], [-1.02, 0.46, 1.5, 0.46, 0.34, 1], [1.02, 0.46, -1.5, 0.46, 0.34, 0], [-1.02, 0.46, -1.5, 0.46, 0.34, 0]];
-      break;
-    case 'bigchill':
-      b.box(2.3, 1.3, 1.5, 0xf6f0f2, 0, 1.25, 1.75); b.box(2.32, 0.3, 1.52, P, 0, 0.9, 1.75); b.box(2.32, 0.5, 1.2, C_GLASS, 0, 1.65, 1.8);
-      b.box(2.5, 2.3, 3.4, 0xf6f0f2, 0, 1.8, -0.75); b.box(2.52, 0.5, 3.42, P, 0, 1.2, -0.75); b.box(2.52, 0.14, 3.42, 0x7ad0e0, 0, 2.6, -0.75);
-      b.box(0.04, 0.8, 1.6, C_GLASS, 1.26, 2.05, -0.6); b.box(0.7, 0.06, 1.9, 0xe8433a, 1.55, 2.62, -0.6, 0, 0, -0.35);
-      b.cone(0.55, 1.3, 10, 0xd9a05a, 0, 3.6, -0.8, Math.PI); b.sph(0.62, P, 0, 4.35, -0.8, 1, 1, 1, 10, 8); b.sph(0.2, 0xe8433a, 0, 5.0, -0.8);
-      b.box(2.4, 0.3, 0.3, C_CHROME, 0, 0.65, 2.55); b.box(2.5, 0.3, 0.3, C_CHROME, 0, 0.65, -2.5);
-      L.box(0.34, 0.3, 0.06, C_HEAD, 0.8, 1.0, 2.52); L.box(0.34, 0.3, 0.06, C_HEAD, -0.8, 1.0, 2.52);
-      L.box(0.25, 0.4, 0.06, C_TAIL, 1.0, 1.3, -2.47); L.box(0.25, 0.4, 0.06, C_TAIL, -1.0, 1.3, -2.47);
-      guns(0.8, 1.3, 2.3);
-      wheels = [[1.12, 0.55, 1.7, 0.55, 0.45, 1], [-1.12, 0.55, 1.7, 0.55, 0.45, 1], [1.12, 0.55, -1.5, 0.55, 0.45, 0], [-1.12, 0.55, -1.5, 0.55, 0.45, 0]];
-      break;
-  }
-  const group = new THREE.Group(), body = new THREE.Group(); group.add(body);
-  const mat = new THREE.MeshLambertMaterial({ vertexColors: true, emissive: 0x000000 });
-  const bodyMesh = new THREE.Mesh(b.build(), mat); bodyMesh.castShadow = true; body.add(bodyMesh);
-  const lightMesh = new THREE.Mesh(L.build(), MAT_VC_BASIC); body.add(lightMesh);
-  let siren = null;
-  if (def.id === 'lawdog') {
-    const red = new THREE.Mesh(GEO.box, new THREE.MeshBasicMaterial({ color: 0xff2020 })); red.scale.set(0.55, 0.18, 0.3); red.position.set(-0.33, 1.9, -0.2);
-    const blue = new THREE.Mesh(GEO.box, new THREE.MeshBasicMaterial({ color: 0x2050ff })); blue.scale.set(0.55, 0.18, 0.3); blue.position.set(0.33, 1.9, -0.2);
-    body.add(red); body.add(blue); siren = [red, blue];
-  }
-  const beams = [];
-  for (const sx of [-0.7, 0.7]) { const bm = new THREE.Mesh(beamGeo, beamMat); bm.position.set(sx, 0.9, def.front); bm.rotation.x = 0.06; bm.visible = false; body.add(bm); beams.push(bm); }
-  const ws = [];
-  for (const [x, y, z, r, w, front] of wheels) {
-    const pivot = new THREE.Group(); pivot.position.set(x + Math.sign(x) * w * 0.3, y, z);
-    const m = new THREE.Mesh(wheelGeo(r, w), tireMat); m.castShadow = true; pivot.add(m); group.add(pivot);
-    ws.push({ pivot, mesh: m, front: !!front, r });
-  }
-  return { group, body, wheels: ws, mat, siren, beams, bodyMesh, lightMesh };
-}
-function disposeCarModel(m) {
-  m.group.parent && m.group.parent.remove(m.group);
-  m.bodyMesh.geometry.dispose(); m.lightMesh.geometry.dispose(); m.mat.dispose();
-}
 
 // ================= car physics =================
 const _fwd = new THREE.Vector3(), _xAx = new THREE.Vector3(), _nrm = new THREE.Vector3(), _tq = new THREE.Quaternion();
 class Car {
   constructor(def, isPlayer) {
     this.def = def; this.isPlayer = isPlayer;
-    this.model = buildCarModel(def); this.obj = this.model.group; this.body = this.model.body; this.mat = this.model.mat;
+    this.model = buildCarModel(def); this.obj = this.model.group; this.body = this.model.body;
     scene.add(this.obj);
     this.radius = 1.9; this.mass = def.mass; this.up = new THREE.Vector3(0, 1, 0);
     this.input = { throttle: 0, steer: 0, handbrake: false };
@@ -176,7 +49,7 @@ class Car {
     });
     this.input.throttle = 0; this.input.steer = 0; this.input.handbrake = false;
     this.up.set(0, 1, 0);
-    this.obj.visible = true; this.mat.color.setRGB(1, 1, 1); this.mat.emissive.setRGB(0, 0, 0);
+    this.obj.visible = true; this.model.tint(1, 1, 1); this.model.emit(0, 0, 0);
     for (const w of this.model.wheels) w.pivot.visible = true;
     this.body.rotation.set(0, 0, 0);
     this.syncModel(1);
@@ -290,11 +163,12 @@ class Car {
   effects(dt) {
     const hpF = this.hp / this.def.hp;
     // flash / freeze tint
-    const e = this.mat.emissive;
-    if (this.frozen > 0) e.setRGB(0.15 + this.flash, 0.35 + this.flash, 0.6 + this.flash);
-    else if (this.burning > 0) e.setRGB(0.35 + this.flash, 0.12 + this.flash, 0.02 + this.flash);
-    else e.setRGB(this.flash, this.flash * 0.9, this.flash * 0.8);
-    if (this.alive) { const k = 0.45 + 0.55 * clamp(hpF * 1.4, 0, 1); this.mat.color.setRGB(k, k, k); }
+    const md = this.model;
+    if (this.frozen > 0) md.emit(0.15 + this.flash, 0.35 + this.flash, 0.6 + this.flash);
+    else if (this.burning > 0) md.emit(0.35 + this.flash, 0.12 + this.flash, 0.02 + this.flash);
+    else md.emit(this.flash, this.flash * 0.9, this.flash * 0.8);
+    if (this.alive) { const k = 0.45 + 0.55 * clamp(hpF * 1.4, 0, 1); md.tint(k, k, k); }
+    md.lights(curTod.night, this.alive && this.input.throttle < -0.05 && this.lastVF > 0.5, this.alive);
     if (this.model.siren) { const on = (performance.now() / 180 | 0) % 2 === 0; this.model.siren[0].visible = on; this.model.siren[1].visible = !on; }
     this.smokeT -= dt;
     const top = this.y + 1.4;
@@ -328,7 +202,7 @@ class Car {
   }
   wreck() {
     this.alive = false; this.hp = 0; this.deathTime = G.time; this.wreckT = 0;
-    this.mat.color.setRGB(0.18, 0.16, 0.15); this.mat.emissive.setRGB(0, 0, 0); this.frozen = 0; this.burning = 0; this.boost = 0;
+    this.model.tint(0.18, 0.16, 0.15); this.model.emit(0, 0, 0); this.model.lights(false, false, false); this.frozen = 0; this.burning = 0; this.boost = 0;
     this.vy = 14; this.grounded = false; this.y += 0.2; this.tumbleV = rand(4, 7) * (Math.random() < 0.5 ? -1 : 1); this.tumbleAxis = Math.random() < 0.5 ? 0 : 1;
     for (const w of this.model.wheels) {
       if (Math.random() < 0.6) {
