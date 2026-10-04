@@ -1,143 +1,19 @@
-'use strict';
-// ================= projectile meshes (pooled) =================
-const POOLS = {};
-function makePool(name, n, factory) {
-  const arr = []; for (let i = 0; i < n; i++) { const m = factory(); m.visible = false; scene.add(m); arr.push(m); }
-  POOLS[name] = { arr, i: 0 };
-}
-function takeMesh(name) {
-  const p = POOLS[name]; const n = p.arr.length;
-  for (let k = 0; k < n; k++) { const m = p.arr[(p.i + k) % n]; if (!m.visible) { p.i = (p.i + k + 1) % n; m.visible = true; return m; } }
-  const m = p.arr[p.i]; p.i = (p.i + 1) % n; m.visible = true; return m;
-}
-function initPools() {
-  const bulletMat = new THREE.MeshBasicMaterial({ color: 0xffe08a });
-  makePool('bullet', 160, () => { const m = new THREE.Mesh(GEO.box, bulletMat); m.scale.set(0.14, 0.14, 1.8); return m; });
-  const missileGeo = new PB().cyl(0.16, 0.16, 1.2, 8, 0xd8d0c4, 0, 0, 0, Math.PI / 2).cone(0.16, 0.45, 8, 0xc0392b, 0, 0, 0.82, Math.PI / 2).box(0.6, 0.05, 0.25, 0x5a5048, 0, 0, -0.5).box(0.05, 0.6, 0.25, 0x5a5048, 0, 0, -0.5).build();
-  makePool('missile', 40, () => new THREE.Mesh(missileGeo, MAT_VC));
-  const shellGeo = new PB().sph(0.36, 0x3a3a3a, 0, 0, 0, 1, 1, 1.3).build();
-  makePool('shell', 24, () => new THREE.Mesh(shellGeo, MAT_VC));
-  const mineGeo = new PB().cyl(0.55, 0.65, 0.3, 10, 0x4a4238, 0, 0.15, 0).cyl(0.2, 0.25, 0.15, 8, 0x2a2622, 0, 0.35, 0).build();
-  const mineLightMat = new THREE.MeshBasicMaterial({ color: 0xff2a1a });
-  makePool('mine', 40, () => { const g = new THREE.Group(); const m = new THREE.Mesh(mineGeo, MAT_VC); g.add(m); const l = new THREE.Mesh(sphGeo(0.12, 6, 4), mineLightMat); l.position.y = 0.45; g.add(l); g.userData.light = l; return g; });
-  const fbMat = new THREE.MeshBasicMaterial({ color: 0xffa030 });
-  makePool('fireball', 12, () => new THREE.Mesh(sphGeo(0.8, 10, 8), fbMat));
-  const canMat = new THREE.MeshBasicMaterial({ color: 0xfff0b0 });
-  makePool('cannon', 16, () => new THREE.Mesh(sphGeo(0.32, 8, 6), canMat));
-  const scrapGeo = new PB().rock(0.6, 0x6b5a4a, 0, 0, 0, 0, 1, 1, 1).box(0.8, 0.2, 0.3, 0x3f5a4a, 0.2, 0.3, 0).build();
-  makePool('scrap', 16, () => new THREE.Mesh(scrapGeo, MAT_VC));
-  const iceMat = new THREE.MeshBasicMaterial({ color: 0x9fe8ff });
-  makePool('ice', 12, () => new THREE.Mesh(new THREE.IcosahedronGeometry(0.55, 0), iceMat));
-  const ringMat = new THREE.MeshBasicMaterial({ color: 0xffe0a0, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
-  makePool('ring', 10, () => { const m = new THREE.Mesh(new THREE.RingGeometry(0.85, 1, 40), ringMat.clone()); m.rotation.x = -Math.PI / 2; return m; });
-}
-const PROJ = [];
-const MINES = [];
-const RINGS = [];
-function clearWeapons() {
-  for (const p of PROJ) if (p.mesh) p.mesh.visible = false; PROJ.length = 0;
-  for (const m of MINES) m.mesh.visible = false; MINES.length = 0;
-  for (const r of RINGS) r.mesh.visible = false; RINGS.length = 0;
-}
-
-// ================= damage =================
-const DIFF = [
-  { name: 'Easy', aim: 0.13, mg: 0.45, fire: 0.55, react: 1.1, toPlayer: 0.5, combo: 0.05, speed: 0.9, bias: 0 },
-  { name: 'Normal', aim: 0.065, mg: 0.75, fire: 0.8, react: 0.6, toPlayer: 0.75, combo: 0.18, speed: 0.97, bias: 12 },
-  { name: 'Hard', aim: 0.03, mg: 0.95, fire: 1, react: 0.3, toPlayer: 1, combo: 0.35, speed: 1, bias: 25 },
-];
-function damageCar(c, amt, by, kind, silent) {
-  if (!c.alive || amt <= 0 || G.state !== 'playing') return;
-  if (G.countdown > 0) return;
-  if (c.isPlayer && by && by !== c) amt *= DIFF[G.settings.difficulty].toPlayer;
-  c.hp -= amt;
-  if (!silent) c.flash = Math.min(0.6, c.flash + 0.35);
-  if (by && by !== c) { c.lastHitBy = by; c.lastHitTime = G.time; by.dealt += amt; }
-  if (c.isPlayer && !silent) hudHit(amt);
-  if (c.hp <= 0) killCar(c, by && by !== c ? by : (G.time - c.lastHitTime < 6 ? c.lastHitBy : null), kind);
-}
-function killCar(c, by, kind) {
-  if (!c.alive) return;
-  c.wreck();
-  explodeFX(c.x, c.y + 1, c.z, 2.6, { fire: true });
-  // splash from exploding car
-  for (const o of G.cars) if (o !== c && o.alive) { const d = Math.hypot(o.x - c.x, o.z - c.z); if (d < 8) { damageCar(o, 14 * (1 - d / 8), by || null, 'blast'); knock(o, c.x, c.z, 10 * (1 - d / 8), 5); } }
-  if (by) by.kills++;
-  c.place = G.cars.filter(o => o.alive).length + 1;
-  const vName = c.isPlayer ? 'You' : c.def.driver;
-  let msg;
-  if (!by) msg = kind === 'fall' ? vName + ' came down too hard' : vName + (c.isPlayer ? ' wrecked yourself' : ' wrecked themselves');
-  else msg = (by.isPlayer ? 'You' : by.def.driver) + ' wrecked ' + (c.isPlayer ? 'you' : c.def.driver);
-  feed(msg, (by && by.isPlayer) || c.isPlayer);
-  onCarKilled(c, by);
-}
-function knock(c, fromX, fromZ, power, up) {
-  let dx = c.x - fromX, dz = c.z - fromZ; const L = Math.hypot(dx, dz) || 1; dx /= L; dz /= L;
-  const k = power / c.mass;
-  c.vx += dx * k; c.vz += dz * k;
-  if (up > 0) {
-    c.vy = Math.max(c.vy, up / Math.sqrt(c.mass)); c.y += 0.15; c.grounded = false; c.airT = 0.01;
-    if (up > 9 && c.alive) { c.tumbleV = rand(5, 9) * (Math.random() < 0.5 ? -1 : 1); c.tumbleAxis = Math.random() < 0.5 ? 0 : 1; }
-  }
-}
-
-// ================= effects =================
-function sparks(x, y, z, n) {
-  for (let i = 0; i < n * fxScale; i++) FX_ADD.spawn(x, y, z, rand(-12, 12), rand(2, 12), rand(-12, 12), rand(0.15, 0.4), 0.35, 0.1, 0xfff2b0, 0xff8020, 1, 2, 20);
-}
-function explodeFX(x, y, z, size, opts) {
-  opts = opts || {};
-  const n = Math.round(16 * size * fxScale);
-  for (let i = 0; i < n; i++) {
-    const a = rand(0, TAU), s = rand(2, 9) * size * 0.6;
-    FX_ADD.spawn(x + rand(-0.5, 0.5) * size, y + rand(0, 1) * size, z + rand(-0.5, 0.5) * size, Math.cos(a) * s, rand(2, 10) * size * 0.6, Math.sin(a) * s, rand(0.35, 0.7), 2.4 * size, 5 * size, opts.ice ? 0xb8e6ff : 0xffc060, opts.ice ? 0x2a6aff : 0xd03008, 0.7, 3, -3);
-  }
-  for (let i = 0; i < n * 0.8; i++) {
-    const a = rand(0, TAU), s = rand(1, 5) * size * 0.5;
-    FX_SMOKE.spawn(x + rand(-1, 1) * size, y + rand(0, 1.5) * size, z + rand(-1, 1) * size, Math.cos(a) * s, rand(2, 6), Math.sin(a) * s, rand(1.4, 2.6), 2 * size, 7 * size, opts.ice ? 0xcfe8f5 : 0x3a3035, opts.ice ? 0xeef8ff : 0x8a7a78, opts.ice ? 0.5 : 0.7, 1.4, -1.2);
-  }
-  sparks(x, y, z, 10 * size);
-  for (let i = 0; i < 3 * size * fxScale; i++) spawnDebris(x, y + 0.5, z, rand(-10, 10), rand(6, 16), rand(-10, 10), rand(0.2, 0.5), pick([0x3a3030, 0x5a4a40, 0x2a2626]), rand(1.5, 2.5));
-  if (opts.fire) for (let i = 0; i < 10 * fxScale; i++) FX_ADD.spawn(x + rand(-2, 2), y, z + rand(-2, 2), rand(-1, 1), rand(2, 5), rand(-1, 1), rand(1, 2.2), 2.2, 0.5, 0xffc050, 0xff2a10, 0.8, 1, -2);
-  if (size >= 1.4) ring(x, ground(x, z) + 0.4, z, 4 * size, 0.45, opts.ice ? 0x9fe8ff : 0xffd090);
-  flashLight(x, y, z, opts.ice ? 1.5 : 2.5 + size);
-  playSfx('boom', x, z, clamp(size / 2, 0.4, 1.3));
-  shake(x, z, size * 0.35);
-}
-function ring(x, y, z, radius, life, color) {
-  const m = takeMesh('ring'); m.position.set(x, y, z); m.scale.set(0.1, 0.1, 0.1); m.material.color.setHex(color); m.material.opacity = 0.8;
-  RINGS.push({ mesh: m, t: 0, life, radius });
-}
-function updateRings(dt) {
-  for (let i = RINGS.length - 1; i >= 0; i--) {
-    const r = RINGS[i]; r.t += dt; const k = r.t / r.life;
-    if (k >= 1) { r.mesh.visible = false; RINGS.splice(i, 1); continue; }
-    const s = r.radius * (0.2 + 0.8 * Math.sqrt(k)); r.mesh.scale.set(s, s, s); r.mesh.material.opacity = 0.8 * (1 - k);
-  }
-}
-function explode(x, y, z, radius, dmg, owner, opts) {
-  opts = opts || {};
-  explodeFX(x, y, z, opts.size || radius / 4.5, opts);
-  for (const c of G.cars) {
-    const dx = c.x - x, dy = (c.y + 1) - y, dz = c.z - z; const d = Math.sqrt(dx * dx + dy * dy * 0.5 + dz * dz);
-    if (d > radius + c.radius) continue;
-    const f = c === opts.direct ? 1 : clamp(1 - (d - c.radius) / radius, 0, 1) * 0.85;
-    if (c.alive) {
-      damageCar(c, dmg * f * (c === owner ? 0.5 : 1), owner, opts.kind || 'blast');
-      if (opts.freeze) c.frozen = Math.max(c.frozen, opts.freeze);
-      if (opts.fire) { c.burning = Math.max(c.burning, 2); c.burnBy = owner; }
-    }
-    knock(c, x, z, (opts.push || 9) * f + 2, (opts.lift || 7) * f);
-  }
-  for (const p of PROPS) {
-    if (!p.alive) continue; const d = Math.hypot(p.x - x, p.z - z);
-    if (d < radius + p.r) { if (p.kind === 'barrel' || p.kind === 'pump') { const pp = p, o = owner; later(0.09 + Math.random() * 0.12, () => damageProp(pp, 999, o)); } else damageProp(p, dmg * 1.5, owner); }
-  }
-  for (const m of MINES) if (!m.dead && Math.hypot(m.x - x, m.z - z) < radius * 0.7) { m.fuse = Math.min(m.fuse == null ? 0.15 : m.fuse, 0.15); }
-}
+import * as THREE from 'three';
+import { playSfx } from '../audio/audio.js';
+import { DIFF, damageCar, knock } from './damage.js';
+import { explode, ring, sparks } from './effects.js';
+import { MINES, PROJ, takeMesh } from './pools.js';
+import { FX_ADD, FX_SMOKE, fxScale } from '../engine/particles.js';
+import { TAU, _v1, _v2, clamp, rand } from '../engine/util.js';
+import { bigText } from '../game/hud.js';
+import { G, shake } from '../game/state.js';
+import { pointBlocked } from '../world/collision.js';
+import { WEAPON_ORDER } from '../world/pickups.js';
+import { PROPS, breakProp, damageProp } from '../world/props.js';
+import { ARENA_R, ground } from '../world/terrain.js';
 
 // ================= targeting =================
-function findTarget(c, range, cone) {
+export function findTarget(c, range, cone) {
   let best = null, bestS = 1e9; const fx = Math.sin(c.yaw), fz = Math.cos(c.yaw);
   for (const o of G.cars) {
     if (o === c || !o.alive) continue;
@@ -158,7 +34,7 @@ function jitter(v, err) { v.x += rand(-err, err); v.y += rand(-err, err) * 0.4; 
 function carAim(c) { return c.isPlayer ? 0 : DIFF[G.settings.difficulty].aim; }
 
 // ================= firing =================
-const COMBOS = { missile: ['Rattler volley', 'Sky strike'], mortar: ['Carpet barrage', 'Bunker buster'], mines: ['Mine toss', 'Minefield'], flame: ['Ring of fire', 'Fireball'] };
+export const COMBOS = { missile: ['Rattler volley', 'Sky strike'], mortar: ['Carpet barrage', 'Bunker buster'], mines: ['Mine toss', 'Minefield'], flame: ['Ring of fire', 'Fireball'] };
 const _mz = new THREE.Vector3(), _dir = new THREE.Vector3();
 function spawnProj(o) { o.age = 0; if (o.meshName) o.mesh = takeMesh(o.meshName); PROJ.push(o); return o; }
 function fireMG(c) {
@@ -262,7 +138,7 @@ function autoSwitch(c) {
   c.weapon = null;
   for (const w of WEAPON_ORDER) if (c.ammo[w] > 0.01) { c.weapon = w; break; }
 }
-function cycleWeapon(c, dir) {
+export function cycleWeapon(c, dir) {
   const i0 = c.weapon ? WEAPON_ORDER.indexOf(c.weapon) : -1;
   for (let k = 1; k <= 4; k++) { const w = WEAPON_ORDER[(i0 + dir * k + 8) % 4]; if (c.ammo[w] > 0.01) { c.weapon = w; playSfx('click', c.x, c.z, 0.5); return; } }
 }
@@ -342,7 +218,7 @@ function fireSpecial(c) {
 }
 
 // ================= per-frame weapons =================
-function tickCarWeapons(c, dt) {
+export function tickCarWeapons(c, dt) {
   c.cdMG -= dt; c.cdW -= dt; c.cdS -= dt;
   if (!c.alive || G.countdown > 0) { c.flameOn = false; return; }
   if (c.mgHeld && c.cdMG <= 0) fireMG(c);
@@ -369,7 +245,7 @@ function propHit(p) {
   for (const pr of PROPS) { if (!pr.alive || p.y > pr.y + pr.h) continue; const dx = p.x - pr.x, dz = p.z - pr.z, R = pr.r + p.r * 0.5; if (dx * dx + dz * dz < R * R) return pr; }
   return null;
 }
-function updateProjectiles(dt) {
+export function updateProjectiles(dt) {
   for (let i = PROJ.length - 1; i >= 0; i--) {
     const p = PROJ[i]; p.age += dt; p.life -= dt;
     let done = false;
@@ -452,7 +328,7 @@ function impact(p, car, prop) {
     }
   }
 }
-function updateMines(dt, t) {
+export function updateMines(dt, t) {
   for (let i = MINES.length - 1; i >= 0; i--) {
     const m = MINES[i];
     m.arm -= dt; m.grace -= dt; m.life -= dt; m.t += dt;

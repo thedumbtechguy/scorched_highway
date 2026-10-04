@@ -1,11 +1,16 @@
-'use strict';
+import { DIFF } from '../combat/damage.js';
+import { TAU, angDiff, clamp, rand } from '../engine/util.js';
+import { G } from '../game/state.js';
+import { blockedAt, lineOfSight } from '../world/collision.js';
+import { WEAPON_ORDER, nearestPickup } from '../world/pickups.js';
+
 // ================= AI =================
 const PERS = {
   rammer: { flee: 0.22, keep: 0, charge: true },
   sniper: { flee: 0.4, keep: 34, charge: false },
   opportunist: { flee: 0.33, keep: 0, charge: false },
 };
-class AI {
+export class AI {
   constructor(car) {
     this.car = car; this.pers = car.def.ai; this.P = PERS[this.pers];
     this.target = null; this.goal = { type: 'wander' }; this.think = rand(0, 0.3); this.stuck = 0; this.reverseT = 0; this.revSteer = 1;

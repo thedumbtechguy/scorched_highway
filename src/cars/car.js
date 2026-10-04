@@ -1,36 +1,21 @@
-'use strict';
-// ================= car definitions =================
-const CARS = [
-  { id: 'sundowner', name: 'Sundowner', driver: 'Dee Cortez', gang: 'Sun Riders', tag: '#ff8a4a', color: 0xe8662a,
-    blurb: 'A big-block muscle car with a chip on its fender. Quick, balanced, and loud.',
-    special: { name: 'Twin cannons', desc: 'Two heavy shells straight down the hood.' },
-    hp: 150, max: 47, accel: 27, turn: 2.35, grip: 7.0, mass: 1.0, stats: { Speed: 4, Armor: 3, Handling: 4 }, ai: 'opportunist', front: 2.4, gunY: 1.25, gunX: 0.6 },
-  { id: 'gravelqueen', name: 'Gravel Queen', driver: 'Ma Hollis', gang: 'Black Hats', tag: '#4fd0c0', color: 0x2f8f83,
-    blurb: 'A salvage-yard pickup held together by spite and baling wire.',
-    special: { name: 'Scrap bomb', desc: 'Lobs a bundle of junk that bursts into bomblets.' },
-    hp: 180, max: 41, accel: 23, turn: 2.15, grip: 8.0, mass: 1.3, stats: { Speed: 3, Armor: 4, Handling: 3 }, ai: 'sniper', front: 2.55, gunY: 1.49, gunX: 0.72, dirt: 0.6 },
-  { id: 'moonbeam', name: 'Moonbeam', driver: 'Sky Farrow', gang: 'Sun Riders', tag: '#ffd35a', color: 0xf2b134,
-    blurb: 'A painted van with a sound system strong enough to knock cars off the road.',
-    special: { name: 'Good vibrations', desc: 'A sonic blast that shoves and shakes everything nearby.' },
-    hp: 195, max: 37, accel: 19, turn: 1.95, grip: 7.5, mass: 1.45, stats: { Speed: 2, Armor: 5, Handling: 2 }, ai: 'rammer', front: 2.8, gunY: 1.74, gunX: 0.66 },
-  { id: 'scorcher', name: 'Scorcher', driver: 'Rex Vance', gang: 'Black Hats', tag: '#ff5a4a', color: 0xb8322a,
-    blurb: 'A chopped hot rod that is mostly engine. Fragile, and very hard to catch.',
-    special: { name: 'Afterburner', desc: 'A flaming burst of speed that scorches anyone behind you.' },
-    hp: 120, max: 53, accel: 33, turn: 2.6, grip: 6.2, mass: 0.8, stats: { Speed: 5, Armor: 2, Handling: 5 }, ai: 'rammer', front: 2.3, gunY: 1.2, gunX: 0.5 },
-  { id: 'lawdog', name: 'Lawdog', driver: 'Deputy Tull', gang: 'Sun Riders', tag: '#9fc6ff', color: 0xf0ede6,
-    blurb: 'A county cruiser that stopped answering the radio years ago.',
-    special: { name: 'Riot gun', desc: 'A close-range spread of heavy buckshot.' },
-    hp: 155, max: 45, accel: 26, turn: 2.45, grip: 8.2, mass: 1.05, stats: { Speed: 4, Armor: 3, Handling: 4 }, ai: 'opportunist', front: 2.6, gunY: 1.2, gunX: 0.6 },
-  { id: 'bigchill', name: 'Big Chill', driver: 'Mister Frost', gang: 'Black Hats', tag: '#ff9fd0', color: 0xf1a7c3,
-    blurb: 'An ice cream truck built like a bank vault. Slow, huge, and cold-hearted.',
-    special: { name: 'Brain freeze', desc: 'An icy homing shot that slows and freezes its target.' },
-    hp: 225, max: 34, accel: 17, turn: 1.8, grip: 9.0, mass: 1.65, stats: { Speed: 1, Armor: 5, Handling: 1 }, ai: 'rammer', front: 2.6, gunY: 1.6, gunX: 0.8 },
-];
-const CAR_BY_ID = Object.fromEntries(CARS.map(c => [c.id, c]));
+import * as THREE from 'three';
+import { playSfx } from '../audio/audio.js';
+import { buildCarModel } from './model/build.js';
+import { damageCar } from '../combat/damage.js';
+import { sparks } from '../combat/effects.js';
+import { spawnDebris } from '../engine/debris.js';
+import { FX_ADD, FX_SMOKE, fxScale } from '../engine/particles.js';
+import { scene } from '../engine/renderer.js';
+import { curTod } from '../engine/sky.js';
+import { GRAV, TAU, _m4, _v1, clamp, lerp, rand } from '../engine/util.js';
+import { G, shake } from '../game/state.js';
+import { pushOut, resolveStatic } from '../world/collision.js';
+import { PROPS, breakProp, damageProp } from '../world/props.js';
+import { ground } from '../world/terrain.js';
 
 // ================= car physics =================
-const _fwd = new THREE.Vector3(), _xAx = new THREE.Vector3(), _nrm = new THREE.Vector3(), _tq = new THREE.Quaternion();
-class Car {
+const _fwd = new THREE.Vector3(), _xAx = new THREE.Vector3(), _nrm = new THREE.Vector3();
+export class Car {
   constructor(def, isPlayer) {
     this.def = def; this.isPlayer = isPlayer;
     this.model = buildCarModel(def); this.obj = this.model.group; this.body = this.model.body;
@@ -230,7 +215,7 @@ function resolveProps(c) {
   }
   return impact;
 }
-function collideCars(cars) {
+export function collideCars(cars) {
   for (let i = 0; i < cars.length; i++) for (let j = i + 1; j < cars.length; j++) {
     const a = cars[i], b = cars[j];
     if (Math.abs(a.y - b.y) > 2.6) continue;
