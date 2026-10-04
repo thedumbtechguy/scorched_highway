@@ -55,9 +55,12 @@ export function buildGarage() {
     const options = key === 'mode' ? () => allModes().map(m => [m.id, m.name])
       : key === 'map' ? () => allMaps().filter(m => m.modes.includes(G.settings.mode)).map(m => [m.id, m.name])
         : () => vals.map((v, i) => [v, labels[i]]);
-    el.innerHTML = `<button aria-label="Previous">‹</button><span></span><button aria-label="Next">›</button>`;
+    el.innerHTML = `<button aria-label="Previous"><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button><span></span><button aria-label="Next"><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>`;
     const [prev, next] = el.querySelectorAll('button');
-    const show = () => { const o = options(), i = o.findIndex(([v]) => v === String(G.settings[key])); el.querySelector('span').textContent = (o[i] || o[0] || ['', ''])[1]; };
+    const show = () => {
+      const o = options(), i = o.findIndex(([v]) => v === String(G.settings[key])); el.querySelector('span').textContent = (o[i] || o[0] || ['', ''])[1];
+      prev.disabled = next.disabled = o.length < 2; // nothing to switch to (e.g. a mode with one map so far)
+    };
     const step = dir => {
       const o = options(), i = (Math.max(0, o.findIndex(([v]) => v === String(G.settings[key]))) + dir + o.length) % o.length;
       setSetting(key, key === 'opponents' || key === 'difficulty' ? +o[i][0] : o[i][0]);

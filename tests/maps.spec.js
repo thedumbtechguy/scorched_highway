@@ -52,6 +52,9 @@ test('garage: picking a mode offers only the maps that host it', async ({ page }
   await expect(mode.locator('span')).toHaveText('Race');
   await expect(map.locator('span')).toHaveText('Route 67');
   await expect(page.locator('#startBtn')).toHaveText('Start the race');
+  // each mode has one map so far, so the map picker has nothing to switch to
+  for (const b of await map.locator('button').all()) await expect(b).toBeDisabled();
+  for (const b of await mode.locator('button').all()) await expect(b).toBeEnabled();
 });
 
 test('sand is slower than dirt', async ({ page }) => {
