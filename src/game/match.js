@@ -18,7 +18,8 @@ import { resize } from './loop.js';
 import { clearShowcase, show } from './screens.js';
 import { G, later } from './state.js';
 import { KEYS, readPlayerInput } from '../input/input.js';
-import { AMMO_CAP, PICK, PICKUPS, resetPickups, updatePickups } from '../world/pickups';
+import { PICK, PICKUPS, resetPickups, updatePickups } from '../world/pickups';
+import { giveAmmo } from '../combat/arsenal';
 import { resetProps, updateProps } from '../world/props.js';
 
 // ================= match =================
@@ -41,8 +42,7 @@ export function startMatch() {
   [pdef, ...others].forEach((d, i) => {
     const c = new Car(d, i === 0); const [x, z] = spots[i];
     c.reset(x, z, Math.atan2(-x, -z)); c.speedK = i === 0 ? 1 : diff.speed;
-    if (i === 0) { c.ammo.missile = 4; c.weapon = 'missile'; }
-    else { c.ammo.missile = 2; c.weapon = 'missile'; }
+    c.ammo.missile = 3; c.weapon = 'missile';
     G.cars.push(c); if (i > 0) G.ais.push(new AI(c)); else G.player = c;
   });
   G.time = 0; G.clock = 0; G.countdown = 3.2; G.endT = -1; G.result = null; G.slowT = 0; G.timeScale = 1; G.shake = 0;
@@ -107,8 +107,8 @@ function applyPickup(c, p) {
   const t = p.type;
   if (t === 'repair') { if (c.hp >= c.def.hp - 0.5) return; c.hp = Math.min(c.def.hp, c.hp + PICK.repair.amt); c.burning = 0; }
   else if (t === 'special') { if (c.special >= 6) return; c.special = Math.min(6, c.special + 2); }
-  else { if (c.ammo[t] >= AMMO_CAP[t]) return; c.ammo[t] = Math.min(AMMO_CAP[t], c.ammo[t] + PICK[t].amt); if (!c.weapon || c.ammo[c.weapon] <= 0.01) c.weapon = t; }
+  else { const dropped = giveAmmo(c, t); if (dropped === false) return; if (dropped && c.isPlayer) feed('Dropped ' + PICK[dropped].label + ' to make room', true); }
   p.active = false; p.respawn = t === 'repair' ? 22 : 14;
   for (let i = 0; i < 16 * fxScale; i++) FX_ADD.spawn(p.x, p.y + 1.4, p.z, rand(-6, 6), rand(2, 9), rand(-6, 6), 0.5, 1, 0.1, PICK[t].color, 0xffffff, 0.9, 1.5, 6);
-  if (c.isPlayer) { playSfx(t === 'repair' ? 'repair' : 'pickup'); feed(t === 'repair' ? 'Repaired' : '+' + PICK[t].amt + (t === 'flame' ? 's' : '') + ' ' + PICK[t].label, true); if (t !== 'repair' && t !== 'special' && c.weapon !== t && !c.weapon) c.weapon = t; }
+  if (c.isPlayer) { playSfx(t === 'repair' ? 'repair' : 'pickup'); feed(t === 'repair' ? 'Repaired' : '+' + PICK[t].amt + (t === 'flame' ? 's' : '') + ' ' + PICK[t].label, true) }
 }

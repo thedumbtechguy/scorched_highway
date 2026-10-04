@@ -48,7 +48,7 @@ export function explode(x, y, z, radius, dmg, owner, opts) {
   explodeFX(x, y, z, opts.size || radius / 4.5, opts);
   for (const c of G.cars) {
     const dx = c.x - x, dy = (c.y + 1) - y, dz = c.z - z; const d = Math.sqrt(dx * dx + dy * dy * 0.5 + dz * dz);
-    if (d > radius + c.radius) continue;
+    if (d > radius + c.radius || c === opts.spare) continue;
     const f = c === opts.direct ? 1 : clamp(1 - (d - c.radius) / radius, 0, 1) * 0.85;
     if (c.alive) {
       damageCar(c, dmg * f * (c === owner ? 0.5 : 1), owner, opts.kind || 'blast');

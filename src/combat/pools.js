@@ -18,6 +18,10 @@ export function initPools() {
   makePool('bullet', 160, () => { const m = new THREE.Mesh(GEO.box, bulletMat); m.scale.set(0.14, 0.14, 1.8); return m; });
   const missileGeo = new PB().cyl(0.16, 0.16, 1.2, 8, 0xd8d0c4, 0, 0, 0, Math.PI / 2).cone(0.16, 0.45, 8, 0xc0392b, 0, 0, 0.82, Math.PI / 2).box(0.6, 0.05, 0.25, 0x5a5048, 0, 0, -0.5).box(0.05, 0.6, 0.25, 0x5a5048, 0, 0, -0.5).build();
   makePool('missile', 40, () => new THREE.Mesh(missileGeo, MAT_VC));
+  const rocketGeo = new PB().cyl(0.11, 0.11, 0.8, 6, 0x6a6258, 0, 0, 0, Math.PI / 2).cone(0.11, 0.3, 6, 0xff9a3c, 0, 0, 0.55, Math.PI / 2).build();
+  makePool('rocket', 40, () => new THREE.Mesh(rocketGeo, MAT_VC));
+  const flareMat = new THREE.MeshBasicMaterial({ color: 0xfff4d0 });
+  makePool('flare', 8, () => new THREE.Mesh(sphGeo(0.3, 8, 6), flareMat));
   const shellGeo = new PB().sph(0.36, 0x3a3a3a, 0, 0, 0, 1, 1, 1.3).build();
   makePool('shell', 24, () => new THREE.Mesh(shellGeo, MAT_VC));
   const mineGeo = new PB().cyl(0.55, 0.65, 0.3, 10, 0x4a4238, 0, 0.15, 0).cyl(0.2, 0.25, 0.15, 8, 0x2a2622, 0, 0.35, 0).build();
@@ -37,8 +41,11 @@ export function initPools() {
 export const PROJ = [];
 export const MINES = [];
 export const RINGS = [];
+/** Smoke clouds that homing weapons can't see through: { x, z, r, t } (t = seconds left). */
+export const SMOKES = [];
 export function clearWeapons() {
   for (const p of PROJ) if (p.mesh) p.mesh.visible = false; PROJ.length = 0;
   for (const m of MINES) m.mesh.visible = false; MINES.length = 0;
   for (const r of RINGS) r.mesh.visible = false; RINGS.length = 0;
+  SMOKES.length = 0;
 }
