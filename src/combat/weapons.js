@@ -12,6 +12,7 @@ import { lineOfSight, outOfBounds, pointBlocked } from '../world/collision.js';
 import { mapAt } from '../maps/registry';
 import { PROPS, breakProp, damageProp } from '../world/props.js';
 import { ground } from '../world/terrain.js';
+import { shatterRocks } from '../world/hazards';
 
 // ================= targeting =================
 /**
@@ -19,6 +20,7 @@ import { ground } from '../world/terrain.js';
  * The car's chosen target (`c.pref`) wins whenever it qualifies, with a little extra cone.
  */
 export function findTarget(c, range, cone, needSight = false, yaw = c.yaw) {
+  cone *= c.aimAssist || 1; // wider for the player on touch controls (see input.js)
   let best = null, bestS = 1e9; const fx = Math.sin(yaw), fz = Math.cos(yaw);
   const pf = c.pref;
   if (pf && pf.alive) {
@@ -268,6 +270,7 @@ function fireSpecial(c) {
     }
     case 'moonbeam': {
       ring(c.x, c.y + 1, c.z, 24, 0.6, 0xd8a0ff); ring(c.x, c.y + 0.5, c.z, 16, 0.45, 0xffe0a0);
+      shatterRocks(c.x, c.z, 24); // and shakes any fallen boulders to rubble
       for (let i = 0; i < 40 * fxScale; i++) { const a = i / 40 * TAU; FX_ADD.spawn(c.x, c.y + 1.2, c.z, Math.sin(a) * 38, rand(0, 4), Math.cos(a) * 38, 0.45, 1.5, 0.3, 0xe0b0ff, 0x7040ff, 0.9, 3, 0); }
       for (const o of G.cars) if (o !== c) { const dd = Math.hypot(o.x - c.x, o.z - c.z); if (dd < 22) { const f = 1 - dd / 26; if (o.alive) damageCar(o, 22 * f, c, 'sonic'); knock(o, c.x, c.z, 34 * f, 12 * f); } }
       for (const p of PROPS) if (p.alive && Math.hypot(p.x - c.x, p.z - c.z) < 20) breakProp(p, c);
@@ -291,7 +294,7 @@ function fireSpecial(c) {
       c.vx -= fx * 3; c.vz -= fz * 3; playSfx('cannon', c.x, c.z, 0.9); break;
     }
     case 'bigchill': {
-      const t = lure(findTarget(c, 65, 0.5, true));
+      const t = lure((G.mode.specialTarget && G.mode.specialTarget(c)) || findTarget(c, 65, 0.5, true));
       c.worldPoint(0, d.gunY + 0.6, d.front + 0.3, _mz);
       if (t) aimAt(_mz, t, 60, carAim(c) * 0.6, _dir); else c.worldDir(0, 0.03, 1, _dir);
       spawnProj({ type: 'ice', meshName: 'ice', x: _mz.x, y: _mz.y, z: _mz.z, vx: _dir.x * 60 + c.vx * 0.5, vy: _dir.y * 60, vz: _dir.z * 60 + c.vz * 0.5, owner: c, life: 2.4, dmg: 15, r: 0.8, target: t, turn: 1.4, speed: 60, maxSpeed: 60 });

@@ -29,6 +29,7 @@ export class Car {
     this.radius = 1.9; this.mass = def.mass; this.up = new THREE.Vector3(0, 1, 0);
     this.input = { throttle: 0, steer: 0, handbrake: false };
     this.speedK = 1; // top-speed scale; AI difficulty lowers it
+    this.aimAssist = 1; // lock-on cone scale (the player on touch controls gets more, see input.js)
     this.accelK = 1; // acceleration scale (race bots are matched to the player's car)
     /** @type {import('../modes/race').RaceState | null} progress in a race */ this.race = null;
     // each wheel's position in the car's frame and the drawn ground under it, for resting the car on its wheels
@@ -57,6 +58,8 @@ export class Car {
     this.body.rotation.set(0, 0, 0);
     this.syncModel(1);
   }
+  /** A surface's top-speed factor for this car: heavy cars plough through sand better (Big Chill loses about half as much). */
+  surface(g) { return g < 1 ? 1 - (1 - g) * clamp(1.4 - 0.5 * this.mass, 0.5, 1) : g; }
   get speed() { return Math.hypot(this.vx, this.vz); }
   get fx() { return Math.sin(this.yaw); }
   get fz() { return Math.cos(this.yaw); }
@@ -69,7 +72,7 @@ export class Car {
     if (!this.alive) { inp.throttle = 0; inp.steer = 0; inp.handbrake = true; }
     const fx = Math.sin(this.yaw), fz = Math.cos(this.yaw), rx = -fz, rz = fx;
     let vF = this.vx * fx + this.vz * fz, vL = this.vx * rx + this.vz * rz;
-    let maxS = d.max * (this.frozen > 0 ? 0.45 : 1) * this.speedK * groundSpeed(this.x, this.z); // sand slows you
+    let maxS = d.max * (this.frozen > 0 ? 0.45 : 1) * this.speedK * this.surface(groundSpeed(this.x, this.z)); // sand slows you
     if (this.boost > 0) maxS *= 1.7;
     if (this.grounded) {
       const thr = inp.throttle;

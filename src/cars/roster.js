@@ -15,7 +15,7 @@ export const CARS = [
   { id: 'scorcher', name: 'Scorcher', driver: 'Rex Vance', gang: 'Black Hats', tag: '#ff5a4a', color: 0xb8322a,
     blurb: 'A chopped hot rod that is mostly engine. Fragile, and very hard to catch.',
     special: { name: 'Afterburner', desc: 'A flaming burst of speed that scorches anyone behind you.' },
-    hp: 120, max: 53, accel: 33, turn: 2.6, grip: 6.2, mass: 0.8, stats: { Speed: 5, Armor: 2, Handling: 5 }, ai: 'rammer', front: 2.3, gunY: 1.2, gunX: 0.5 },
+    hp: 120, max: 53, accel: 33, turn: 2.6, grip: 6.2, mass: 0.8, stats: { Speed: 5, Armor: 2, Handling: 5 }, ai: 'skirmisher', front: 2.3, gunY: 1.2, gunX: 0.5 },
   { id: 'lawdog', name: 'Lawdog', driver: 'Deputy Tull', gang: 'Sun Riders', tag: '#9fc6ff', color: 0xf0ede6,
     blurb: 'A county cruiser that stopped answering the radio years ago.',
     special: { name: 'Riot gun', desc: 'A close-range spread of heavy buckshot.' },

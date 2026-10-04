@@ -20,7 +20,9 @@ export interface RockfallSite { kind: 'rockfall'; name: string; s: number; drops
 /** A wrong-way truck: the polyline it drives, in order; `s` is where it starts on the lap (the end it drives off). */
 export interface TruckSite { kind: 'truck'; name: string; s: number; route: { x: number[]; z: number[] } }
 export type HazardSite = RockfallSite | TruckSite;
-type Car = { x: number; y: number; z: number; vx: number; vz: number; vy: number; radius: number; alive: boolean; isPlayer: boolean; hazardT?: number };
+type Car = { x: number; y: number; z: number; vx: number; vz: number; vy: number; radius: number; mass: number; alive: boolean; isPlayer: boolean; hazardT?: number };
+/** Heavier cars shrug off part of a hazard's hit (Big Chill takes about 70%, Scorcher about 115%). */
+const toughness = (c: Car) => Math.pow(c.mass, -0.7);
 
 /** Seconds of rumbling before the first boulder comes down. */
 export const ROCK_WARN = 1.3;
@@ -119,7 +121,7 @@ export function updateHazards(dt: number) {
       _q.setFromAxisAngle(_p.copy(r.spin).normalize(), r.spin.length() * dt); r.rot.premultiply(_q);
       for (const c of cars) {
         if (!c.alive || r.hit.has(c) || (c.hazardT ?? -1) > G.time) continue; // one boulder at a time
-        if (Math.hypot(c.x - r.x, c.y + 1 - r.y, c.z - r.z) < r.r + 1.6) { r.hit.add(c); c.hazardT = G.time + 0.8; damageCar(c, ROCK_HIT, r.by !== c ? r.by : null, 'rock'); knock(c, r.x, r.z, 9, 6); shake(c.x, c.z, 0.6); playSfx('clank', c.x, c.z, 1); }
+        if (Math.hypot(c.x - r.x, c.y + 1 - r.y, c.z - r.z) < r.r + 1.6) { r.hit.add(c); c.hazardT = G.time + 0.8; damageCar(c, ROCK_HIT * toughness(c), r.by !== c ? r.by : null, 'rock'); knock(c, r.x, r.z, 9, 6); shake(c.x, c.z, 0.6); playSfx('clank', c.x, c.z, 1); }
       }
       const g = ground(r.x, r.z);
       if (r.vy < 0 && r.y <= g + r.r * 0.4) {
@@ -130,7 +132,7 @@ export function updateHazards(dt: number) {
       continue;
     }
     if (r.phase === 'rest' && (r.t -= dt) <= 0) { r.phase = 'sink'; r.t = ROCK_SINK; }
-    if (r.phase === 'sink') { r.y -= r.r * 1.3 / ROCK_SINK * dt; if ((r.t -= dt) <= 0) { ROCKS.splice(k, 1); continue; } }
+    if (r.phase === 'sink') { r.y -= r.r * 1.3 / Math.min(ROCK_SINK, r.t + dt) * dt; if ((r.t -= dt) <= 0) { ROCKS.splice(k, 1); continue; } }
     for (const c of cars) restingRock(c, r);
   }
   if (truck) driveTruck(truck, dt, cars);
@@ -164,7 +166,7 @@ function driveTruck(t: Truck, dt: number, cars: Car[]) {
     if (vn < 0) { c.vx -= 1.5 * vn * nx; c.vz -= 1.5 * vn * nz; }
     if (c.alive && (c.hazardT ?? -1) < G.time) {
       c.hazardT = G.time + 0.6;
-      const hit = clamp(-vn * 1.6, 10, 90);
+      const hit = clamp(-vn * 1.6, 10, 90) * toughness(c);
       damageCar(c, hit, t.by !== c ? t.by : null, 'truck'); if (hit > 30) knock(c, px, pz, 6, 8);
       playSfx('crash', c.x, c.z, 1); shake(c.x, c.z, 0.9);
     }
@@ -175,6 +177,10 @@ function draw() {
   ROCKS.forEach((r, i) => rockMesh!.setMatrixAt(i, _m.compose(_p.set(r.x, r.y, r.z), r.rot, _s.setScalar(r.r))));
   for (let i = ROCKS.length; i < rockMesh.count; i++) rockMesh.setMatrixAt(i, ZERO);
   rockMesh.count = Math.max(rockMesh.count, ROCKS.length); rockMesh.instanceMatrix.needsUpdate = true;
+}
+/** Shatter the fallen boulders within r of (x, z) (Moonbeam's sonic blast): they crumble away at once. */
+export function shatterRocks(x: number, z: number, r: number) {
+  for (const k of ROCKS) if (k.phase === 'rest' && Math.hypot(k.x - x, k.z - z) < r + k.r) { k.phase = 'sink'; k.t = 0.4; for (let i = 0; i < 10 * fxScale; i++) FX_SMOKE.spawn(k.x + rand(-k.r, k.r), k.y, k.z + rand(-k.r, k.r), rand(-5, 5), rand(2, 6), rand(-5, 5), rand(0.8, 1.6), 2, 5, 0xd8a878, 0xc89a70, 0.6, 1.5, -0.5); }
 }
 /** End every hazard (a new match). */
 export function clearHazards() {

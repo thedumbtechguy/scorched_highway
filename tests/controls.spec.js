@@ -96,3 +96,14 @@ test('holding a hard turn at speed drifts, unless switched off', async ({ page }
   await page.evaluate(() => { window.SH.G.settings.autodrift = 'off'; });
   expect(await drive()).toBe(false);
 });
+
+test('deathmatch: no more than two bots go after the player at once', async ({ page }) => {
+  await match(page, { opponents: 5, difficulty: 2 }); // Hard: the bots like the player most
+  const most = await page.evaluate(() => {
+    const { G, step, AI } = window.SH; let most = 0;
+    G.ais = G.cars.filter(c => !c.isPlayer).map(c => new AI(c)); // match() benches them
+    for (let i = 0; i < 60 * 8; i++) { G.player.hp = G.player.def.hp; step(1 / 60, 1 / 60); most = Math.max(most, G.ais.filter(a => a.car.alive && a.target === G.player).length); }
+    return most;
+  });
+  expect(most).toBeLessThanOrEqual(2);
+});

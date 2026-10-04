@@ -28,6 +28,14 @@ export const RUBBER = [{ up: 0.04, down: 0.12 }, { up: 0.08, down: 0.08 }, { up:
  * gets a few percent either way so the field spreads out.
  */
 export const PACE = [0.9, 0.99, 1.05], SPREAD = 0.03;
+/**
+ * In a race the cars' top speeds and acceleration are pulled halfway towards the middle of the field: speed decides
+ * a race far more than a fight, so the fastest car would otherwise always be the right pick. Armour still pays (see
+ * world/hazards.ts and the sand rule in cars/car.js).
+ */
+export const RACE_TOP = 44, RACE_ACCEL = 25, NARROW = 0.5;
+export const raceTop = (d: Car['def']) => d.max + (RACE_TOP - d.max) * NARROW;
+const raceAccel = (d: Car['def']) => d.accel + (RACE_ACCEL - d.accel) * NARROW;
 /** How often bots take the risky shortcut at a fork, by difficulty. */
 export const SHORTCUTS = [0.35, 0.7, 0.9];
 /** Slipstream: tucked in close behind another car at speed, top speed rises by up to this much. */
@@ -136,8 +144,9 @@ const paceOf = new WeakMap<Car, number>();
 function pace(c: Car): number {
   let k = paceOf.get(c);
   if (k === undefined) {
-    k = (G.player as Car).def.max * PACE[G.settings.difficulty] * (1 + rand(-SPREAD, SPREAD)) / c.def.max; paceOf.set(c, k);
-    c.accelK = Math.max(1, (G.player as Car).def.accel / c.def.accel * k); // and the acceleration to get there
+    const p = (G.player as Car).def;
+    k = raceTop(p) * PACE[G.settings.difficulty] * (1 + rand(-SPREAD, SPREAD)) / c.def.max; paceOf.set(c, k);
+    c.accelK = Math.max(1, raceAccel(p) / c.def.accel * k); // and the acceleration to get there
   }
   return k;
 }
@@ -160,6 +169,13 @@ const RULES: PlateRules = {
 export const race: GameMode = {
   id: 'race', name: 'Race', startLabel: 'Start the race', againLabel: 'Race again', lights: true, unarmedHint: 'Sword plates and crates arm you',
   rivalry: 35, // bots are racing you: they'd rather shoot you than each other
+  /** Big Chill's brain freeze goes for the car just ahead of it in the race, wherever it is in sight. */
+  specialTarget(c) {
+    if (c.def.id !== 'bigchill') return null;
+    const order = standings(cars()), i = order.indexOf(c as Car & { race: RaceState });
+    for (let j = i - 1; j >= 0; j--) { const o = order[j]; if (o.alive && !o.race.finished && Math.hypot(o.x - c.x, o.z - c.z) < 130) return o; }
+    return null;
+  },
   /** Line the cars up on the grid, the player at the back like a challenger. */
   setup(list, map) {
     course = map.course!; finishers = 0; spawnSlot = 0; endT = -1; leader = null;
@@ -200,7 +216,8 @@ export const race: GameMode = {
     for (const c of cars()) {
       c.draft = clamp(c.draft + (inSlipstream(c) ? dt * 2 : -dt * 2), 0, 1);
       const gap = pd - course.distance(c.race.progress), k = gap > 0 ? band.up * clamp(gap / BAND, 0, 1) : -band.down * clamp(-gap / BAND, 0, 1);
-      c.speedK = (c.isPlayer ? 1 : pace(c) * (1 + k)) * (1 + DRAFT * c.draft);
+      c.speedK = (c.isPlayer ? raceTop(c.def) / c.def.max : pace(c) * (1 + k)) * (1 + DRAFT * c.draft);
+      if (c.isPlayer) c.accelK = raceAccel(c.def) / c.def.accel;
     }
     leader = standings(cars())[0];
     if (p.alive && p.race.wrongT > 1 && (G.time % 1.2) < dt) bigText('Wrong way!', 0.7);

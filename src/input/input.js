@@ -15,6 +15,8 @@ import { ground } from '../world/terrain.js';
 export const KEYS = {};
 const INP = { wPress: false, combo: 0, sPress: false, cycle: 0, target: false, reset: false };
 /** The device the player last used, so hints show the right buttons. */
+/** How much wider the weapons' lock-on cones are for a player on touch controls. */
+export const TOUCH_AIM = 1.5;
 export const LAST = { device: /** @type {import('./bindings').Device} */ (isTouch ? 'touch' : 'keys') };
 /** Remember the device the player is using; the page shows hints for it via body[data-device]. */
 function useDevice(d) { if (LAST.device !== d || document.body.dataset.device !== d) { LAST.device = d; document.body.dataset.device = d; } }
@@ -165,6 +167,7 @@ export function readPlayerInput(c, dt = 1 / 60) {
   if (G.settings.autodrift === 'on' && AUTO.hardT > 0.25) hb = true;
   c.input.throttle = thr; c.input.steer = steer; c.input.handbrake = hb;
   c.mgHeld = mg; c.wHeld = w;
+  c.aimAssist = LAST.device === 'touch' ? TOUCH_AIM : 1; // thumbs steer less precisely than keys
   if (INP.wPress) { c.wFire = true; c.wCombo = INP.combo; INP.wPress = false; INP.combo = 0; }
   if (INP.sPress) { c.sFire = true; INP.sPress = false; }
   if (INP.cycle) { cycleWeapon(c, INP.cycle); INP.cycle = 0; }
