@@ -17,6 +17,8 @@ import { ground, rampHeight, groundSpeed } from '../world/terrain.js';
 // ================= car physics =================
 const _fwd = new THREE.Vector3(), _xAx = new THREE.Vector3(), _nrm = new THREE.Vector3();
 const DROOP = 0.14; // how far a wheel can hang below its rest position to reach the ground
+/** How far one wheel may rest above or below the ground under the car's middle (see sampleContacts). */
+const CONTACT_RISE = 0.6, CONTACT_DROP = 0.8;
 export class Car {
   constructor(def, isPlayer) {
     this.def = def; this.isPlayer = isPlayer;
@@ -61,7 +63,8 @@ export class Car {
     if (!this.alive) { inp.throttle = 0; inp.steer = 0; inp.handbrake = true; }
     const fx = Math.sin(this.yaw), fz = Math.cos(this.yaw), rx = -fz, rz = fx;
     let vF = this.vx * fx + this.vz * fz, vL = this.vx * rx + this.vz * rz;
-    let maxS = d.max * (this.frozen > 0 ? 0.45 : 1) * this.speedK * groundSpeed(this.x, this.z); // sand slows you if (this.boost > 0) maxS *= 1.7;
+    let maxS = d.max * (this.frozen > 0 ? 0.45 : 1) * this.speedK * groundSpeed(this.x, this.z); // sand slows you
+    if (this.boost > 0) maxS *= 1.7;
     if (this.grounded) {
       const thr = inp.throttle;
       if (this.boost > 0) vF += d.accel * 2.4 * dt;
@@ -148,8 +151,11 @@ export class Car {
   }
   /** Height of the drawn ground under each wheel (ramps only within climbing reach of the car's centre). */
   sampleContacts() {
-    const c = Math.cos(this.yaw), s = Math.sin(this.yaw), reach = rampHeight(this.x, this.z) + 0.8;
-    for (const k of this.contacts) k.h = drawnGround(this.x + k.lx * c + k.lz * s, this.z - k.lx * s + k.lz * c, reach);
+    const c = Math.cos(this.yaw), s = Math.sin(this.yaw), ramp = rampHeight(this.x, this.z), reach = ramp + 0.8;
+    // a wheel can't sit much above or below the ground under the car's middle: ground that rises faster than that
+    // is a wall (canyon rock, a building's footing) the car is pressed against, not something to climb onto
+    const mid = drawnGround(this.x, this.z, reach), lo = mid - CONTACT_DROP, hi = mid + (ramp > 0 ? 3 : CONTACT_RISE);
+    for (const k of this.contacts) k.h = clamp(drawnGround(this.x + k.lx * c + k.lz * s, this.z - k.lx * s + k.lz * c, reach), lo, hi);
   }
   /** Up vector of the plane through the wheels' ground points, tilt limited to about 40 degrees. */
   groundNormal(out) {

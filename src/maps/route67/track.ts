@@ -100,7 +100,7 @@ export function trackRamp(x: number, z: number): number {
 }
 
 // ---------- spatial index of path segments ----------
-const CELL = 32, WALL = 16, REACH = 13 + WALL + 4;
+const CELL = 32, WALL = 16, SHOULDER = 1.8, REACH = 13 + SHOULDER + WALL + 4;
 let minX = Infinity, minZ = Infinity, maxX = -Infinity, maxZ = -Infinity;
 for (const p of PATHS) for (let i = 0; i < p.x.length; i++) { minX = Math.min(minX, p.x[i]); maxX = Math.max(maxX, p.x[i]); minZ = Math.min(minZ, p.z[i]); maxZ = Math.max(maxZ, p.z[i]); }
 minX -= REACH + CELL; minZ -= REACH + CELL; maxX += REACH + CELL; maxZ += REACH + CELL;
@@ -162,7 +162,8 @@ function plateau(x: number, z: number) {
 }
 /** Canyon wall profile, 0 at the corridor's edge to 1 at the rim, with ledges. */
 function wall(e: number, x: number, z: number) {
-  const jitter = 1.5 + 1.5 * Math.sin(x * 0.09 + z * 0.07) + Math.sin(x * 0.23 - z * 0.19); // walls set back 0-4 m, never closer
+  // a flat shoulder past the corridor's edge (where the barrier holds cars), then the rock, set back 0-2 m more
+  const jitter = SHOULDER + 0.75 + 0.75 * Math.sin(x * 0.09 + z * 0.07) + 0.4 * Math.sin(x * 0.23 - z * 0.19);
   const u = clamp((e - jitter) / WALL, 0, 1); if (u <= 0) return 0;
   const steep = 1 - Math.pow(1 - u, 2.2);
   return clamp(steep + 0.05 * Math.sin(u * 19 + x * 0.05), 0, 1);
