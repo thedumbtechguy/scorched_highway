@@ -38,35 +38,45 @@ button:focus-visible,.seg button:focus-visible{outline:3px solid var(--sun);outl
 .btn.ghost:hover{background:rgba(246,234,212,.16)}
 .hint{font-size:14px;color:var(--muted);margin-top:14px}
 
-/* garage */
-#garage{align-items:stretch}
-.gpanel{width:min(440px,48vw);height:100%;background:var(--panel);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
-  display:flex;flex-direction:column;padding:calc(14px + env(safe-area-inset-top)) 18px calc(14px + env(safe-area-inset-bottom)) max(18px,env(safe-area-inset-left));border-right:1px solid var(--line)}
-.gscroll{flex:1;overflow-y:auto;overflow-x:hidden;touch-action:pan-y;-webkit-overflow-scrolling:touch;margin:0 -6px;padding:0 6px}
-.ghead{display:flex;align-items:center;gap:10px;margin-bottom:12px}
-.ghead h2{font-family:var(--display);font-weight:400;font-size:26px;margin:0;color:var(--sun)}
-.back{width:38px;height:38px;border-radius:50%;background:rgba(246,234,212,.1);font-size:24px;line-height:36px;text-align:center}
-.cars{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-.carbtn{text-align:left;padding:9px 10px;border-radius:9px;background:rgba(246,234,212,.06);border:1.5px solid transparent;font-weight:600;font-size:15px;line-height:1.1;display:flex;align-items:center;gap:8px}
-.carbtn i{width:12px;height:12px;border-radius:3px;flex:none}
-.carbtn[aria-pressed="true"]{border-color:var(--sun);background:rgba(242,177,52,.14)}
-.detail{margin-top:14px}
-.detail h3{font-family:var(--display);font-weight:400;font-size:34px;margin:0;line-height:1.05}
-.driver{margin:4px 0 8px;color:var(--muted);font-size:15px}
-.blurb{margin:0 0 12px;font-size:16px;line-height:1.35}
+/* garage: one car per screen */
+#garage{display:block;background:linear-gradient(180deg,rgba(42,24,56,.75) 0%,rgba(42,24,56,0) 26%,rgba(42,24,56,0) 58%,rgba(42,24,56,.8) 100%)}
+.gtop{position:absolute;left:0;right:0;top:0;padding:calc(12px + env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) 0 max(16px,env(safe-area-inset-left));display:flex;justify-content:center}
+.gtop .back{position:absolute;left:max(16px,env(safe-area-inset-left));top:calc(14px + env(safe-area-inset-top))}
+.gname{text-align:center}
+.gkicker{font-size:13px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);font-weight:700}
+.gname h2{font-family:var(--display);font-weight:400;font-size:clamp(34px,6vw,64px);margin:2px 0 0;line-height:1;text-shadow:3px 3px 0 rgba(30,17,42,.8)}
+.gname .driver{margin:4px 0 8px;font-size:16px;color:var(--bone);text-shadow:0 1px 3px rgba(0,0,0,.7)}
+.dots{display:flex;gap:8px;justify-content:center}
+.dots button{width:12px;height:12px;border-radius:50%;background:rgba(246,234,212,.28);transition:transform .15s}
+.dots button[aria-pressed="true"]{background:var(--c);transform:scale(1.35);box-shadow:0 0 0 2px rgba(30,17,42,.8)}
+.back{width:42px;height:42px;border-radius:50%;background:rgba(30,17,42,.6);border:1.5px solid var(--line);font-size:26px;line-height:38px;text-align:center}
+.arrow{position:absolute;top:44%;transform:translateY(-50%);width:64px;height:64px;border-radius:50%;background:rgba(30,17,42,.6);border:2px solid rgba(246,234,212,.35);font-size:40px;line-height:56px;color:var(--bone);transition:background .12s,transform .12s}
+.arrow:hover{background:rgba(242,177,52,.85);color:var(--ink)}
+.arrow:active{transform:translateY(-50%) scale(.93)}
+.arrow.prev{left:max(18px,env(safe-area-inset-left))}
+.arrow.next{right:max(18px,env(safe-area-inset-right))}
+.gbottom{position:absolute;left:0;right:0;bottom:0;padding:0 max(16px,env(safe-area-inset-right)) calc(16px + env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));display:flex;justify-content:space-between;align-items:flex-end;gap:16px;pointer-events:none}
+.gcard{pointer-events:auto;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+.gcard.detail{width:min(400px,46vw)}
+.gcard.setup{width:min(300px,38vw);display:grid;gap:8px}
+.blurb{margin:0 0 10px;font-size:16px;line-height:1.35}
 .stats{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;align-items:center;font-size:14px;color:var(--muted)}
 .bar{display:flex;gap:4px}
 .bar b{height:9px;flex:1;border-radius:2px;background:rgba(246,234,212,.14)}
 .bar b.on{background:var(--sun)}
 .bar b.on:nth-child(4),.bar b.on:nth-child(5){background:var(--flare)}
-.special{margin-top:12px;padding:10px 12px;border-radius:10px;background:rgba(155,107,255,.14);border-left:4px solid #9b6bff;font-size:15px;line-height:1.3}
-.special strong{display:block;font-size:17px;color:#d8c6ff}
+.special{margin-top:10px;padding:8px 12px;border-radius:10px;background:rgba(155,107,255,.14);border-left:4px solid #9b6bff;font-size:15px;line-height:1.3}
+.special strong{display:block;font-size:16px;color:#d8c6ff}
+.cyc{display:flex;align-items:center;background:rgba(246,234,212,.07);border-radius:9px}
+.cyc span{flex:1;text-align:center;font-weight:700;font-size:16px}
+.cyc button{width:40px;height:36px;font-size:24px;line-height:32px;color:var(--muted);border-radius:9px}
+.cyc button:hover{color:var(--bone);background:rgba(246,234,212,.1)}
 .opts{margin-top:16px;display:grid;gap:9px}
 .opt{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:15px;color:var(--muted)}
 .seg{display:flex;background:rgba(246,234,212,.07);border-radius:9px;padding:3px}
 .seg button{padding:6px 11px;border-radius:7px;font-weight:600;font-size:15px;color:var(--muted)}
 .seg button[aria-pressed="true"]{background:var(--bone);color:var(--ink)}
-.go{margin-top:12px;width:100%;font-size:20px}
+.go{margin-top:4px;width:100%;font-size:20px}
 
 /* modal screens */
 .modal{align-items:center;justify-content:center;background:rgba(30,17,42,.72);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
@@ -169,14 +179,17 @@ kbd{font-family:var(--ui);font-weight:700;background:rgba(246,234,212,.12);borde
   .hud-tl{width:180px}
   #hName{font-size:17px}
   #radar{width:96px;height:96px}
-  .gpanel{width:min(400px,52vw);padding-left:max(14px,env(safe-area-inset-left));padding-right:14px}
-  .detail h3{font-size:28px}
-  .cars{grid-template-columns:repeat(2,1fr)}
 }
 @media (max-height:520px){
-  .cars{grid-template-columns:repeat(3,1fr);gap:6px}
-  .carbtn{padding:7px 8px;font-size:13px;gap:6px}
-  .detail h3{font-size:24px}
+  .blurb{display:none}
+  .gname h2{font-size:34px}
+  .gname .driver{font-size:14px;margin:2px 0 5px}
+  .gkicker{display:none}
+  .gcard{padding:10px 12px}
+  .special{margin-top:8px;padding:6px 10px;font-size:13px}
+  .cyc button{height:30px;line-height:26px}
+  .go{font-size:17px;padding:10px 16px}
+  .arrow{width:52px;height:52px;line-height:44px;font-size:32px}
   #wName{font-size:13px}
   #wAmmo{font-size:20px}
   .wpn{margin-top:6px;padding:4px 8px 4px 4px}
@@ -191,3 +204,5 @@ kbd{font-family:var(--ui);font-weight:700;background:rgba(246,234,212,.12);borde
   #feed div{animation:none}
   #rotate .phone{animation:none;transform:rotate(-90deg)}
 }
+/* keyboard and gamepad menu navigation */
+.navfocus .screen button:focus{outline:3px solid var(--sun);outline-offset:3px}

@@ -37,7 +37,10 @@ test('garage shows each car', async ({ page }) => {
   test.slow(); // six model builds and showroom renders on a software GPU, slower when the other tests share the CPU
   const errors = await boot(page);
   await page.click('#toGarage');
-  for (const btn of await page.locator('.carbtn').all()) await btn.click();
+  const names = [];
+  for (let i = 0; i < 6; i++) { names.push(await page.locator('#cName').textContent()); await page.click('#carNext'); }
+  expect(new Set(names).size).toBe(6); // the arrow steps through all six cars
+  expect(await page.locator('#cName').textContent()).toBe(names[0]); // and wraps around
   expect(await page.evaluate(() => window.SH.G.showcase !== null)).toBe(true);
   expect(errors).toEqual([]);
 });

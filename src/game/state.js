@@ -6,7 +6,7 @@ import { SIGN_MESHES } from '../world/scenery.js';
 // ================= game state =================
 export const G = {
   state: 'loading', cars: [], ais: [], player: null, time: 0, clock: 0, countdown: 0, slowT: 0, timeScale: 1,
-  shake: 0, endT: -1, result: null, delayed: [], showcase: null, playerDef: null, menuT: 0,
+  shake: 0, endT: -1, result: null, delayed: [], showcase: null, showIn: null, playerDef: null, menuT: 0,
   settings: Object.assign({ opponents: 4, difficulty: 1, tod: 'sunset', quality: isTouch ? 'low' : 'high', sound: 'on', car: 'sundowner', view: 'normal', cam: 'normal', autofire: 'on', autodrift: 'on' }, loadStore('settings', {})),
 };
 export function saveSettings() { store('settings', G.settings); }

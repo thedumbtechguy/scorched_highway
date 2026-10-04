@@ -30,24 +30,29 @@
 </section>
 
 <section id="garage" class="screen" hidden>
-  <div class="gpanel">
-    <div class="ghead"><button class="back" id="gBack" aria-label="Back to title">‹</button><h2>Choose your car</h2></div>
-    <div class="gscroll">
-      <div class="cars" id="carList"></div>
-      <div class="detail">
-        <h3 id="cName"></h3>
-        <p class="driver" id="cDriver"></p>
-        <p class="blurb" id="cBlurb"></p>
-        <div class="stats" id="cStats"></div>
-        <div class="special"><strong id="cSpecial"></strong><span id="cSpecialDesc"></span></div>
-      </div>
-      <div class="opts">
-        <div class="opt"><span>Opponents</span><div class="seg" data-opt="opponents"><button data-v="2">2</button><button data-v="3">3</button><button data-v="4">4</button><button data-v="5">5</button></div></div>
-        <div class="opt"><span>Difficulty</span><div class="seg" data-opt="difficulty"><button data-v="0">Easy</button><button data-v="1">Normal</button><button data-v="2">Hard</button></div></div>
-        <div class="opt"><span>Time of day</span><div class="seg" data-opt="tod"><button data-v="noon">Noon</button><button data-v="sunset">Sunset</button><button data-v="night">Night</button></div></div>
-      </div>
+  <div class="gtop">
+    <button class="back" id="gBack" aria-label="Back to title">‹</button>
+    <div class="gname">
+      <div class="gkicker">Choose your car</div>
+      <h2 id="cName"></h2>
+      <p class="driver" id="cDriver"></p>
+      <div class="dots" id="carDots"></div>
     </div>
-    <button class="btn primary go" id="startBtn">Start the fight</button>
+  </div>
+  <button class="arrow prev" id="carPrev" aria-label="Previous car">‹</button>
+  <button class="arrow next" id="carNext" aria-label="Next car">›</button>
+  <div class="gbottom">
+    <div class="gcard detail">
+      <p class="blurb" id="cBlurb"></p>
+      <div class="stats" id="cStats"></div>
+      <div class="special"><strong id="cSpecial"></strong><span id="cSpecialDesc"></span></div>
+    </div>
+    <div class="gcard setup">
+      <div class="cyc" data-opt="opponents" data-vals="2,3,4,5" data-labels="2 opponents,3 opponents,4 opponents,5 opponents"></div>
+      <div class="cyc" data-opt="difficulty" data-vals="0,1,2" data-labels="Easy,Normal,Hard"></div>
+      <div class="cyc" data-opt="tod" data-vals="noon,sunset,night" data-labels="Noon,Sunset,Night"></div>
+      <button class="btn primary go" id="startBtn">Start the fight</button>
+    </div>
   </div>
 </section>
 

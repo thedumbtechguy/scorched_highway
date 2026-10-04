@@ -2,6 +2,7 @@ import { ensureAudio } from '../audio/audio.js';
 import { CONE, RANGE } from '../combat/arsenal';
 import { cycleTarget, cycleWeapon, findTarget } from '../combat/weapons.js';
 import { BINDINGS, actionForKey } from './bindings';
+import { currentScreen, menuBack, menuMove, menuSelect } from './menu';
 import { $, clamp, isTouch } from '../engine/util.js';
 import { pauseGame, resumeGame } from '../game/match.js';
 import { TAGS } from '../game/hud.js';
@@ -19,12 +20,22 @@ const GAME_KEYS = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'S
 addEventListener('keydown', e => {
   if (GAME_KEYS.has(e.code) && G.state === 'playing') e.preventDefault();
   const first = !KEYS[e.code]; KEYS[e.code] = true;
+  if (G.state !== 'playing' && menuKey(e)) return;
   if (!first || e.repeat) return;
   const a = actionForKey(e.code); if (!a) return;
   LAST.device = 'keys';
   if (G.state === 'playing') press(a, e.code === 'KeyQ' ? -1 : 1);
-  if (a === 'pause') { if (G.state === 'playing') pauseGame(); else if (G.state === 'paused') resumeGame(); }
+  if (a === 'pause' && G.state === 'playing') pauseGame();
 });
+/** Keys in menus: arrows move, Enter selects, Esc goes back. Returns true when the key was used. */
+const MENU_DIRS = { ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right', KeyW: 'up', KeyS: 'down', KeyA: 'left', KeyD: 'right' };
+function menuKey(e) {
+  if (!currentScreen()) return false;
+  if (MENU_DIRS[e.code]) { e.preventDefault(); return menuMove(MENU_DIRS[e.code]); }
+  if (e.code === 'Escape' || (e.code === 'KeyP' && G.state === 'paused')) return menuBack();
+  if ((e.code === 'Enter' || e.code === 'NumpadEnter') && !e.repeat) { e.preventDefault(); return menuSelect(); }
+  return false;
+}
 /** One-shot actions (held ones are read each frame in readPlayerInput). */
 function press(a, dir = 1) {
   if (a === 'fire') { INP.wPress = true; INP.combo = 0; }
@@ -96,7 +107,7 @@ export function setupTouch() {
 }
 
 // gamepad (standard mapping)
-const PAD = { prev: [], active: false, steer: 0, thr: 0, mg: false, w: false, hb: false };
+const PAD = { prev: [], active: false, steer: 0, thr: 0, mg: false, w: false, hb: false, sx: 0, sy: 0 };
 /** @type {Array<[number, import('./bindings').Action, number?]>} button index, action, direction */
 const PAD_PRESS = [[0, 'fire'], [5, 'attack'], [4, 'defend'], [3, 'special'], [14, 'swap', -1], [15, 'swap', 1], [11, 'target'], [8, 'flip']];
 export function pollGamepad() {
@@ -112,7 +123,17 @@ export function pollGamepad() {
   const used = Math.abs(ax) > 0.3 || PAD.thr !== 0 || gp.buttons.some(x => x.pressed);
   if (used) LAST.device = 'pad';
   PAD.active = PAD.active || used;
-  if (G.state === 'playing') for (const [i, a, dir] of PAD_PRESS) if (edge(i)) press(a, dir);
+  if (G.state === 'playing') { for (const [i, a, dir] of PAD_PRESS) if (edge(i)) press(a, dir); }
+  else if (currentScreen()) { // menus: d-pad or stick moves, A selects, B goes back
+    const ay = gp.axes[1] || 0, sx = Math.abs(ax) > 0.6 ? Math.sign(ax) : 0, sy = Math.abs(ay) > 0.6 ? Math.sign(ay) : 0;
+    const stick = sx !== PAD.sx || sy !== PAD.sy; PAD.sx = sx; PAD.sy = sy;
+    if (edge(12) || (stick && sy < 0)) menuMove('up');
+    if (edge(13) || (stick && sy > 0)) menuMove('down');
+    if (edge(14) || (stick && sx < 0)) menuMove('left');
+    if (edge(15) || (stick && sx > 0)) menuMove('right');
+    if (edge(0)) menuSelect();
+    if (edge(1)) menuBack();
+  }
   if (edge(9)) { if (G.state === 'playing') pauseGame(); else if (G.state === 'paused') resumeGame(); }
   PAD.prev = gp.buttons.map(x => x.pressed);
 }
