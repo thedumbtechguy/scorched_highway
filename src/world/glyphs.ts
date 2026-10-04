@@ -62,6 +62,26 @@ export function drawGlyph(ctx: Ctx, type: string, s: number, color: string, cut 
       ctx.beginPath(); for (let i = 0; i < 10; i++) { const a = i / 10 * TAU - Math.PI / 2, r = i % 2 ? 8 : 18; ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r); } ctx.closePath(); ctx.fillStyle = cut; ctx.fill();
       break;
     }
+    case 'sword': { // a sword, point up
+      poly([0, -48, 9, -34, 9, 14, -9, 14, -9, -34]); // blade
+      poly([-2, -38, 2, -38, 2, 10, -2, 10], cut); // fuller
+      rrect(ctx, -28, 14, 56, 10, 4); ctx.fillStyle = color; ctx.fill(); // guard
+      rrect(ctx, -6, 24, 12, 18, 3); ctx.fill(); circle(0, 46, 7); // grip and pommel
+      break;
+    }
+    case 'shield': { // a heater shield with a stripe
+      ctx.beginPath(); ctx.moveTo(0, -46); ctx.quadraticCurveTo(20, -36, 40, -38); ctx.quadraticCurveTo(42, 18, 0, 48); ctx.quadraticCurveTo(-42, 18, -40, -38); ctx.quadraticCurveTo(-20, -36, 0, -46); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(0, -32); ctx.quadraticCurveTo(14, -25, 28, -27); ctx.quadraticCurveTo(29, 12, 0, 34); ctx.quadraticCurveTo(-29, 12, -28, -27); ctx.quadraticCurveTo(-14, -25, 0, -32); ctx.fillStyle = cut; ctx.fill();
+      poly([-6, -26, 6, -26, 6, 28, -6, 28]);
+      break;
+    }
+    case 'skull': { // a skull and jaw
+      ctx.beginPath(); ctx.arc(0, -8, 36, Math.PI * 0.85, Math.PI * 2.15); ctx.lineTo(24, 26); ctx.lineTo(-24, 26); ctx.closePath(); ctx.fill();
+      rrect(ctx, -20, 26, 40, 18, 5); ctx.fillStyle = color; ctx.fill();
+      circle(-14, -6, 10, cut); circle(14, -6, 10, cut); poly([0, 6, 6, 18, -6, 18], cut);
+      for (const x of [-10, 0, 10]) poly([x - 1.5, 30, x + 1.5, 30, x + 1.5, 44, x - 1.5, 44], cut);
+      break;
+    }
     case 'mg': { // two cartridges
       for (const x of [-15, 15]) {
         ctx.beginPath(); ctx.moveTo(x, -40); ctx.quadraticCurveTo(x + 11, -30, x + 11, -14); ctx.lineTo(x + 11, 36); ctx.lineTo(x - 11, 36); ctx.lineTo(x - 11, -14); ctx.quadraticCurveTo(x - 11, -30, x, -40); ctx.fillStyle = color; ctx.fill();

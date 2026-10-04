@@ -11,7 +11,10 @@
 // Where paths meet, the lowest ground wins, so forks and the rock between branches fall out of one function.
 import * as THREE from 'three';
 import { clamp, lerp, smooth } from '../../engine/util.js';
-import type { Progress } from '../types';
+import type { HazardSite } from '../../world/hazards';
+import { scatterDrops } from '../../world/hazards';
+import type { PlateSpot, PlateType } from '../../world/plates';
+import type { PlateTag, Progress } from '../types';
 
 export const OX = 6000, OZ = 0; // the course's origin in the world
 export const LAPS = 3;
@@ -81,6 +84,22 @@ const CRATES: Array<[...At, string[]]> = [
   ['Cliff road', 0.45, 0, W], ['Cliff road', 0.7, 0, ['special']], ['Boulder alley', 0.68, 4, ['repair']], ['Switchback', 0.5, 0, W],
   ['Canyon exit', 0.6, 3, W], ['Home straight', 0.75, 5, W], ['Home straight', 0.18, -5, ['repair']],
 ];
+/** Plates in the road: [path, along, across, type]. Swords arm you, shields protect you, skulls set off the next hazard ahead. */
+const PLATE_DEFS: Array<[...At, PlateType]> = [
+  ['Desert flats', 0.1, -9, 'sword'], ['Desert flats', 0.1, 0, 'sword'], ['Desert flats', 0.1, 9, 'shield'],
+  ['Desert flats', 0.76, -7, 'skull'], ['Desert flats', 0.76, 1, 'sword'],
+  ['Dry wash', 0.2, 0, 'sword'], ['Mine shaft', 0.5, 0, 'sword'],
+  ['Canyon run', 0.12, -4, 'sword'], ['Canyon run', 0.12, 4, 'shield'],
+  ['Cliff road', 0.3, 0, 'skull'], ['Boulder alley', 0.4, 6, 'sword'],
+  ['Mesa gap', 0.5, -4, 'shield'], ['Mesa gap', 0.5, 4, 'skull'],
+  ['Gorge jump', 0.25, 0, 'sword'], ['Switchback', 0.2, 0, 'shield'],
+  ['Canyon exit', 0.15, -4, 'skull'], ['Canyon exit', 0.15, 4, 'sword'],
+  ['Home straight', 0.5, -1, 'sword'], ['Home straight', 0.5, 7, 'shield'], ['Home straight', 0.5, 13, 'skull'],
+];
+/** Rockfalls a skull can set off: [path, from, to] (fractions along it). */
+const FALLS: Array<[string, number, number]> = [['Dry wash', 0.55, 0.9], ['Canyon run', 0.3, 0.8], ['Boulder alley', 0.12, 0.42], ['Switchback', 0.3, 0.7], ['Canyon exit', 0.35, 0.85]];
+/** Stretches of open desert a wrong-way truck can come down: [path, lane across]. */
+const TRUCKS: Array<[string, number]> = [['Desert flats', 0], ['Home straight', 3]];
 
 // ---------- sampled paths ----------
 const STEP = 3; // metres between samples
@@ -160,6 +179,35 @@ export interface Rock { x: number; z: number; r: number; top: number }
 export const OBSTACLES: Rock[] = ROCKS.map(([n, a, c, r]) => { const at = place([n, a, c]); return { x: at.x, z: at.z, r, top: at.y + r * 1.3 }; });
 export interface Hole { x: number; z: number; r: number; floor: number }
 export const SINKHOLES: Hole[] = HOLES.map(([n, a, c, r]) => { const at = place([n, a, c]); return { x: at.x, z: at.z, r, floor: at.y }; });
+/** Plates, each tagged with where it is on the course (for the bots). */
+export const PLATE_SPOTS: PlateSpot[] = PLATE_DEFS.map(([n, a, c, type]) => { const at = place([n, a, c]); return { x: at.x, z: at.z, yaw: at.yaw, type, tag: { path: at.path, i: at.i, across: c } as PlateTag }; });
+/** Where a sample of a path is on the lap, in metres from the start line. */
+export const lapAt = (p: Path, i: number) => { const sec = SECTIONS_BUILT[p.section]; return sec.start + p.s[i] / p.len * sec.len; };
+/** The hazards skulls set off; filled in when the map is built (the wall tops need the terrain). */
+export const HAZARD_SITES: HazardSite[] = [];
+export function buildHazardSites() {
+  if (HAZARD_SITES.length) return;
+  const at = (p: Path, i: number, across: number) => [p.x[i] - p.tz[i] * across, p.z[i] + p.tx[i] * across];
+  FALLS.forEach(([name, a, b], k) => {
+    const p = byName(name), idx = (u: number) => Math.round((a + (b - a) * u) * (p.x.length - 1));
+    const drops = scatterDrops(Math.round((b - a) * p.len / 18), 670 + k, (u, side, rng) => {
+      const i = idx(u), [fx, fz] = at(p, i, side * (p.half + 8)), [tx, tz] = at(p, Math.min(p.x.length - 1, i + 2), (rng() * 2 - 1) * (p.half - 2.5));
+      return { fx, fy: trackHeight(fx, fz) + 2, fz, tx, tz };
+    });
+    HAZARD_SITES.push({ kind: 'rockfall', name, s: lapAt(p, idx(0)), drops });
+  });
+  // a truck comes in off the desert past the far end of the stretch, drives it the wrong way and leaves past the near end
+  const cx = PATHS.reduce((s, p) => s + p.x[p.x.length >> 1], 0) / PATHS.length, cz = PATHS.reduce((s, p) => s + p.z[p.z.length >> 1], 0) / PATHS.length;
+  for (const [name, lane] of TRUCKS) {
+    const p = byName(name), n = p.x.length - 1, m = n >> 1;
+    const out = Math.sign((p.x[m] - p.tz[m] - cx) ** 2 + (p.z[m] + p.tx[m] - cz) ** 2 - (p.x[m] + p.tz[m] - cx) ** 2 - (p.z[m] - p.tx[m] - cz) ** 2) || 1; // the side away from the middle of the course
+    const x: number[] = [], z: number[] = [], push = (i: number, across: number) => { const [px, pz] = at(p, i, across); x.push(px); z.push(pz); };
+    push(n - 14, out * 80); push(n - 9, out * 30); push(n - 6, out * 8);
+    for (let i = n - 4; i >= 4; i -= 3) push(i, lane);
+    push(2, out * 10); push(0, out * 30); push(0, out * 90);
+    HAZARD_SITES.push({ kind: 'truck', name, s: lapAt(p, 0), route: { x, z } });
+  }
+}
 export const CRATE_SPOTS = CRATES.map(([n, a, c, pool]) => { const at = place([n, a, c]); return [at.x, at.z, pool] as [number, number, string[]]; });
 
 // ---------- spatial index of path segments ----------

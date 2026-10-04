@@ -1,7 +1,8 @@
 // Balance check: bots-only matches, simulated as fast as possible (no rendering).
 // Deathmatch: the player's car is parked out of the way and can't be hurt; reports match length and weapon use.
-// Race: the player's car sits on the grid; reports finish and lap times, wrecks, which branch each bot took at
-// each fork, and any bot that stopped making progress (stuck).
+// Race: the player's car sits on the grid (so rubber banding is off: it would hold every bot back to it); reports finish and lap times, wrecks, which branch each bot took at
+// each fork, when each one unlocked its machine gun (sword plate), the hazards skulls set off, and any bot that
+// stopped making progress (stuck).
 //   npm run bots -- [--mode deathmatch|race] [--map id] [--matches 6] [--url http://localhost:4173/]   (default: starts a dev server)
 import { createServer } from 'vite';
 import { chromium } from '@playwright/test';
@@ -13,7 +14,7 @@ const browser = await chromium.launch({ args: ['--use-gl=swiftshader', '--enable
 const page = await browser.newPage();
 page.on('pageerror', e => console.error('page error:', e.message));
 await page.route(/fonts\.(googleapis|gstatic)\.com/, r => r.fulfill({ status: 200, contentType: 'text/css', body: '' }));
-await page.addInitScript(s => localStorage.setItem('shwy_settings', JSON.stringify(s)), { mode, map, opponents: 5, quality: 'low' });
+await page.addInitScript(s => localStorage.setItem('shwy_settings', JSON.stringify(s)), { mode, map, opponents: 5, quality: 'low', rubber: 'off' });
 await page.goto(url); await page.waitForFunction(() => window.SH && window.SH.G.state === 'title', null, { timeout: 60000 });
 
 if (mode === 'race') {
@@ -22,27 +23,30 @@ if (mode === 'race') {
       const { G, goGarage, startMatch, step } = window.SH; goGarage(); startMatch(); G.countdown = 0;
       const p = G.player, bots = G.cars.filter(c => !c.isPlayer), course = G.map.course;
       const wrecks = new Map(bots.map(c => [c, 0])), branches = new Map(bots.map(c => [c, []])), alive = new Map(bots.map(c => [c, true]));
-      const last = new Map(bots.map(c => [c, { d: 0, t: 0 }])), stuck = [];
+      const last = new Map(bots.map(c => [c, { d: 0, t: 0 }])), stuck = [], armed = new Map(), hz = window.SH.hazards;
+      let falls = 0, trucks = 0, rocks = 0, truck = null;
       let t = 0;
       for (; t < 420 && !bots.every(c => c.race.finished); t += 1 / 60) {
         p.input = { throttle: 0, steer: 0, handbrake: true }; p.mgHeld = p.wHeld = p.wFire = p.sFire = false; p.hp = 1e6;
         step(1 / 60, 1 / 60);
+        if (hz.ROCKS.length > rocks) falls++; rocks = hz.ROCKS.length; if (hz.truck && hz.truck !== truck) trucks++; truck = hz.truck;
         for (const c of bots) {
+          if (!c.mgLocked && !armed.has(c)) armed.set(c, Math.round(t));
           if (alive.get(c) && !c.alive) wrecks.set(c, wrecks.get(c) + 1); alive.set(c, c.alive);
           const pr = c.race.progress, sec = course.sections[pr.section];
           if (sec.paths.length > 1) { const b = branches.get(c), tag = `${pr.lap}:${pr.section}`; if (!b.length || b[b.length - 1].tag !== tag) b.push({ tag, name: sec.paths[pr.path].name }); else b[b.length - 1].name = sec.paths[pr.path].name; }
           // no progress for 15 s while running: stuck
           const d = course.distance(pr), L = last.get(c);
-          if (d > L.d + 5 || c.race.finished || !c.alive) { L.d = d; L.t = t; } else if (t - L.t > 15 && !L.reported) { L.reported = true; const q = sec.paths[pr.path]; stuck.push(`${c.def.id} on ${q.name} at ${Math.round(q.s[pr.i])} m`); }
+          if (!c.alive) { L.d = -Infinity; L.t = t; } else if (d > L.d + 5 || c.race.finished) { L.d = d; L.t = t; } // a respawn starts the count again else if (t - L.t > 15 && !L.reported) { L.reported = true; const q = sec.paths[pr.path]; stuck.push(`${c.def.id} on ${q.name} at ${Math.round(q.s[pr.i])} m`); }
         }
       }
       const fmt = s => s ? `${Math.floor(s / 60)}:${(s % 60).toFixed(1).padStart(4, '0')}` : 'DNF';
       return {
-        t: Math.round(t), stuck,
-        rows: bots.map(c => `${c.def.id.padEnd(12)} ${fmt(c.race.finished).padEnd(7)} laps ${c.race.lapTimes.map(x => x.toFixed(1)).join(' / ').padEnd(20)} wrecks ${wrecks.get(c)}  ${branches.get(c).map(b => b.name).join(', ')}`),
+        t: Math.round(t), stuck, hazards: `rockfalls ${falls}, trucks ${trucks}`,
+        rows: bots.map(c => `${c.def.id.padEnd(12)} ${fmt(c.race.finished).padEnd(7)} laps ${c.race.lapTimes.map(x => x.toFixed(1)).join(' / ').padEnd(20)} wrecks ${wrecks.get(c)}  gun ${armed.has(c) ? armed.get(c) + 's' : 'never'}  ${branches.get(c).map(b => b.name).join(', ')}`),
       };
     });
-    console.log(`race ${k + 1} (${r.t} s)\n  ` + r.rows.join('\n  ') + (r.stuck.length ? '\n  STUCK: ' + r.stuck.join('; ') : ''));
+    console.log(`race ${k + 1} (${r.t} s, ${r.hazards})\n  ` + r.rows.join('\n  ') + (r.stuck.length ? '\n  STUCK: ' + r.stuck.join('; ') : ''));
   }
 } else {
   const res = [];

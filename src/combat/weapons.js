@@ -305,7 +305,7 @@ function fireSpecial(c) {
 export function tickCarWeapons(c, dt) {
   c.cdMG -= dt; c.cdW -= dt; c.cdS -= dt;
   if (!c.alive || G.countdown > 0) { c.flameOn = false; return; }
-  if (c.mgHeld && c.cdMG <= 0) fireMG(c);
+  if (c.mgHeld && c.cdMG <= 0 && !c.mgLocked) fireMG(c);
   if (c.wFire) { fireWeapon(c, c.wCombo); c.wFire = false; c.wCombo = 0; }
   else if (c.wHeld && c.weapon && c.weapon !== 'flame' && c.cdW <= 0 && c.isPlayer) fireWeapon(c, 0);
   c.flameOn = !!(c.wHeld && c.weapon === 'flame' && c.ammo.flame > 0 && c.cdW <= 0);

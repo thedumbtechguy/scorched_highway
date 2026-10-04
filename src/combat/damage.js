@@ -5,6 +5,8 @@ import { onCarKilled } from '../game/match.js';
 import { G } from '../game/state.js';
 
 // ================= damage =================
+/** Share of damage that gets through a shield. */
+export const SHIELD_TAKES = 0.25;
 export const DIFF = [
   { name: 'Easy', aim: 0.13, mg: 0.45, fire: 0.55, react: 1.1, toPlayer: 0.5, combo: 0.05, speed: 0.9, bias: 0 },
   { name: 'Normal', aim: 0.065, mg: 0.75, fire: 0.8, react: 0.6, toPlayer: 0.75, combo: 0.18, speed: 0.97, bias: 12 },
@@ -14,6 +16,7 @@ export function damageCar(c, amt, by, kind, silent) {
   if (!c.alive || amt <= 0 || G.state !== 'playing') return;
   if (G.countdown > 0) return;
   if (c.isPlayer && by && by !== c) amt *= DIFF[G.settings.difficulty].toPlayer;
+  if (c.shieldT > 0 && kind !== 'fall') amt *= SHIELD_TAKES; // a shield plate's shield
   c.hp -= amt;
   if (!silent) c.flash = Math.min(0.6, c.flash + 0.35);
   if (by && by !== c) { c.lastHitBy = by; c.lastHitTime = G.time; by.dealt += amt; }
@@ -30,7 +33,7 @@ function killCar(c, by, kind) {
   c.place = G.cars.filter(o => o.alive).length + 1;
   const vName = c.isPlayer ? 'You' : c.def.driver;
   let msg;
-  if (!by) msg = kind === 'fall' ? vName + ' came down too hard' : vName + (c.isPlayer ? ' wrecked yourself' : ' wrecked themselves');
+  if (!by) msg = kind === 'fall' ? vName + ' came down too hard' : kind === 'truck' ? vName + ' got flattened by the truck' : kind === 'rock' ? vName + ' got buried in the rockfall' : vName + (c.isPlayer ? ' wrecked yourself' : ' wrecked themselves');
   else msg = (by.isPlayer ? 'You' : by.def.driver) + ' wrecked ' + (c.isPlayer ? 'you' : c.def.driver);
   feed(msg, (by && by.isPlayer) || c.isPlayer);
   onCarKilled(c, by);
