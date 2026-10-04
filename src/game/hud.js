@@ -1,17 +1,13 @@
 import { playSfx } from '../audio/audio.js';
 import { COMBOS, CONE, RANGE } from '../combat/arsenal';
 import { findTarget } from '../combat/weapons.js';
-import { lapOf, raceTime, standings } from '../race/race';
-import { LAPS, PATHS } from '../race/track';
 import { hint } from '../input/bindings';
 import { LAST } from '../input/input.js';
 import { camera } from '../engine/renderer.js';
 import { $, TAU, _v1 } from '../engine/util.js';
 import { G } from './state.js';
 import { drawGlyph } from '../world/glyphs';
-import { PICK, PICKUPS } from '../world/pickups';
-import { BOXES } from '../world/scenery.js';
-import { ARENA_R } from '../world/terrain.js';
+import { PICK } from '../world/pickups';
 
 // ================= HUD helpers =================
 export const hud = {
@@ -46,20 +42,13 @@ export function updateHUD(dt) {
   const w = p.weapon;
   if (hud.cache.w !== w) { hud.cache.w = w; drawWeaponIcon(w); hud.wName.textContent = w ? PICK[w].label : 'Machine gun only'; } // combo hints for whichever device the player is using
   const dev = LAST.device;
-  if (hud.cache.cw !== w || hud.cache.dev !== dev) { hud.cache.cw = w; hud.cache.dev = dev; hud.combo.innerHTML = w ? `${hint('attack', dev)}: ${COMBOS[w][0]}<br>${hint('defend', dev)}: ${COMBOS[w][1]}` : G.mode === 'race' ? '' : 'Grab a crate for heavy weapons'; }
+  if (hud.cache.cw !== w || hud.cache.dev !== dev) { hud.cache.cw = w; hud.cache.dev = dev; hud.combo.innerHTML = w ? `${hint('attack', dev)}: ${COMBOS[w][0]}<br>${hint('defend', dev)}: ${COMBOS[w][1]}` : G.mode.unarmedHint; }
   setIf('ammo', hud.wAmmo, 'textContent', w ? (w === 'flame' ? p.ammo.flame.toFixed(1) + 's' : Math.floor(p.ammo[w]) + '') : '∞');
   if (hud.cache.sp !== p.special) { hud.cache.sp = p.special; let s = ''; for (let i = 0; i < 6; i++) s += `<i class="${i < p.special ? 'on' : ''}"></i>`; hud.sPips.innerHTML = s; }
-  if (G.mode === 'race') { // Route 67: position, lap and race clock
-    const pos = standings(G.cars).indexOf(p) + 1;
-    setIf('alive', hud.alive, 'textContent', `${ordinal(pos)} of ${G.cars.length} · Lap ${lapOf(p)}/${LAPS}`);
-    setIf('clock', hud.clock, 'textContent', raceTime(Math.max(0, p.race.finished || G.clock)).slice(0, -1));
-  } else {
-    const alive = G.cars.filter(c => c.alive).length;
-    setIf('alive', hud.alive, 'textContent', alive + ' cars left');
-    const secs = Math.max(0, G.clock | 0); setIf('clock', hud.clock, 'textContent', (secs / 60 | 0) + ':' + String(secs % 60).padStart(2, '0'));
-  }
-  // starting lights on Route 67: three reds, then green
-  const lit = G.mode !== 'race' ? -1 : G.countdown > 0 ? Math.min(3, Math.max(0, 4 - Math.ceil(G.countdown))) : G.clock < 1 ? 4 : -1;
+  const [status, clock] = G.mode.status(p);
+  setIf('alive', hud.alive, 'textContent', status); setIf('clock', hud.clock, 'textContent', clock);
+  // starting lights, for modes that use them: three reds, then green
+  const lit = !G.mode.lights ? -1 : G.countdown > 0 ? Math.min(3, Math.max(0, 4 - Math.ceil(G.countdown))) : G.clock < 1 ? 4 : -1;
   if (hud.cache.lights !== lit) { hud.cache.lights = lit; hud.lights.hidden = lit < 0; hud.lights.className = 'l' + lit; }
   setIf('spd', hud.spd, 'textContent', Math.round(p.speed * 2.1) + '');
   vignT = Math.max(0, vignT - dt * 1.6);
@@ -72,24 +61,6 @@ export function updateHUD(dt) {
   drawRadar();
   updateTags();
 }
-/** Route 67's radar: the paths nearby as lines, then the cars. */
-function drawTrackRadar(x, toR, R, p) {
-  x.save(); x.beginPath(); x.arc(R, R, R - 4, 0, TAU); x.clip();
-  x.strokeStyle = 'rgba(246,234,212,0.3)'; x.lineCap = 'round';
-  for (const path of PATHS) {
-    x.lineWidth = Math.max(3, path.half * 0.9); x.beginPath(); let on = false;
-    for (let i = 0; i < path.x.length; i += 2) { const [px, py, ok] = toR(path.x[i], path.z[i]); if (ok) { if (on) x.lineTo(px, py); else x.moveTo(px, py); on = true; } else on = false; }
-    x.stroke();
-  }
-  for (const c of G.cars) {
-    if (c === p) continue; const [cx, cyy, ok] = toR(c.x, c.z);
-    const px = ok ? cx : R + (cx - R) * (R - 10) / Math.hypot(cx - R, cyy - R), py = ok ? cyy : R + (cyy - R) * (R - 10) / Math.hypot(cx - R, cyy - R);
-    x.fillStyle = c.alive ? c.def.tag : 'rgba(120,110,110,0.7)'; x.beginPath(); x.arc(px, py, c.alive ? 6.5 : 4, 0, TAU); x.fill();
-  }
-  x.restore();
-  x.fillStyle = '#f6ead4'; x.beginPath(); x.moveTo(R, R - 10); x.lineTo(R + 7, R + 8); x.lineTo(R, R + 4); x.lineTo(R - 7, R + 8); x.closePath(); x.fill();
-}
-const ordinal = n => n + (n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] || 'th');
 function drawRadar() {
   const cv = hud.radar, x = cv.getContext('2d'), S = cv.width, R = S / 2, p = G.player, range = 130;
   x.clearRect(0, 0, S, S);
@@ -99,12 +70,9 @@ function drawRadar() {
   const cy = Math.cos(p.yaw), sy = Math.sin(p.yaw);
   /** @type {(wx: number, wz: number) => [number, number, boolean]} */
   const toR = (wx, wz) => { const dx = wx - p.x, dz = wz - p.z; const lx = dx * cy - dz * sy, lz = dx * sy + dz * cy; return [R - lx / range * (R - 8), R - lz / range * (R - 8), Math.hypot(lx, lz) < range]; };
-  if (G.mode === 'race') return drawTrackRadar(x, toR, R, p);
-  // arena edge
-  const [ax, ay] = toR(0, 0); x.strokeStyle = 'rgba(232,102,42,0.5)'; x.lineWidth = 2; x.save(); x.beginPath(); x.arc(R, R, R - 4, 0, TAU); x.clip();
-  x.beginPath(); x.arc(ax, ay, ARENA_R / range * (R - 8), 0, TAU); x.stroke();
-  x.fillStyle = 'rgba(246,234,212,0.18)'; for (const b of BOXES) { const [bx, by, ok] = toR((b.minX + b.maxX) / 2, (b.minZ + b.maxZ) / 2); if (ok) x.fillRect(bx - 3, by - 3, 6, 6); }
-  for (const pk of PICKUPS) { if (!pk.active) continue; const [px, py, ok] = toR(pk.x, pk.z); if (!ok) continue; x.fillStyle = PICK[pk.type].css; x.fillRect(px - 3.5, py - 3.5, 7, 7); }
+  // the map's own features, then the cars
+  x.save(); x.beginPath(); x.arc(R, R, R - 4, 0, TAU); x.clip();
+  G.map.drawRadar(x, toR, R, range);
   for (const c of G.cars) {
     if (c === p) continue; const [cx, cyy, ok] = toR(c.x, c.z);
     const px = ok ? cx : R + (cx - R) * (R - 10) / Math.hypot(cx - R, cyy - R), py = ok ? cyy : R + (cyy - R) * (R - 10) / Math.hypot(cx - R, cyy - R);

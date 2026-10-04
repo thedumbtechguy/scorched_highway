@@ -8,6 +8,8 @@ import { CAM } from './camera.js';
 import { applyQuality, resize } from './loop.js';
 import { clearMatch } from './match.js';
 import { showRecord } from './results';
+import { allMaps } from '../maps/registry';
+import { allModes, getMode } from '../modes/registry';
 import { G, saveSettings } from './state.js';
 import { PICKUPS } from '../world/pickups';
 import { drawnGround } from '../world/surface.js';
@@ -46,18 +48,23 @@ export function buildGarage() {
     const dx = e.clientX - sx, dy = e.clientY - sy;
     if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) stepCar(dx < 0 ? 1 : -1);
   });
-  // match setup: ‹ value › pickers
+  // match setup: ‹ value › pickers; mode and map come from their registries, maps filtered to those hosting the mode
   document.querySelectorAll('.cyc').forEach((/** @type {HTMLElement} */ el) => {
-    const key = el.dataset.opt, vals = el.dataset.vals.split(','), labels = el.dataset.labels.split(',');
+    const key = el.dataset.opt, vals = (el.dataset.vals || '').split(','), labels = (el.dataset.labels || '').split(',');
+    /** @type {() => Array<[string, string]>} */
+    const options = key === 'mode' ? () => allModes().map(m => [m.id, m.name])
+      : key === 'map' ? () => allMaps().filter(m => m.modes.includes(G.settings.mode)).map(m => [m.id, m.name])
+        : () => vals.map((v, i) => [v, labels[i]]);
     el.innerHTML = `<button aria-label="Previous">‹</button><span></span><button aria-label="Next">›</button>`;
     const [prev, next] = el.querySelectorAll('button');
-    const show = () => { el.querySelector('span').textContent = labels[Math.max(0, vals.indexOf(String(G.settings[key])))]; };
+    const show = () => { const o = options(), i = o.findIndex(([v]) => v === String(G.settings[key])); el.querySelector('span').textContent = (o[i] || o[0] || ['', ''])[1]; };
     const step = dir => {
-      const i = (vals.indexOf(String(G.settings[key])) + dir + vals.length) % vals.length;
-      setSetting(key, key === 'opponents' || key === 'difficulty' ? +vals[i] : vals[i]); show();
+      const o = options(), i = (Math.max(0, o.findIndex(([v]) => v === String(G.settings[key]))) + dir + o.length) % o.length;
+      setSetting(key, key === 'opponents' || key === 'difficulty' ? +o[i][0] : o[i][0]);
+      document.querySelectorAll('.cyc').forEach(c => c.dispatchEvent(new Event('sync')));
     };
     prev.addEventListener('click', () => step(-1)); next.addEventListener('click', () => step(1));
-    show();
+    el.addEventListener('sync', show); show();
   });
   // settings screen: segmented buttons
   document.querySelectorAll('.seg[data-opt]').forEach((/** @type {HTMLElement} */ seg) => {
@@ -69,7 +76,7 @@ export function buildGarage() {
 function setSetting(key, v) {
   G.settings[key] = v; saveSettings();
   if (key === 'tod') { applyTod(String(v)); if (G.showcase) { for (const b of G.showcase.beams) b.visible = curTod.night; G.showcase.lights(curTod.night, false, true); } }
-  if (key === 'mode') syncStart();
+  if (key === 'mode') { const maps = allMaps().filter(m => m.modes.includes(String(v))); if (!maps.some(m => m.id === G.settings.map)) { G.settings.map = maps[0].id; saveSettings(); } syncStart(); }
   if (key === 'quality') applyQuality();
   if (key === 'view') resize();
   if (key === 'sound') { ensureAudio(); setSound(v === 'on'); }
@@ -81,7 +88,7 @@ function syncSegs() {
   });
 }
 /** The start button names what you're starting. */
-function syncStart() { $('#startBtn').textContent = G.settings.mode === 'route67' ? 'Start the race' : 'Start the fight'; }
+function syncStart() { $('#startBtn').textContent = (getMode(G.settings.mode) || allModes()[0]).startLabel; }
 /** Show the previous (-1) or next (1) car. */
 export function stepCar(dir) {
   const i = CARS.findIndex(d => d.id === G.settings.car);

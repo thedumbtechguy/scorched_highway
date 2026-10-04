@@ -1,6 +1,8 @@
 import { ensureAudio } from './audio/audio.js';
-import { SECTIONS_BUILT, heading, offTrack } from './race/track';
-import { isBuilt } from './race/scenery';
+import './maps';
+import './modes';
+import { MENU_MAP, allMaps, getMap } from './maps/registry';
+import { allModes, getMode } from './modes/registry';
 import { lockLandscape, watchOrientation } from './game/orientation';
 import { controlsTable } from './input/bindings';
 import { giveAmmo } from './combat/arsenal';
@@ -12,15 +14,11 @@ import { CARS } from './cars/roster.js';
 import { damageCar } from './combat/damage.js';
 import { $ } from './engine/util.js';
 import { applyQuality, startLoop, tick } from './game/loop.js';
-import { pauseGame, resumeGame, startMatch, step } from './game/match.js';
+import { chosen, pauseGame, resumeGame, startMatch, step } from './game/match.js';
 import { buildGarage, goGarage, goTitle, selectCar, show } from './game/screens.js';
 import { G } from './game/state.js';
 import { LAST, setupTouch } from './input/input.js';
-import { buildPickups } from './world/pickups';
-import { buildProps } from './world/props.js';
-import { buildStatic, buildTerrain, decorBlocked } from './world/scenery.js';
-import { buildScatter, buildTumbleweeds } from './world/flora';
-import { baseHeight, ground } from './world/terrain.js';
+import { ground } from './world/terrain.js';
 
 // ================= boot =================
 /** The help screen's controls table, for one device (it opens on the one the player is using). */
@@ -36,10 +34,11 @@ function wireUI() {
   $('#gBack').addEventListener('click', goTitle);
   $('#startBtn').addEventListener('click', () => {
     lockLandscape();
-    if (G.settings.mode !== 'route67' || isBuilt()) return startMatch();
-    // Route 67 is built the first time it's raced: say so, let the page paint, then build
-    const b = $('#startBtn'); b.textContent = 'Building Route 67…'; b.disabled = true;
-    requestAnimationFrame(() => requestAnimationFrame(() => { b.disabled = false; startMatch(); b.textContent = 'Start the race'; }));
+    const { mode, map } = chosen();
+    if (map.isBuilt()) return startMatch();
+    // a map is built the first time it's played: say so, let the page paint, then build
+    const b = $('#startBtn'); b.textContent = `Building ${map.name}…`; b.disabled = true;
+    requestAnimationFrame(() => requestAnimationFrame(() => { b.disabled = false; startMatch(); b.textContent = mode.startLabel; }));
   });
   $('#resumeBtn').addEventListener('click', resumeGame);
   $('#restartBtn').addEventListener('click', startMatch);
@@ -61,10 +60,10 @@ function boot() {
   // each step is timed into the performance timeline as boot:<name> (see tools/perf.js)
   const timed = (name, fn) => { const t = performance.now(); fn(); performance.measure('boot:' + name, { start: t }); };
   timed('sky', () => applyTod(G.settings.tod));
-  timed('terrain', () => buildTerrain(lowQ));
-  timed('town', () => buildStatic());
-  timed('props', () => { buildProps(); buildPickups(); initPools(); });
-  timed('scatter', () => { buildScatter({ lowQ, blocked: decorBlocked }); buildTumbleweeds(lowQ ? 4 : 8, baseHeight); });
+  // the menu map is built now (title screen and garage); other maps the first time they're played
+  G.map = getMap(MENU_MAP); G.mode = getMode('deathmatch');
+  G.map.build(lowQ, timed);
+  timed('pools', () => initPools());
   timed('ui', () => { setupTouch(); wireUI(); buildGarage(); applyQuality(); goTitle(); });
   timed('shaders', () => renderer.compile(scene, camera));
   const L = $('#loading'); L.style.opacity = '0'; setTimeout(() => L.remove(), 550);
@@ -78,7 +77,7 @@ function testPark(d) {
   put(p, 0, 118, Math.PI); put(o, 0, 118 - d, 0);
   rest.forEach((c, i) => put(c, Math.sin(2 + i * 1.3) * 150, Math.cos(2 + i * 1.3) * 150, 0));
 }
-window.SH = { race: { SECTIONS_BUILT, offTrack, heading }, testPark, combat: { PROJ, MINES, SMOKES, giveAmmo }, G, CARS, step, tick, startMatch, goGarage, selectCar, damageCar, buildCarModel, disposeCarModel, applyTod, applyQuality, camera, renderer, scene };
+window.SH = { getMap, allMaps, allModes, testPark, combat: { PROJ, MINES, SMOKES, giveAmmo }, G, CARS, step, tick, startMatch, goGarage, selectCar, damageCar, buildCarModel, disposeCarModel, applyTod, applyQuality, camera, renderer, scene };
 
 (function start() {
   let done = false; const go = () => { if (done) return; done = true; try { boot(); } catch (e) { console.error(e); $('#loading').lastChild.textContent = 'Something went wrong starting the game: ' + e.message; } };

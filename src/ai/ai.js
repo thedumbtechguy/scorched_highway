@@ -6,7 +6,6 @@ import { COMBO_COST, RANGE, WEAPON_ORDER } from '../combat/arsenal';
 import { PROJ } from '../combat/pools.js';
 import { smokeBetween } from '../combat/weapons.js';
 import { nearestPickup } from '../world/pickups';
-import { SECTIONS_BUILT } from '../race/track';
 
 // ================= AI =================
 const PERS = {
@@ -18,7 +17,7 @@ export class AI {
   constructor(car) {
     this.car = car; this.pers = car.def.ai; this.P = PERS[this.pers];
     this.target = null; this.goal = { type: 'wander' }; this.think = rand(0, 0.3); this.stuck = 0; this.reverseT = 0; this.revSteer = 1;
-    this.cd = rand(0.8, 2); this.defCd = 0; this.route = {}; this.lane = rand(-0.35, 0.35); this.want = 99; this.targetT = 0; this.strafe = Math.random() < 0.5 ? 1 : -1; this.los = false; this.mgOn = false; this.wander = null; this.wanderT = 0;
+    this.cd = rand(0.8, 2); this.defCd = 0; this.mem = {}; this.want = 99; this.targetT = 0; this.strafe = Math.random() < 0.5 ? 1 : -1; this.los = false; this.mgOn = false; this.wander = null; this.wanderT = 0;
   }
   decide() {
     const c = this.car, diff = DIFF[G.settings.difficulty];
@@ -70,7 +69,9 @@ export class AI {
     if (g.type === 'pickup') {
       if (!g.p.active) { this.think = 0; } gx = g.p.x; gz = g.p.z;
     }
-    if (G.mode === 'race') [gx, gz] = this.raceLine();
+    const line = G.mode.drive ? G.mode.drive(this) : null; // the mode may set the course (a racing line)
+    this.want = line ? line.want : 99;
+    if (line) { gx = line.x; gz = line.z; }
     else if (g.type === 'pickup') { /* steering set above */ } else if (g.type === 'attack' && t && t.alive) {
       const dx = t.x - c.x, dz = t.z - c.z, d = Math.hypot(dx, dz) || 1;
       const lead = Math.min(1.2, d / 45);
@@ -102,7 +103,7 @@ export class AI {
     const ada = Math.abs(da);
     if (ada > 1.25) { throttle = 0.6; if (sp > 18) hb = true; }
     else if (ada > 0.6 && sp > 30) throttle = 0.4;
-    if (G.mode === 'race' && sp > this.want) throttle = sp > this.want + 3 ? -0.5 : 0.25; // brake for the corner ahead
+    if (sp > this.want) throttle = sp > this.want + 3 ? -0.5 : 0.25; // brake for the corner ahead
     if (g.type === 'pickup') { const pd = Math.hypot(g.p.x - c.x, g.p.z - c.z); if (pd < 12 && ada > 0.8) throttle = 0.35; }
     if (this.reverseT > 0) { this.reverseT -= dt; throttle = -1; steer = this.revSteer; hb = false; }
     else {
@@ -111,32 +112,6 @@ export class AI {
     }
     c.input.throttle = throttle; c.input.steer = steer; c.input.handbrake = hb;
     this.combat(dt);
-  }
-  /** Route 67: which way to go at fork `k`, picked once per lap from the driver's style and health. */
-  pick(k) {
-    const sec = SECTIONS_BUILT[k], c = this.car; if (sec.paths.length < 2) return 0;
-    const memo = this.route[k], lap = c.race.progress.lap;
-    if (memo && memo.lap === lap) return memo.path;
-    // path 0 is the risky shortcut at every fork (mine shaft, gorge jump, old highway)
-    // ...but not after falling into the gorge this lap, and less often when hurt or in a slow car
-    if (c.fellLap === lap) { this.route[k] = { lap, path: 1 }; return 1; }
-    const risky = (c.hp / c.def.hp < 0.35 ? 0.1 : this.pers === 'rammer' ? 0.8 : this.pers === 'sniper' ? 0.25 : 0.5) * (c.def.max < 38 ? 0.5 : 1);
-    const path = Math.random() < risky ? 0 : 1; this.route[k] = { lap, path }; return path;
-  }
-  /** Route 67: a point on the racing line ahead, and the speed the corner beyond it allows (this.want). */
-  raceLine() {
-    const c = this.car, pr = c.race.progress, n = SECTIONS_BUILT.length;
-    let k = pr.section, p = SECTIONS_BUILT[k].paths[pr.path], i = pr.i;
-    const walk = dist => { // follow the chosen paths `dist` metres on from (k, p, i)
-      while (dist > 0) { if (i >= p.x.length - 1) { k = (k + 1) % n; p = SECTIONS_BUILT[k].paths[this.pick(k)]; i = 0; } dist -= p.s[i + 1] - p.s[i]; i++; }
-    };
-    const t0x = p.tx[i], t0z = p.tz[i];
-    walk(9 + c.speed * 0.5);
-    const lat = this.lane * p.half, gx = p.x[i] + p.tz[i] * lat, gz = p.z[i] - p.tx[i] * lat;
-    walk(26);
-    const turn = Math.acos(clamp(t0x * p.tx[i] + t0z * p.tz[i], -1, 1)); // how much the road bends over the next stretch
-    this.want = c.def.max * c.speedK * (1 - 0.5 * clamp(turn / 1.3, 0, 1));
-    return [gx, gz];
   }
   specialOK(d, a) {
     const c = this.car;

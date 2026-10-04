@@ -1,11 +1,11 @@
 // The town: textured false-front buildings, porches, the gas station, ramps and roadside bits.
 // Built as one multi-material mesh; textures are near-white so vertex colours paint them.
 import * as THREE from 'three';
-import { flatGeo, signTexture } from '../engine/geometry.js';
-import { addToScene } from '../engine/renderer.js';
-import { onTod } from '../engine/sky';
-import { TAU, mulberry32 } from '../engine/util.js';
-import { fbm, toTexture } from './textures';
+import { flatGeo, signTexture } from '../../engine/geometry.js';
+import { addToScene } from '../../engine/renderer.js';
+import { onTod } from '../../engine/sky';
+import { TAU, mulberry32 } from '../../engine/util.js';
+import { fbm, toTexture } from '../../world/textures';
 
 // ---------- textures ----------
 const S = 256, B = S / 8; // texture size; B = one board, plank or brick course (8 per tile)

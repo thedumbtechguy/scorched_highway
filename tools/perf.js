@@ -1,5 +1,5 @@
 // Repeatable performance benchmark: boot timings, then a scripted 6-car match driven frame by frame.
-//   npm run perf -- [--quality high|low] [--phone] [--mode arena|route67] [--frames 60] [--out name]
+//   npm run perf -- [--quality high|low] [--phone] [--mode deathmatch|race] [--map ghost-town|route67] [--frames 60] [--out name]
 // Reports per-frame CPU time (simulation vs. render submission), GPU-inclusive render time, draw calls,
 // triangles, memory, and the hottest functions from a CPU profile. Writes shots/perf-<name>.json.
 // Absolute times here come from a software GPU (SwiftShader), which also stalls the first time it sees each new
@@ -10,7 +10,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 
 const args = process.argv.slice(2), opt = (k, d) => { const i = args.indexOf('--' + k); return i >= 0 ? args[i + 1] : d; };
 const phone = args.includes('--phone'); // landscape phone viewport + touch (the game then picks Fast graphics) + 4x slower CPU
-const quality = opt('quality', phone ? 'low' : 'high'), FRAMES = +opt('frames', 60), mode = opt('mode', 'arena'), name = opt('out', (phone ? 'phone' : quality) + (mode === 'arena' ? '' : '-' + mode));
+const quality = opt('quality', phone ? 'low' : 'high'), FRAMES = +opt('frames', 60), mode = opt('mode', 'deathmatch'), map = opt('map', mode === 'race' ? 'route67' : 'ghost-town'), name = opt('out', (phone ? 'phone' : quality) + (map === 'ghost-town' ? '' : '-' + map));
 
 const server = await createServer({ server: { port: 5196, strictPort: false }, logLevel: 'error' });
 await server.listen();
@@ -20,7 +20,7 @@ try {
   const cdp = await page.context().newCDPSession(page);
   if (phone) await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 }); // roughly a mid-range phone's CPU (the GPU can't be emulated)
   page.on('pageerror', e => console.error('page error:', e.message));
-  await page.addInitScript(q => { try { localStorage.setItem('shwy_settings', JSON.stringify({ quality: q[0], opponents: 5, tod: 'sunset', car: 'sundowner', mode: q[1] })); } catch { /* storage blocked */ } }, [quality, mode]);
+  await page.addInitScript(q => { try { localStorage.setItem('shwy_settings', JSON.stringify({ quality: q[0], opponents: 5, tod: 'sunset', car: 'sundowner', mode: q[1], map: q[2] })); } catch { /* storage blocked */ } }, [quality, mode, map]);
   await page.route(/fonts\.(googleapis|gstatic)\.com/, r => r.fulfill({ status: 200, contentType: 'text/css', body: '' })); // deterministic, offline
   await page.goto(server.resolvedUrls.local[0]);
   await page.waitForFunction(() => window.SH && window.SH.G.state === 'title', null, { timeout: 120_000 });

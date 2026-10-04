@@ -8,27 +8,32 @@ import { updateRings } from '../combat/effects.js';
 import { clearWeapons } from '../combat/pools.js';
 import { tickCarWeapons, updateMines, updateProjectiles } from '../combat/weapons.js';
 import { clearDebris } from '../engine/debris.js';
-import { FX_ADD, PSYS, fxScale } from '../engine/particles.js';
+import { PSYS } from '../engine/particles.js';
 import { camera, renderer, scene } from '../engine/renderer.js';
 import { applyTod } from '../engine/sky';
-import { $, clamp, rand } from '../engine/util.js';
+import { $ } from '../engine/util.js';
 import { CAM } from './camera.js';
-import { TAGS, bigText, buildTags, feed, hud } from './hud.js';
+import { TAGS, bigText, buildTags, hud } from './hud.js';
 import { resize } from './loop.js';
 import { clearShowcase, show } from './screens.js';
 import { showResults } from './results';
-import { RESPAWN_DELAY, raceTime, setupRace, updateRace, wrecked } from '../race/race';
-import { buildRoute67, isBuilt } from '../race/scenery';
-import { LAPS, distance } from '../race/track';
-import { damageCar } from '../combat/damage.js';
-import { G, later } from './state.js';
+import { MENU_MAP, allMaps, getMap } from '../maps/registry';
+import { allModes, getMode } from '../modes/registry';
+import { G } from './state.js';
 import { KEYS, readPlayerInput } from '../input/input.js';
-import { PICK, PICKUPS, resetPickups, updatePickups } from '../world/pickups';
-import { giveAmmo } from '../combat/arsenal';
+import { resetPickups, updatePickups } from '../world/pickups';
 import { resetProps, updateProps } from '../world/props.js';
 
 // ================= match =================
-const SPAWNS = [[0, 118], [102, 59], [102, -59], [0, -118], [-92, -38], [-102, 59]];
+// A match runs cars, weapons and effects the same way on every map and in every mode; the mode (src/modes)
+// decides the rules and the map (src/maps) the place.
+
+/** The mode and map chosen in the garage (falling back to a map that hosts the mode). */
+export function chosen() {
+  const mode = getMode(G.settings.mode) || allModes()[0];
+  const map = [getMap(G.settings.map), ...allMaps()].find(m => m && m.modes.includes(mode.id)) || getMap(MENU_MAP);
+  return { mode, map };
+}
 export function clearMatch() {
   for (const c of G.cars) disposeCarModel(c.model);
   G.cars = []; G.ais = []; G.player = null; G.delayed = [];
@@ -40,19 +45,16 @@ export function startMatch() {
   ensureAudio();
   clearShowcase(); clearMatch(); camera.clearViewOffset();
   applyTod(G.settings.tod);
-  G.mode = G.settings.mode === 'route67' ? 'race' : 'arena';
-  if (G.mode === 'race' && !isBuilt()) { const t = performance.now(); buildRoute67(G.settings.quality === 'low'); performance.measure('race:build', { start: t }); }
+  const { mode, map } = chosen(); G.mode = mode; G.map = map;
+  if (!map.isBuilt()) { const t = performance.now(); map.build(G.settings.quality === 'low'); performance.measure('map:build', { start: t }); }
   const pdef = CAR_BY_ID[G.settings.car] || CARS[0];
   const others = CARS.filter(d => d !== pdef).sort(() => Math.random() - 0.5).slice(0, G.settings.opponents);
-  const spots = SPAWNS.slice().sort(() => Math.random() - 0.5);
   const diff = DIFF[G.settings.difficulty];
   [pdef, ...others].forEach((d, i) => {
-    const c = new Car(d, i === 0); const [x, z] = spots[i];
-    c.reset(x, z, Math.atan2(-x, -z)); c.speedK = i === 0 ? 1 : diff.speed;
-    if (G.mode === 'arena') { c.ammo.missile = 3; c.weapon = 'missile'; } // on Route 67 weapons come from the track
+    const c = new Car(d, i === 0); c.speedK = i === 0 ? 1 : diff.speed;
     G.cars.push(c); if (i > 0) G.ais.push(new AI(c)); else G.player = c;
   });
-  if (G.mode === 'race') { setupRace(G.cars); G.raceEndT = -1; }
+  mode.setup(G.cars, map);
   G.time = 0; G.clock = 0; G.countdown = 3.2; G.endT = -1; G.result = null; G.slowT = 0; G.timeScale = 1; G.shake = 0;
   const p = G.player; CAM.yaw = p.yaw; CAM.x = p.x - Math.sin(p.yaw) * 30; CAM.z = p.z - Math.cos(p.yaw) * 30; CAM.y = p.y + 14;
   hud.cache = {}; hud.hName.textContent = pdef.name; hud.hName.style.color = pdef.tag;
@@ -61,45 +63,15 @@ export function startMatch() {
   renderer.compile(scene, camera); // compile every shader now (pooled effects included) instead of stuttering when they first appear
 }
 let lastCount = 4;
-const RACE_EVENTS = {
-  lap(c, t, lap) {
-    if (!c.isPlayer) return;
-    feed(`Lap ${lap}: ${raceTime(t)}`, true);
-    if (lap === LAPS - 1) later(0.2, () => bigText('Final lap!', 1.4));
-  },
-  finish(c, place) {
-    if (G.raceEndT < 0) G.raceEndT = 45; // once the winner is home, everyone else has this long to finish
-    if (c.isPlayer) { G.endT = 4; G.result = { win: place === 1, place }; bigText(place === 1 ? 'You win!' : `${ordinal(place)} place`, 2.5); G.slowT = 1; }
-    else feed(`${c.def.driver} finishes ${ordinal(place)}`, false);
-  },
-  fell(c) { c.fellLap = c.race.progress.lap; damageCar(c, c.hp + 1, G.time - c.lastHitTime < 4 ? c.lastHitBy : null, 'fall'); },
-  respawned(c) { if (c.isPlayer) bigText('Go!', 0.6); },
-};
-/** Route 67, every step: laps and positions, a gentle catch-up for the bots, wrong-way warning, the finish window. */
-function raceStep(dt, rdt) {
-  updateRace(G.cars, dt, RACE_EVENTS);
-  const p = G.player, pd = distance(p.race.progress), diff = DIFF[G.settings.difficulty];
-  for (const c of G.cars) if (!c.isPlayer) c.speedK = diff.speed * (1 + clamp((pd - distance(c.race.progress)) / 600, -0.05, 0.05));
-  if (p.alive && p.race.wrongT > 1 && (G.time % 1.2) < dt) bigText('Wrong way!', 0.7);
-  if (G.raceEndT > 0 && G.endT < 0 && (G.raceEndT -= rdt) <= 0) { G.endT = 0.5; G.result = { win: false, place: 0 }; }
-}
-const ordinal = n => n + (n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] || 'th');
+/** A car has been wrecked: the mode decides what that means. */
 export function onCarKilled(c, by) {
   c.wreckedBy = by || null;
-  if (G.mode === 'race') { // Route 67: wrecks come back after a few seconds, nobody is out
-    wrecked(c);
-    if (by && by.isPlayer) bigText('Wrecked ' + c.def.driver.split(' ')[0] + '!', 1.1, true);
-    if (c.isPlayer) { G.slowT = 0.5; bigText(`Wrecked! Back in ${RESPAWN_DELAY}`, 1.6); }
-    return;
-  }
-  if (by && by.isPlayer) { G.slowT = 0.55; bigText('Wrecked ' + c.def.driver.split(' ')[0] + '!', 1.1, true); }
-  if (c.isPlayer) { G.slowT = 0.8; bigText('Wrecked!', 2); G.endT = 3.2; G.result = { win: false, by }; }
-  const alive = G.cars.filter(o => o.alive);
-  if (G.player.alive && alive.length === 1) { G.slowT = 1.2; G.endT = 3; G.result = { win: true }; later(0.4, () => bigText('Last one standing!', 2.5)); }
+  if (by && by.isPlayer) { G.slowT = Math.max(G.slowT, 0.55); bigText('Wrecked ' + c.def.driver.split(' ')[0] + '!', 1.1, true); }
+  G.mode.wrecked(c, by || null);
 }
 function endMatch() {
-  G.state = 'over'; const p = G.player, r = G.result || { win: p.alive };
-  showResults(!!r.win, r.by || null);
+  G.state = 'over';
+  showResults();
   show('over'); $('#hud').hidden = true; resize();
 }
 export function pauseGame() { if (G.state !== 'playing') return; G.state = 'paused'; show('pause'); for (const k in KEYS) KEYS[k] = false; }
@@ -125,23 +97,6 @@ export function step(dt, rdt) {
   for (const c of G.cars) tickCarWeapons(c, dt);
   updateProjectiles(dt); updateMines(dt, G.time); updateRings(dt); updateProps(dt);
   updatePickups(dt, G.time);
-  if (G.mode === 'race') raceStep(dt, rdt);
-  // collect
-  if (G.mode === 'arena') for (const c of G.cars) {
-    if (!c.alive) continue;
-    for (const pk of PICKUPS) {
-      if (!pk.active) continue; const dx = c.x - pk.x, dz = c.z - pk.z;
-      if (dx * dx + dz * dz < 12 && Math.abs(c.y - pk.y) < 3.5) applyPickup(c, pk);
-    }
-  }
+  G.mode.step(dt, rdt);
   if (G.endT > 0) { G.endT -= rdt; if (G.endT <= 0) endMatch(); }
-}
-function applyPickup(c, p) {
-  const t = p.type;
-  if (t === 'repair') { if (c.hp >= c.def.hp - 0.5) return; c.hp = Math.min(c.def.hp, c.hp + PICK.repair.amt); c.burning = 0; }
-  else if (t === 'special') { if (c.special >= 6) return; c.special = Math.min(6, c.special + 2); }
-  else { const dropped = giveAmmo(c, t); if (dropped === false) return; if (dropped && c.isPlayer) feed('Dropped ' + PICK[dropped].label + ' to make room', true); }
-  p.active = false; p.respawn = t === 'repair' ? 22 : 14;
-  for (let i = 0; i < 16 * fxScale; i++) FX_ADD.spawn(p.x, p.y + 1.4, p.z, rand(-6, 6), rand(2, 9), rand(-6, 6), 0.5, 1, 0.1, PICK[t].color, 0xffffff, 0.9, 1.5, 6);
-  if (c.isPlayer) { playSfx(t === 'repair' ? 'repair' : 'pickup'); feed(t === 'repair' ? 'Repaired' : '+' + PICK[t].amt + (t === 'flame' ? 's' : '') + ' ' + PICK[t].label, true) }
 }

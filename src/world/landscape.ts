@@ -1,9 +1,8 @@
-// Terrain, the canyon wall around the arena, and mesas. They share one material that shades flat
-// ground as rippled sand and steep ground as banded sandstone, so they blend into each other.
+// The desert look shared by every map: one material that shades flat ground as rippled sand and steep ground
+// as banded sandstone, plus helpers for terrain chunks, mesas and boulders built in it.
 import * as THREE from 'three';
 import { addToScene } from '../engine/renderer.js';
 import { TAU, clamp, mulberry32, smooth } from '../engine/util.js';
-import { ARENA_R, baseHeight, setTerrainGrid } from './terrain.js';
 import { rockTexture, sandNormal, sandTexture, strataTexture } from './textures';
 import { boulderGeometry } from './flora';
 
@@ -45,21 +44,21 @@ export function desertMaterial(): THREE.MeshStandardMaterial {
   m.customProgramCacheKey = () => 'desert-v4';
   return (desertMat = m);
 }
-function worldUV(g: THREE.BufferGeometry) {
+export function worldUV(g: THREE.BufferGeometry) {
   const p = g.attributes.position, uv = new Float32Array(p.count * 2);
   for (let i = 0; i < p.count; i++) { uv[i * 2] = p.getX(i) / SAND_TILE; uv[i * 2 + 1] = p.getZ(i) / SAND_TILE; }
   g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
 }
 const _c = new THREE.Color();
 /** Per-vertex tint; the shader's rock blend takes over on slopes. */
-function paintVerts(g: THREE.BufferGeometry, tint: (x: number, y: number, z: number, out: THREE.Color) => void) {
+export function paintVerts(g: THREE.BufferGeometry, tint: (x: number, y: number, z: number, out: THREE.Color) => void) {
   const p = g.attributes.position, col = new Float32Array(p.count * 3);
   for (let i = 0; i < p.count; i++) { tint(p.getX(i), p.getY(i), p.getZ(i), _c); col[i * 3] = _c.r; col[i * 3 + 1] = _c.g; col[i * 3 + 2] = _c.b; }
   g.setAttribute('color', new THREE.BufferAttribute(col, 3));
 }
 // desert floor colouring: large soft patches of redder and paler sand, packed earth around town
 const SAND_A = new THREE.Color(0xe7ab72), SAND_B = new THREE.Color(0xd08a55), SAND_PALE = new THREE.Color(0xecc293), TOWN = new THREE.Color(0xc9a27a);
-function sandTint(x: number, y: number, z: number, out: THREE.Color) {
+export function sandTint(x: number, y: number, z: number, out: THREE.Color) {
   const n = 0.5 + 0.5 * Math.sin(x * 0.031 + Math.sin(z * 0.023) * 2.2) * Math.cos(z * 0.027 - x * 0.011);
   const m = 0.5 + 0.5 * Math.sin(x * 0.11 + z * 0.07) * Math.sin(z * 0.13 - x * 0.05);
   out.copy(SAND_B).lerp(SAND_A, clamp(n * 0.8 + y * 0.05, 0, 1)).lerp(SAND_PALE, clamp((m - 0.6) * 1.5, 0, 0.5));
@@ -69,7 +68,7 @@ function sandTint(x: number, y: number, z: number, out: THREE.Color) {
 // ---------- chunking ----------
 /** Split an indexed mesh into pieces by a key per triangle (null drops the triangle), keeping its normals, so
  *  each piece gets its own bounds and can be culled. */
-function splitByTriangle(g: THREE.BufferGeometry, keyOf: (cx: number, cy: number, cz: number) => number | null): THREE.BufferGeometry[] {
+export function splitByTriangle(g: THREE.BufferGeometry, keyOf: (cx: number, cy: number, cz: number) => number | null): THREE.BufferGeometry[] {
   const idx = g.index!.array, P = g.attributes.position.array, buckets = new Map<number, number[]>();
   for (let i = 0; i < idx.length; i += 3) {
     const a = idx[i] * 3, b = idx[i + 1] * 3, c = idx[i + 2] * 3;
@@ -93,68 +92,13 @@ function splitByTriangle(g: THREE.BufferGeometry, keyOf: (cx: number, cy: number
   return out;
 }
 
-// ---------- terrain ----------
-export function buildTerrainMesh(lowQ: boolean) {
-  const SIZE = 440, SEG = lowQ ? 110 : 180;
-  setTerrainGrid(SIZE, SEG);
-  const g = new THREE.PlaneGeometry(SIZE, SIZE, SEG, SEG); g.rotateX(-Math.PI / 2);
-  const p = g.attributes.position;
-  for (let i = 0; i < p.count; i++) p.setY(i, baseHeight(p.getX(i), p.getZ(i)));
-  g.computeVertexNormals(); worldUV(g); paintVerts(g, sandTint);
-  // 4x4 tiles for culling; ground beyond the canyon wall is never seen, so it's dropped
-  const TILE = SIZE / 4;
-  for (const piece of splitByTriangle(g, (x, y, z) => Math.hypot(x, z) > 212 ? null : Math.floor((x + SIZE / 2) / TILE) * 4 + Math.floor((z + SIZE / 2) / TILE))) {
-    const m = new THREE.Mesh(piece, desertMaterial()); m.receiveShadow = true; addToScene(m, 'landscape');
-  }
-  // distant desert floor beyond the canyon, seen through the passes
-  const og = new THREE.RingGeometry(200, 1500, 64, 4); og.rotateX(-Math.PI / 2); og.translate(0, 29.6, 0); og.computeVertexNormals(); worldUV(og); paintVerts(og, (x, y, z, c) => c.copy(SAND_B));
-  addToScene(new THREE.Mesh(og, desertMaterial()), 'landscape');
-}
-
-// ---------- canyon wall ----------
+// ---------- shared noise ----------
 /** 1-D periodic noise on the circle, smooth, roughly 0..1. */
-function ringNoise(seed: number, freqs: number[]) {
+export function ringNoise(seed: number, freqs: number[]) {
   const r = mulberry32(seed), ph = freqs.map(() => r() * TAU), amps = freqs.map((_, i) => 1 / (i + 1));
   const tot = amps.reduce((a, b) => a + b, 0);
   return (a: number) => 0.5 + 0.5 * freqs.reduce((s, f, i) => s + Math.sin(a * f + ph[i]) * amps[i], 0) / tot;
 }
-// roads leave the arena here: [angle (atan2(x, z)), half-width in radians]
-export const PASSES: Array<[number, number]> = [[Math.PI / 2, 0.075], [-Math.PI / 2, 0.075], [-0.01, 0.06], [Math.PI + 0.04, 0.06]];
-function passK(a: number) {
-  let k = 1;
-  for (const [pa, w] of PASSES) { let d = Math.abs(a - pa) % TAU; if (d > Math.PI) d = TAU - d; k = Math.min(k, smooth(w, w + 0.07, d)); }
-  return k;
-}
-export function buildCanyonWall(lowQ: boolean) {
-  const SEGS = lowQ ? 360 : 720, R0 = ARENA_R + 4;
-  const hN = ringNoise(3, [3, 7, 13, 29]), rN = ringNoise(4, [5, 11, 23, 47, 97]), eN = ringNoise(5, [61, 131, 223]);
-  // profile from the foot outwards and upwards: [radial offset, height fraction, cragginess]
-  const PROF: Array<[number, number, number]> = [[-7, -0.04, 0], [-1.5, 0.05, 0.3], [0, 0.12, 1], [0.6, 0.36, 1], [2.6, 0.39, 0.5], [3.1, 0.62, 1], [5.4, 0.65, 0.5], [5.9, 0.94, 1], [7.5, 1, 0.3], [30, 1.03, 0], [90, 1.0, 0]];
-  const rows = PROF.length, pos = new Float32Array((SEGS + 1) * rows * 3), r = mulberry32(77);
-  for (let i = 0; i <= SEGS; i++) {
-    const a = i / SEGS * TAU, k = passK(a), H = (20 + 26 * hN(a) + 8 * Math.max(0, rN(a) - 0.6)) * k;
-    const R = R0 + 5 * rN(a) + (1 - k) * 10, sx = Math.sin(a), sz = Math.cos(a);
-    const foot = baseHeight(sx * R, sz * R) - 1.5;
-    for (let j = 0; j < rows; j++) {
-      const [dr, yf, crag] = PROF[j];
-      const jitter = crag * (2.2 * (eN(a + j * 0.37) - 0.5) + (r() - 0.5) * 0.8) * k;
-      const rr = R + dr * (0.6 + 0.8 * hN(a + 1.3)) + jitter, y = foot + yf * H + (j > 0 && j < rows - 2 ? (r() - 0.5) * 0.6 * k : 0);
-      const o = (i * rows + j) * 3; pos[o] = sx * rr; pos[o + 1] = y; pos[o + 2] = sz * rr;
-    }
-  }
-  const idx: number[] = [];
-  for (let i = 0; i < SEGS; i++) for (let j = 0; j < rows - 1; j++) {
-    const a = i * rows + j, b = (i + 1) * rows + j;
-    idx.push(a, a + 1, b, b, a + 1, b + 1);
-  }
-  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
-  worldUV(g); paintVerts(g, sandTint);
-  // 16 slices around the ring, so only the stretch near the player is drawn into the shadow map
-  for (const piece of splitByTriangle(g, (x, y, z) => Math.floor(((Math.atan2(x, z) + Math.PI) / TAU) * 16) % 16)) {
-    const mesh = new THREE.Mesh(piece, desertMaterial()); mesh.receiveShadow = true; mesh.castShadow = true; addToScene(mesh, 'landscape');
-  }
-}
-
 // ---------- mesas and buttes ----------
 // profile: [radius scale, height fraction, cragginess]; the last row closes the cap
 const MESA_PROF: Array<[number, number, number]> = [[1.2, -0.04, 0], [1.02, 0.05, 0.4], [0.96, 0.11, 1], [0.94, 0.42, 1], [0.86, 0.45, 0.5], [0.84, 0.74, 1], [0.78, 0.77, 0.5], [0.77, 0.97, 0.8], [0.73, 1, 0.3], [0.4, 1.01, 0], [0, 1.0, 0]];

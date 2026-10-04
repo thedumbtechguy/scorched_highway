@@ -45,15 +45,10 @@ const crateAtlas = () => atlas(256, (x, type) => {
   for (const [cx, cy] of [[16, 16], [240, 16], [16, 240], [240, 240]]) { x.fillStyle = '#7a7078'; x.beginPath(); x.arc(cx, cy, 7, 0, TAU); x.fill(); x.fillStyle = '#2a2228'; x.beginPath(); x.arc(cx - 1, cy - 1, 3, 0, TAU); x.fill(); }
   x.translate(48, 48); drawGlyph(x, type, 160, 'rgba(30,17,42,.92)', d.css);
 });
-const W_POOL = ['missile', 'rockets', 'mortar', 'mines', 'flame', 'missile', 'rockets', 'special'];
+export type PickSpot = [number, number, string[]]; // x, z, the types that can appear there
+let PICK_SPOTS: PickSpot[] = [];
 export interface Pickup { x: number; z: number; y: number; pool: string[]; type: string; active: boolean; visible: boolean; respawn: number; ph: number; i: number }
 export const PICKUPS: Pickup[] = [];
-const PICK_SPOTS: Array<[number, number, string[]]> = [
-  [0, 0, ['repair']], [-120, -20, ['repair']], [130, 60, ['repair']],
-  [-38, 3, W_POOL], [36, -3, W_POOL], [4, 28, W_POOL], [-14, -32, W_POOL],
-  [-80, -80, W_POOL], [-140, 40, W_POOL], [-60, 80, W_POOL], [10, 80, W_POOL], [80, 20, W_POOL], [120, -40, W_POOL],
-  [40, -80, W_POOL], [-20, -122, W_POOL], [-100, 130, W_POOL], [90, -110, W_POOL], [150, -10, ['special', 'rockets']], [-150, -40, ['special', 'mortar']],
-];
 // Every pickup's crate, ring, beam and badge are instances of four meshes (4 draw calls for all of them);
 // a hidden or collected pickup's instances are collapsed to nothing.
 let crates: THREE.InstancedMesh, rings: THREE.InstancedMesh, beams: THREE.InstancedMesh, icons: THREE.InstancedMesh;
@@ -69,8 +64,9 @@ void main() {
 const ICON_FS = `
 uniform sampler2D map; varying vec2 vUv;
 void main() { vec4 c = texture2D(map, vUv); if (c.a < 0.02) discard; gl_FragColor = c; }`;
-export function buildPickups() {
-  const n = PICK_SPOTS.length;
+/** Build the pickups at `spots` (a map's crate locations). */
+export function buildPickups(spots: PickSpot[]) {
+  PICK_SPOTS = spots; const n = PICK_SPOTS.length;
   // crates: lit and shadowed like the scenery, each face showing its type's panel from the atlas, with a soft glow
   const crateGeo = new THREE.BoxGeometry(1.5, 1.5, 1.5); crateIdx = new THREE.InstancedBufferAttribute(new Float32Array(n), 1); crateGeo.setAttribute('icon', crateIdx);
   const crateMat = new THREE.MeshLambertMaterial({ map: crateAtlas() });

@@ -1,11 +1,11 @@
 // Route 67's meshes: the carved canyon, road surfaces, the mine shaft, the gorge ramp, start gantry, fork signs,
 // boulders and far buttes. Built the first time a race starts, then kept.
 import * as THREE from 'three';
-import { MAT_VC, PB, signTexture } from '../engine/geometry.js';
-import { addToScene } from '../engine/renderer.js';
-import { TAU, clamp, mulberry32 } from '../engine/util.js';
-import { addBoulders, addMesas, desertMaterial } from '../world/landscape';
-import { asphalt, dirt, ribbon, roadMat } from '../world/roads';
+import { MAT_VC, PB, signTexture } from '../../engine/geometry.js';
+import { addToScene } from '../../engine/renderer.js';
+import { TAU, clamp, mulberry32 } from '../../engine/util.js';
+import { addBoulders, addMesas, desertMaterial } from '../../world/landscape';
+import { asphalt, dirt, ribbon, roadMat } from '../../world/roads';
 import { BOUNDS, OX, OZ, PATHS, PORTAL, RIBBON, ROAD_LIFT, ROOF, SECTIONS_BUILT, TRACK_RAMPS, type Path, nearest, pathsNear, setTrackGrid, trackHeight } from './track';
 
 let built = false;
