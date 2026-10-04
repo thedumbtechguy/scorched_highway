@@ -45,6 +45,7 @@ function wireUI() {
   $('#pauseBtn').addEventListener('click', pauseGame);
   $('#againBtn').addEventListener('click', startMatch);
   $('#oGarageBtn').addEventListener('click', goGarage);
+  $('#oTitleBtn').addEventListener('click', goTitle);
   addEventListener('pointerdown', () => ensureAudio(), { once: true });
 }
 function boot() {

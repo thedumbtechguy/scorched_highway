@@ -6,7 +6,8 @@ import { LAST } from '../input/input.js';
 import { camera } from '../engine/renderer.js';
 import { $, TAU, _v1 } from '../engine/util.js';
 import { G } from './state.js';
-import { PICK, PICKUPS, drawGlyph } from '../world/pickups';
+import { drawGlyph } from '../world/glyphs';
+import { PICK, PICKUPS } from '../world/pickups';
 import { BOXES } from '../world/scenery.js';
 import { ARENA_R } from '../world/terrain.js';
 

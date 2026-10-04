@@ -45,7 +45,13 @@ export function tick(now) {
   } else if (G.state === 'title') {
     G.menuT += rdt; orbitCam(rdt, 0, 0, 0, 78, 28, 0.06, 4); updatePickups(rdt, G.menuT);
   } else if (G.state === 'garage') {
-    G.menuT += rdt; orbitCam(rdt, SHOW_POS.x, ground(SHOW_POS.x, SHOW_POS.z), SHOW_POS.z, 10, 3.4, 0.25, 0.9); updatePickups(rdt, G.menuT);
+    G.menuT += rdt; orbitCam(rdt, SHOW_POS.x, ground(SHOW_POS.x, SHOW_POS.z), SHOW_POS.z, 8, 2.6, 0.25, 0.9); updatePickups(rdt, G.menuT);
+    const sc = G.showcase, si = G.showIn;
+    if (sc && si && si.t < 1) { // a newly chosen car slides in from the side it came from
+      si.t = Math.min(1, si.t + rdt / 0.35); const k = 1 - Math.pow(1 - si.t, 3);
+      _v1.set(1, 0, 0).applyQuaternion(camera.quaternion).multiplyScalar((1 - k) * si.dir * 7);
+      sc.group.position.copy(sc.group.userData.home).add(_v1); sc.group.scale.setScalar(0.9 + 0.1 * k);
+    }
     if (G.showcase) { if (G.showcase.siren) { const on = (now / 180 | 0) % 2 === 0; G.showcase.siren[0].visible = on; G.showcase.siren[1].visible = !on; } }
   } else if (G.state === 'over') {
     const p = G.player; if (p) orbitCam(rdt, p.x, p.y, p.z, 12, 5, 0.25, 1);
@@ -85,8 +91,10 @@ export function resize() {
   const W = innerWidth, H = innerHeight;
   renderer.setSize(W, H, false); camera.aspect = W / H;
   if (G.state === 'garage') {
-    const panel = document.querySelector('.gpanel'); const pw = panel ? panel.getBoundingClientRect() : { width: 0 };
-    camera.setViewOffset(W, H, -pw.width * 0.5, 0, W, H); // centre the car in the space beside the panel
+    camera.setViewOffset(W, H, 0, -H * 0.04, W, H); // nudge the car up, clear of the bottom cards
+  } else if (G.state === 'over') {
+    const panel = document.querySelector('.opanel'); const pw = panel ? panel.getBoundingClientRect().width : 0;
+    camera.setViewOffset(W, H, -pw * 0.5, 0, W, H); // centre your car in the space beside the results
   } else camera.clearViewOffset();
   camera.fov = G.state === 'playing' || G.state === 'paused' ? playFov() : baseFov(); camera.updateProjectionMatrix();
 }
