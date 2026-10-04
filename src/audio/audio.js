@@ -63,6 +63,9 @@ export function playSfx(name, x, z, vol) {
     case 'ice': tone(t, 0.3, 'triangle', 1800, 600, 0.2 * v); noiseBurst(t, 0.3, 'highpass', 4000, 2000, 0.2 * v); break;
     case 'beep': tone(t, 0.18, 'square', 440, 440, 0.14 * v); break;
     case 'go': tone(t, 0.4, 'square', 880, 880, 0.14 * v); break;
+    case 'horn': for (const f of [311, 392]) { tone(t, 0.55, 'sawtooth', f, f * 0.98, 0.09 * v); tone(t + 0.7, 0.9, 'sawtooth', f, f * 0.97, 0.09 * v); } break;
+    case 'rumble': noiseBurst(t, 2.2, 'lowpass', 260, 40, 0.9 * v, 0.7); tone(t, 1.8, 'sine', 55, 30, 0.5 * v); break;
+    case 'plate': tone(t, 0.06, 'square', 520, 520, 0.12 * v); tone(t + 0.06, 0.18, 'square', 1040, 780, 0.12 * v); break;
     case 'hurt': tone(t, 0.12, 'sawtooth', 160, 90, 0.12 * v); break;
   }
 }

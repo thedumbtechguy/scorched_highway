@@ -2,6 +2,8 @@
 // others that fog and draw distance keep them apart, so the shared engines (physics, weapons, AI, effects)
 // just ask the map at a point. To add a map, implement GameMap in src/maps/<id>/ and register it in
 // src/maps/index.ts. See README.md, "Maps and modes".
+import type { HazardSite } from '../world/hazards';
+import type { PlateSpot } from '../world/plates';
 
 /** Anything that moves and collides with the scenery. */
 export interface Body { x: number; y: number; z: number; vx: number; vz: number; radius: number }
@@ -52,6 +54,10 @@ export interface GameMap {
   course?: Course;
   /** Fixed hazards on the course: rocks to steer round and holes that wreck you (radar, tests). */
   obstacles?: { rocks: Array<{ x: number; z: number; r: number }>; holes: Array<{ x: number; z: number; r: number }> };
+  /** Plates set into the road (see world/plates), laid when the map is built. */
+  plates?: PlateSpot[];
+  /** Hazards waiting to be set off (see world/hazards); may fill in when the map is built. */
+  hazards?: HazardSite[];
 
   /** Draw the map's static features on the radar; `toR` turns world x, z into radar x, y and whether it's in range. */
   drawRadar(ctx: CanvasRenderingContext2D, toR: (x: number, z: number) => [number, number, boolean], R: number, range: number): void;
@@ -64,12 +70,16 @@ export interface CoursePath {
   open: number;
   x: Float32Array; z: Float32Array; tx: Float32Array; tz: Float32Array; s: Float32Array; len: number;
 }
+/** How a course map tags its plates (PlateSpot.tag), so bots can steer onto them: the path, sample and metres across. */
+export interface PlateTag { path: CoursePath; i: number; across: number }
 /**
  * A race course: a loop of sections, each one path or a fork of several that split at one node and meet at the
  * next. Progress through it is comparable across the paths of a fork.
  */
 export interface Course {
   laps: number;
+  /** Length of a lap, in metres (the distance() of one lap). */
+  lapLength: number;
   sections: Array<{ paths: CoursePath[] }>;
   /** Starting grid behind the line, front row first. */
   grid(n: number): Array<Spot & { progress: Progress }>;

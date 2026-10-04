@@ -19,6 +19,8 @@ const _fwd = new THREE.Vector3(), _xAx = new THREE.Vector3(), _nrm = new THREE.V
 const DROOP = 0.14; // how far a wheel can hang below its rest position to reach the ground
 /** How far one wheel may rest above or below the ground under the car's middle (see sampleContacts). */
 const CONTACT_RISE = 0.6, CONTACT_DROP = 0.8;
+const BUBBLE_GEO = (() => { const g = new THREE.IcosahedronGeometry(1, 2); g.scale(1.9, 1.35, 3.1); return g; })();
+const BUBBLE_MAT = new THREE.MeshBasicMaterial({ color: 0x3aa8f0, transparent: true, opacity: 0.28, blending: THREE.AdditiveBlending, depthWrite: false, wireframe: true });
 export class Car {
   constructor(def, isPlayer) {
     this.def = def; this.isPlayer = isPlayer;
@@ -41,6 +43,7 @@ export class Car {
     this.special = 3; this.cdMG = 0; this.cdW = 0; this.cdS = 0; this.gunSide = 1;
     /** @type {any} */ this.flare = null; /** @type {Car|null} chosen target */ this.pref = null; this.flameOn = false; this.mgHeld = false; this.wHeld = false; this.wFire = false; this.wCombo = 0; this.sFire = false;
     // status effects and scoring
+    this.mgLocked = false; this.shieldT = 0; this.draft = 0; // race rules: machine gun locked until a sword plate; shield plate; slipstream
     this.boost = 0; this.frozen = 0; this.burning = 0; /** @type {Car|null} */ this.burnBy = null; /** @type {Car|null} */ this.lastHitBy = null;
     this.lastHitTime = -99; this.kills = 0; this.dealt = 0; this.flash = 0; this.place = 0; /** @type {Car|null} */ this.wreckedBy = null;
     // body motion and visuals
@@ -60,6 +63,8 @@ export class Car {
     const d = this.def, inp = this.input;
     this.flash = Math.max(0, this.flash - dt * 5);
     if (this.boost > 0) this.boost -= dt; if (this.frozen > 0) this.frozen -= dt; this.resetCd -= dt;
+    if (this.shieldT > 0) this.shieldT -= dt;
+    this.shieldFX();
     if (!this.alive) { inp.throttle = 0; inp.steer = 0; inp.handbrake = true; }
     const fx = Math.sin(this.yaw), fz = Math.cos(this.yaw), rx = -fz, rz = fx;
     let vF = this.vx * fx + this.vz * fz, vL = this.vx * rx + this.vz * rz;
@@ -233,7 +238,7 @@ export class Car {
   }
   /** Bring a wrecked car back (in a race): half health and no pickup weapons; score, special ammo and race state carry over. */
   respawn(x, z, yaw) {
-    const keep = { kills: this.kills, dealt: this.dealt, special: this.special, race: this.race, pref: this.pref, speedK: this.speedK };
+    const keep = { kills: this.kills, dealt: this.dealt, special: this.special, race: this.race, pref: this.pref, speedK: this.speedK, mgLocked: this.mgLocked };
     this.reset(x, z, yaw); Object.assign(this, keep); this.hp = this.def.hp * 0.5; this.resetCd = 2;
     for (const b of this.model.beams) b.visible = curTod.night;
   }
@@ -249,6 +254,13 @@ export class Car {
     }
     for (const bm of this.model.beams) bm.visible = false;
     if (this.model.siren) { this.model.siren[0].visible = false; this.model.siren[1].visible = false; }
+  }
+  /** The shield plate's bubble: shown while the shield lasts, flickering as it runs out. */
+  shieldFX() {
+    const on = this.shieldT > 0 && this.alive && (this.shieldT > 1.5 || (this.shieldT * 8 | 0) % 2 === 0);
+    if (!on) { if (this.bubble) this.bubble.visible = false; return; }
+    if (!this.bubble) { this.bubble = new THREE.Mesh(BUBBLE_GEO, BUBBLE_MAT); this.bubble.position.y = 1.1; this.obj.add(this.bubble); }
+    this.bubble.visible = true; this.bubble.rotation.y += 0.05;
   }
   worldPoint(lx, ly, lz, out) { return out.set(lx, ly, lz).applyQuaternion(this.obj.quaternion).add(this.obj.position); }
   worldDir(lx, ly, lz, out) { return out.set(lx, ly, lz).applyQuaternion(this.obj.quaternion).normalize(); }

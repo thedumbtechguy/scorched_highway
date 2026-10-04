@@ -9,6 +9,9 @@ import type { RaceState } from './race';
 export interface Car {
   def: { id: string; name: string; driver: string; tag: string; hp: number; max: number; ai: string };
   isPlayer: boolean; alive: boolean; hp: number; x: number; y: number; z: number; yaw: number; readonly speed: number;
+  vx: number; vy: number; vz: number; radius: number;
+  /** Race rules: no machine gun until a sword plate; a shield plate's time left; time spent in someone's slipstream. */
+  mgLocked: boolean; shieldT: number; draft: number;
   kills: number; dealt: number; place: number; special: number; speedK: number; burning: number;
   ammo: Record<string, number>; weapon: string | null;
   lastHitBy: Car | null; lastHitTime: number; wreckedBy: Car | null; fellLap?: number;

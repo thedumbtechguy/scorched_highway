@@ -28,10 +28,11 @@ export function feed(msg, mine) {
 let vignT = 0;
 export function hudHit(amt) { vignT = Math.min(1, vignT + 0.25 + amt * 0.03); if (amt > 3) playSfx('hurt', null, null, 0.8); }
 function setIf(key, el, prop, val) { if (hud.cache[key] !== val) { hud.cache[key] = val; el[prop] = val; } }
-function drawWeaponIcon(type) {
+function drawWeaponIcon(type, locked) {
   const x = hud.wIcon.getContext('2d'); x.clearRect(0, 0, 80, 80);
   x.fillStyle = 'rgba(246,234,212,0.08)'; x.beginPath(); x.arc(40, 40, 38, 0, TAU); x.fill();
-  x.save(); x.translate(8, 8); drawGlyph(x, type || 'mg', 64, type ? PICK[type].css : '#f6ead4'); x.restore();
+  x.save(); x.translate(8, 8); drawGlyph(x, type || 'mg', 64, type ? PICK[type].css : locked ? 'rgba(246,234,212,0.3)' : '#f6ead4'); x.restore();
+  if (!type && locked) { x.save(); x.translate(44, 44); drawGlyph(x, 'sword', 32, '#e8433a'); x.restore(); } // locked until a sword plate
 }
 export function updateHUD(dt) {
   const p = G.player; if (!p) return;
@@ -39,11 +40,11 @@ export function updateHUD(dt) {
   hud.hpFill.style.transform = `scaleX(${hpF.toFixed(3)})`;
   setIf('hp', hud.hHp, 'textContent', Math.ceil(Math.max(0, p.hp)) + '');
   const low = hpF < 0.3; if (hud.cache.low !== low) { hud.cache.low = low; hud.hpBar.classList.toggle('low', low); }
-  const w = p.weapon;
-  if (hud.cache.w !== w) { hud.cache.w = w; drawWeaponIcon(w); hud.wName.textContent = w ? PICK[w].label : 'Machine gun only'; } // combo hints for whichever device the player is using
+  const w = p.weapon, locked = p.mgLocked, wk = w + (locked ? '!' : ''); // the machine gun can be locked (races, until a sword plate)
+  if (hud.cache.w !== wk) { hud.cache.w = wk; drawWeaponIcon(w, locked); hud.wName.textContent = w ? PICK[w].label : locked ? 'Machine gun locked' : 'Machine gun only'; } // combo hints for whichever device the player is using
   const dev = LAST.device;
-  if (hud.cache.cw !== w || hud.cache.dev !== dev) { hud.cache.cw = w; hud.cache.dev = dev; hud.combo.innerHTML = w ? `${hint('attack', dev)}: ${COMBOS[w][0]}<br>${hint('defend', dev)}: ${COMBOS[w][1]}` : G.mode.unarmedHint; }
-  setIf('ammo', hud.wAmmo, 'textContent', w ? (w === 'flame' ? p.ammo.flame.toFixed(1) + 's' : Math.floor(p.ammo[w]) + '') : '∞');
+  if (hud.cache.cw !== wk || hud.cache.dev !== dev) { hud.cache.cw = wk; hud.cache.dev = dev; hud.combo.innerHTML = w ? `${hint('attack', dev)}: ${COMBOS[w][0]}<br>${hint('defend', dev)}: ${COMBOS[w][1]}` : locked ? 'Drive over a sword plate to unlock it' : G.mode.unarmedHint; }
+  setIf('ammo', hud.wAmmo, 'textContent', w ? (w === 'flame' ? p.ammo.flame.toFixed(1) + 's' : Math.floor(p.ammo[w]) + '') : locked ? '–' : '∞');
   if (hud.cache.sp !== p.special) { hud.cache.sp = p.special; let s = ''; for (let i = 0; i < 6; i++) s += `<i class="${i < p.special ? 'on' : ''}"></i>`; hud.sPips.innerHTML = s; }
   const [status, clock] = G.mode.status(p);
   setIf('alive', hud.alive, 'textContent', status); setIf('clock', hud.clock, 'textContent', clock);

@@ -21,7 +21,9 @@ import { MENU_MAP, allMaps, getMap } from '../maps/registry';
 import { allModes, getMode } from '../modes/registry';
 import { G } from './state.js';
 import { KEYS, readPlayerInput } from '../input/input.js';
+import { clearHazards, updateHazards } from '../world/hazards';
 import { resetPickups, updatePickups } from '../world/pickups';
+import { resetPlates, updatePlates } from '../world/plates';
 import { resetProps, updateProps } from '../world/props.js';
 
 // ================= match =================
@@ -38,7 +40,7 @@ export function clearMatch() {
   for (const c of G.cars) disposeCarModel(c.model);
   G.cars = []; G.ais = []; G.player = null; G.delayed = [];
   clearWeapons(); clearDebris(); for (const s of PSYS) s.clear();
-  resetProps(); resetPickups();
+  resetProps(); resetPickups(); resetPlates(); clearHazards();
   hud.tags.innerHTML = ''; TAGS.length = 0; hud.feed.innerHTML = '';
 }
 export function startMatch() {
@@ -96,7 +98,7 @@ export function step(dt, rdt) {
   collideCars(G.cars);
   for (const c of G.cars) tickCarWeapons(c, dt);
   updateProjectiles(dt); updateMines(dt, G.time); updateRings(dt); updateProps(dt);
-  updatePickups(dt, G.time);
+  updatePickups(dt, G.time); updatePlates(dt, G.time); updateHazards(dt);
   G.mode.step(dt, rdt);
   if (G.endT > 0) { G.endT -= rdt; if (G.endT <= 0) endMatch(); }
 }

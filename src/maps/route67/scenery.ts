@@ -6,10 +6,12 @@ import { addToScene } from '../../engine/renderer.js';
 import { TAU, clamp, mulberry32 } from '../../engine/util.js';
 import { addBoulders, addMesas, desertMaterial } from '../../world/landscape';
 import { saguaroGeometry } from '../../world/flora';
+import { buildHazards } from '../../world/hazards';
 import { buildPickups } from '../../world/pickups';
+import { buildPlates } from '../../world/plates';
 import { finishProps, placeProp } from '../../world/props.js';
 import { asphalt, dirt, ribbon, roadMat } from '../../world/roads';
-import { BARRELS, BOUNDS, CRATE_SPOTS, OBSTACLES, OX, OZ, PATHS, PORTAL, RIBBON, ROAD_LIFT, ROOF, SECTIONS_BUILT, TRACK_RAMPS, type Path, nearest, pathsNear, place, setTrackGrid, trackHeight } from './track';
+import { BARRELS, BOUNDS, CRATE_SPOTS, PLATE_SPOTS, buildHazardSites, OBSTACLES, OX, OZ, PATHS, PORTAL, RIBBON, ROAD_LIFT, ROOF, SECTIONS_BUILT, TRACK_RAMPS, type Path, nearest, pathsNear, place, setTrackGrid, trackHeight } from './track';
 
 let built = false;
 export const isBuilt = () => built;
@@ -196,5 +198,7 @@ export function buildRoute67(lowQ: boolean) {
   for (const b of BARRELS) { const at = place(b); for (const [dx, dz] of [[0, 0], [1.3, 0.5], [0.4, 1.4]]) placeProp('barrel', at.x + dx, at.z + dz); }
   finishProps();
   buildPickups(CRATE_SPOTS);
+  // plates in the road, and the hazards their skulls set off
+  buildPlates(PLATE_SPOTS); buildHazardSites(); buildHazards();
 }
 export const ROUTE_CENTER = { x: OX, z: OZ };

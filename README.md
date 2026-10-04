@@ -45,7 +45,9 @@ In the browser console, `window.SH` exposes the game state and a few entry point
   | Lawdog | Deputy Tull | Riot gun (close-range buckshot) |
   | Big Chill | Mister Frost | Brain freeze (homing ice shot that slows) |
 
-- **Two modes on two maps:** *Deathmatch* in the Ghost Town, last car running wins; and *Race* on **Route 67**, three laps of a canyon course with three forks (mine shaft or canyon road, gorge jump or switchback, old highway or sandy riverbed). Wrecks in a race respawn after three seconds with half armour.
+- **Two modes on two maps:** *Deathmatch* in the Ghost Town, last car running wins; and *Race* on **Route 67**, three laps from the open desert into the canyons with three forks (mine shaft or dry wash, a cliff road above boulder alley, gorge jump or switchback), boulders and sinkholes. Wrecks in a race respawn after three seconds with half armour.
+- **Death Race plates:** races start with the machine gun locked. *Sword* plates unlock it and hand out a heavy weapon (heavier further back in the field), *shield* plates cut damage to a quarter for eight seconds, and *skull* plates set off the next hazard ahead: a rockfall or a tanker truck driving the wrong way.
+- **Rubber banding:** bots behind you get a little more top speed and bots ahead a little less (scaled by difficulty, off in Settings), and anyone tucked in behind another car gets a slipstream.
 - **Five weapons, carry three:** homing missiles, rocket pods, mortar, mines and a torch from crates, plus repair and special-ammo pickups. A fourth weapon throws out the one you have least of.
 - **Combo moves:** an attack and a defensive combo for every weapon: Rattler volley and Decoy flare, Rocket fan and Tail gunner, Carpet barrage and Smoke screen, Mine toss and Kickback, Fireball and Ring of fire.
 - **AI drivers** with personalities (rammers, snipers, opportunists) that hunt, retreat to repair, grab pickups and fight each other, or race the course and pick their branch at each fork.
@@ -79,9 +81,9 @@ ES modules bundled by Vite, with Three.js (pinned to r128) from npm. Modules are
 | --- | --- |
 | `src/main.js` | Boot: builds the world, wires the menus, starts the loop |
 | `src/engine/` | Utilities, renderer and lights, sky shader and time of day (`sky.ts`, `onTod` listeners), particles, debris, geometry helpers |
-| `src/world/` | Engines every map shares: ground and collision queries that ask the map at a point (`terrain.js`, `collision.js`, `surface.js`), the sand/sandstone material, mesas and boulders (`landscape.ts`), procedural textures, road surfaces (`roads.ts`), plants and scatter (`flora.ts`), destructible props, pickups and their icons |
+| `src/world/` | Engines every map shares: ground and collision queries that ask the map at a point (`terrain.js`, `collision.js`, `surface.js`), the sand/sandstone material, mesas and boulders (`landscape.ts`), procedural textures, road surfaces (`roads.ts`), plants and scatter (`flora.ts`), destructible props, pickups and their icons, road plates (`plates.ts`) and triggered hazards (`hazards.ts`) |
 | `src/maps/` | The places. `types.ts` (what a map provides), `registry.ts` (lookup by id or position), `index.ts` (registers them), one folder per map: `ghost-town/` (the arena and menu backdrop: terrain, town, canyon wall, roads, props, crates) and `route67/` (the canyon race course and its scenery) |
-| `src/modes/` | The rules. `types.ts` (what a mode provides), `registry.ts`, `index.ts`, and one file per mode: `deathmatch.ts`, `race.ts` |
+| `src/modes/` | The rules. `types.ts` (what a mode provides), `registry.ts`, `index.ts`, and one file per mode: `deathmatch.ts`, `race.ts`, plus rules they share (`shared.ts` pickups, `plates.ts` what plates do in a race) |
 | `src/cars/` | `roster.js` (stats), `car.js` (driving physics, car collisions), `model/` (procedural model kit: lofted hulls, materials and reflections, painted decals, wheels) and `recipes/` (one file per car) |
 | `src/combat/` | Projectile pools, damage, explosions and effects, weapons, combos and specials |
 | `src/ai/` | Opponent behaviour |
@@ -111,7 +113,7 @@ All maps live in one scene, each in its own 6 km band of world x (`x0` to `x1`),
 
 1. Make `src/maps/<id>/index.ts` exporting a `GameMap` (`src/maps/types.ts`). Give it the next free band (`x0: 9000, x1: 15000`, and so on) and put everything inside it: an origin at the band's middle keeps coordinates small.
 2. Provide the ground (`height`, `ramp`, `drawn`, `roadLift`, `speed`), collision (`collide`, `blocked`, `solid`, `outOfBounds`, optionally `sees`), a `build` that adds its meshes, and `drawRadar`. Reuse `desertMaterial`, `addMesas`, `addBoulders`, `ribbon` and the scatter and props engines from `src/world/`.
-3. List its `modes`, and provide what they need: `spawns` for deathmatch, a `course` for races (see `route67/track.ts`).
+3. List its `modes`, and provide what they need: `spawns` for deathmatch, a `course` for races (see `route67/track.ts`). A race map can also lay `plates` (tag each with its `PlateTag` so bots can steer onto it) and offer `hazards` (rockfall and truck sites) for skull plates to set off.
 4. Register it in `src/maps/index.ts`. `tests/maps.spec.js` then plays it in each of its modes; check the frame cost with `npm run perf -- --map <id> --mode <mode>`.
 
 ### Adding a mode
