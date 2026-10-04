@@ -1,6 +1,8 @@
 import { playSfx } from '../audio/audio.js';
 import { COMBOS, CONE, RANGE } from '../combat/arsenal';
 import { findTarget } from '../combat/weapons.js';
+import { hint } from '../input/bindings';
+import { LAST } from '../input/input.js';
 import { camera } from '../engine/renderer.js';
 import { $, TAU, _v1 } from '../engine/util.js';
 import { G } from './state.js';
@@ -39,7 +41,9 @@ export function updateHUD(dt) {
   setIf('hp', hud.hHp, 'textContent', Math.ceil(Math.max(0, p.hp)) + '');
   const low = hpF < 0.3; if (hud.cache.low !== low) { hud.cache.low = low; hud.hpBar.classList.toggle('low', low); }
   const w = p.weapon;
-  if (hud.cache.w !== w) { hud.cache.w = w; drawWeaponIcon(w); hud.wName.textContent = w ? PICK[w].label : 'Machine gun only'; hud.combo.innerHTML = w ? `↑↑ + fire: ${COMBOS[w][0]}<br>↓↓ + fire: ${COMBOS[w][1]}` : 'Grab a crate for heavy weapons'; }
+  if (hud.cache.w !== w) { hud.cache.w = w; drawWeaponIcon(w); hud.wName.textContent = w ? PICK[w].label : 'Machine gun only'; } // combo hints for whichever device the player is using
+  const dev = LAST.device;
+  if (hud.cache.cw !== w || hud.cache.dev !== dev) { hud.cache.cw = w; hud.cache.dev = dev; hud.combo.innerHTML = w ? `${hint('attack', dev)}: ${COMBOS[w][0]}<br>${hint('defend', dev)}: ${COMBOS[w][1]}` : 'Grab a crate for heavy weapons'; }
   setIf('ammo', hud.wAmmo, 'textContent', w ? (w === 'flame' ? p.ammo.flame.toFixed(1) + 's' : Math.floor(p.ammo[w]) + '') : '∞');
   if (hud.cache.sp !== p.special) { hud.cache.sp = p.special; let s = ''; for (let i = 0; i < 6; i++) s += `<i class="${i < p.special ? 'on' : ''}"></i>`; hud.sPips.innerHTML = s; }
   const alive = G.cars.filter(c => c.alive).length;
@@ -86,7 +90,7 @@ export function buildTags() {
     if (c.isPlayer) continue;
     const el = document.createElement('div'); el.className = 'tag'; el.style.color = c.def.tag;
     el.innerHTML = `<span>${c.def.driver}</span><b><i></i></b>`; hud.tags.appendChild(el);
-    TAGS.push({ c, el, bar: el.querySelector('i'), vis: null });
+    TAGS.push({ c, el, bar: el.querySelector('i'), vis: null, pref: false });
   }
 }
 function updateTags() {
@@ -104,6 +108,7 @@ function updateTags() {
         t.bar.style.transform = `scaleX(${Math.max(0, c.hp / c.def.hp).toFixed(3)})`;
       }
     }
+    const pref = c === p.pref; if (t.pref !== pref) { t.pref = pref; t.el.classList.toggle('pref', pref); }
     if (t.vis !== show) { t.vis = show; t.el.style.display = show ? '' : 'none'; }
   }
   // lock-on

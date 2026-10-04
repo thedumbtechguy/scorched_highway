@@ -5,7 +5,7 @@ import { PSYS, setFxScale } from '../engine/particles.js';
 import { camera, headSpot, renderer, scene, sun, sunDir, updateLights } from '../engine/renderer.js';
 import { curTod, updateSky } from '../engine/sky';
 import { _v1, _v2, isTouch, lerp } from '../engine/util.js';
-import { baseFov, chaseCam, orbitCam } from './camera.js';
+import { baseFov, playFov, chaseCam, orbitCam } from './camera.js';
 import { feed, updateHUD } from './hud.js';
 import { pauseGame, step } from './match.js';
 import { SHOW_POS } from './screens.js';
@@ -85,11 +85,10 @@ export function resize() {
   const W = innerWidth, H = innerHeight;
   renderer.setSize(W, H, false); camera.aspect = W / H;
   if (G.state === 'garage') {
-    const portrait = W < H && W <= 700;
-    const panel = document.querySelector('.gpanel'); const pw = panel ? panel.getBoundingClientRect() : { width: 0, height: 0 };
-    if (portrait) camera.setViewOffset(W, H, 0, pw.height * 0.5, W, H); else camera.setViewOffset(W, H, -pw.width * 0.5, 0, W, H);
+    const panel = document.querySelector('.gpanel'); const pw = panel ? panel.getBoundingClientRect() : { width: 0 };
+    camera.setViewOffset(W, H, -pw.width * 0.5, 0, W, H); // centre the car in the space beside the panel
   } else camera.clearViewOffset();
-  camera.fov = baseFov(); camera.updateProjectionMatrix();
+  camera.fov = G.state === 'playing' || G.state === 'paused' ? playFov() : baseFov(); camera.updateProjectionMatrix();
 }
 addEventListener('resize', resize);
 document.addEventListener('visibilitychange', () => { if (document.hidden && G.state === 'playing') pauseGame(); });

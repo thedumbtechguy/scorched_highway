@@ -9,14 +9,14 @@ import { chromium } from '@playwright/test';
 import { mkdirSync, writeFileSync } from 'node:fs';
 
 const args = process.argv.slice(2), opt = (k, d) => { const i = args.indexOf('--' + k); return i >= 0 ? args[i + 1] : d; };
-const phone = args.includes('--phone'); // mobile viewport + touch (the game then picks Fast graphics) + 4x slower CPU
+const phone = args.includes('--phone'); // landscape phone viewport + touch (the game then picks Fast graphics) + 4x slower CPU
 const quality = opt('quality', phone ? 'low' : 'high'), FRAMES = +opt('frames', 60), name = opt('out', phone ? 'phone' : quality);
 
 const server = await createServer({ server: { port: 5196, strictPort: false }, logLevel: 'error' });
 await server.listen();
 const browser = await chromium.launch({ args: ['--use-gl=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
 try {
-  const page = await browser.newPage(phone ? { viewport: { width: 412, height: 915 }, deviceScaleFactor: 2.6, isMobile: true, hasTouch: true, ignoreHTTPSErrors: true } : { viewport: { width: 1280, height: 720 }, ignoreHTTPSErrors: true });
+  const page = await browser.newPage(phone ? { viewport: { width: 915, height: 412 }, deviceScaleFactor: 2.6, isMobile: true, hasTouch: true, ignoreHTTPSErrors: true } : { viewport: { width: 1280, height: 720 }, ignoreHTTPSErrors: true });
   const cdp = await page.context().newCDPSession(page);
   if (phone) await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 }); // roughly a mid-range phone's CPU (the GPU can't be emulated)
   page.on('pageerror', e => console.error('page error:', e.message));
