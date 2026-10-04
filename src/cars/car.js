@@ -96,6 +96,7 @@ export class Car {
     this.vx = fx * vF + rx * vL; this.vz = fz * vF + rz * vL;
     this.accelVis = (vF - this.lastVF) / Math.max(dt, 0.001); this.lastVF = vF;
     // horizontal move with step check
+    const x0 = this.x, z0 = this.z;
     let nx = this.x + this.vx * dt, nz = this.z + this.vz * dt;
     let impact = 0;
     if (ground(nx, nz) - this.y > 1.3) {
@@ -116,7 +117,9 @@ export class Car {
     this.vy -= GRAV * dt; this.y += this.vy * dt;
     if (this.y <= g) {
       if (this.airT > 0.35) this.land();
-      this.y = g; this.vy = clamp((g - this.prevG) / Math.max(dt, 0.001), -12, 30);
+      // follow the ground's slope (a ramp launches you), but a step up (a kerb, a ledge's edge) is a bump, not a launch
+      const rise = g - this.prevG, run = Math.hypot(this.x - x0, this.z - z0);
+      this.y = g; this.vy = rise > 0.05 && rise > run * 0.8 ? 0 : clamp(rise / Math.max(dt, 0.001), -12, 30);
       this.grounded = true; this.airT = 0;
     } else {
       this.grounded = this.y - g < 0.3;

@@ -46,13 +46,16 @@ const crateAtlas = () => atlas(256, (x, type) => {
   x.translate(48, 48); drawGlyph(x, type, 160, 'rgba(30,17,42,.92)', d.css);
 });
 export type PickSpot = [number, number, string[]]; // x, z, the types that can appear there
-let PICK_SPOTS: PickSpot[] = [];
-export interface Pickup { x: number; z: number; y: number; pool: string[]; type: string; active: boolean; visible: boolean; respawn: number; ph: number; i: number }
+// Each map's pickups are a set: every crate, ring, beam and badge in it are instances of four meshes (4 draw calls
+// for the whole set); a hidden or collected pickup's instances are collapsed to nothing.
+interface PickupSet {
+  crates: THREE.InstancedMesh; rings: THREE.InstancedMesh; beams: THREE.InstancedMesh; icons: THREE.InstancedMesh;
+  iconIdx: THREE.InstancedBufferAttribute; crateIdx: THREE.InstancedBufferAttribute; list: Pickup[];
+}
+export interface Pickup { x: number; z: number; y: number; pool: string[]; type: string; active: boolean; visible: boolean; respawn: number; ph: number; i: number; set: PickupSet }
+/** Every pickup on every built map. */
 export const PICKUPS: Pickup[] = [];
-// Every pickup's crate, ring, beam and badge are instances of four meshes (4 draw calls for all of them);
-// a hidden or collected pickup's instances are collapsed to nothing.
-let crates: THREE.InstancedMesh, rings: THREE.InstancedMesh, beams: THREE.InstancedMesh, icons: THREE.InstancedMesh;
-let iconIdx: THREE.InstancedBufferAttribute, crateIdx: THREE.InstancedBufferAttribute;
+const SETS: PickupSet[] = [];
 const ICON_VS = `
 attribute float icon; varying vec2 vUv;
 void main() {
@@ -64,36 +67,38 @@ void main() {
 const ICON_FS = `
 uniform sampler2D map; varying vec2 vUv;
 void main() { vec4 c = texture2D(map, vUv); if (c.a < 0.02) discard; gl_FragColor = c; }`;
-/** Build the pickups at `spots` (a map's crate locations). */
+/** Build a map's pickups at `spots` (its crate locations). */
 export function buildPickups(spots: PickSpot[]) {
-  PICK_SPOTS = spots; const n = PICK_SPOTS.length;
+  const n = spots.length;
   // crates: lit and shadowed like the scenery, each face showing its type's panel from the atlas, with a soft glow
-  const crateGeo = new THREE.BoxGeometry(1.5, 1.5, 1.5); crateIdx = new THREE.InstancedBufferAttribute(new Float32Array(n), 1); crateGeo.setAttribute('icon', crateIdx);
+  const crateGeo = new THREE.BoxGeometry(1.5, 1.5, 1.5), crateIdx = new THREE.InstancedBufferAttribute(new Float32Array(n), 1); crateGeo.setAttribute('icon', crateIdx);
   const crateMat = new THREE.MeshLambertMaterial({ map: crateAtlas() });
   crateMat.onBeforeCompile = sh => {
     sh.vertexShader = 'attribute float icon;\n' + sh.vertexShader.replace('#include <uv_vertex>', `#include <uv_vertex>\nvUv.x = (vUv.x + icon) / ${TYPES.length}.0;`);
     sh.fragmentShader = sh.fragmentShader.replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance += diffuseColor.rgb * 0.3;');
   };
-  crates = new THREE.InstancedMesh(crateGeo, crateMat, n); crates.castShadow = true;
+  const crates = new THREE.InstancedMesh(crateGeo, crateMat, n); crates.castShadow = true;
   const ringGeo = new THREE.RingGeometry(1.9, 2.4, 28); ringGeo.rotateX(-Math.PI / 2);
-  rings = new THREE.InstancedMesh(ringGeo, new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false }), n);
+  const rings = new THREE.InstancedMesh(ringGeo, new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false }), n);
   // light beams, so pickups can be spotted across the arena: bright at the ground, fading out upwards
   const beamGeo = new THREE.CylinderGeometry(0.45, 0.7, 16, 12, 1, true); beamGeo.translate(0, 8, 0);
   const shade = new Float32Array(beamGeo.attributes.position.count * 3);
   for (let i = 0; i < beamGeo.attributes.position.count; i++) { const k = Math.pow(1 - beamGeo.attributes.position.getY(i) / 16, 2) * 0.55; shade.set([k, k, k], i * 3); }
   beamGeo.setAttribute('color', new THREE.BufferAttribute(shade, 3));
-  beams = new THREE.InstancedMesh(beamGeo, new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false }), n);
-  const quad = new THREE.PlaneGeometry(2.6, 2.6); iconIdx = new THREE.InstancedBufferAttribute(new Float32Array(n), 1); quad.setAttribute('icon', iconIdx);
-  icons = new THREE.InstancedMesh(quad, new THREE.ShaderMaterial({ uniforms: { map: { value: badgeAtlas() } }, vertexShader: ICON_VS, fragmentShader: ICON_FS, transparent: true, depthWrite: false }), n);
-  for (const m of [crates, rings, beams, icons]) { m.frustumCulled = false; addToScene(m, 'pickups'); } // spread over the arena
-  PICK_SPOTS.forEach(([x, z, pool], i) => {
-    const p: Pickup = { x, z, y: ground(x, z), pool, type: pool[0], active: true, visible: true, respawn: 0, ph: srand() * TAU, i };
-    PICKUPS.push(p); setPickupType(p, pool[0]);
+  const beams = new THREE.InstancedMesh(beamGeo, new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false }), n);
+  const quad = new THREE.PlaneGeometry(2.6, 2.6), iconIdx = new THREE.InstancedBufferAttribute(new Float32Array(n), 1); quad.setAttribute('icon', iconIdx);
+  const icons = new THREE.InstancedMesh(quad, new THREE.ShaderMaterial({ uniforms: { map: { value: badgeAtlas() } }, vertexShader: ICON_VS, fragmentShader: ICON_FS, transparent: true, depthWrite: false }), n);
+  for (const m of [crates, rings, beams, icons]) { m.frustumCulled = false; addToScene(m, 'pickups'); } // spread over the map
+  const set: PickupSet = { crates, rings, beams, icons, iconIdx, crateIdx, list: [] }; SETS.push(set);
+  spots.forEach(([x, z, pool], i) => {
+    const p: Pickup = { x, z, y: ground(x, z), pool, type: pool[0], active: true, visible: true, respawn: 0, ph: srand() * TAU, i, set };
+    PICKUPS.push(p); set.list.push(p); setPickupType(p, pool[0]);
   });
   updatePickups(0, 0);
 }
 const _c = new THREE.Color(), _m = new THREE.Matrix4(), _p = new THREE.Vector3(), _q = new THREE.Quaternion(), _e = new THREE.Euler(), _s = new THREE.Vector3(), ZERO = new THREE.Matrix4().makeScale(0, 0, 0);
 function setPickupType(p: Pickup, type: string) {
+  const { rings, beams, iconIdx, crateIdx } = p.set;
   p.type = type; _c.setHex(PICK[type].color);
   rings.setColorAt(p.i, _c); beams.setColorAt(p.i, _c); iconIdx.setX(p.i, TYPES.indexOf(type)); crateIdx.setX(p.i, TYPES.indexOf(type));
   rings.instanceColor!.needsUpdate = true; beams.instanceColor!.needsUpdate = true; iconIdx.needsUpdate = true; crateIdx.needsUpdate = true;
@@ -102,7 +107,11 @@ export function resetPickups() {
   for (const p of PICKUPS) { setPickupType(p, pick(p.pool)); p.active = true; p.visible = true; p.respawn = 0; }
 }
 export function updatePickups(dt: number, t: number) {
-  for (const p of PICKUPS) {
+  for (const set of SETS) updateSet(set, dt, t);
+}
+function updateSet(set: PickupSet, dt: number, t: number) {
+  const { crates, rings, beams, icons } = set;
+  for (const p of set.list) {
     if (!p.active) {
       p.respawn -= dt;
       if (p.respawn <= 0) { setPickupType(p, pick(p.pool)); p.active = true; p.visible = true; for (let i = 0; i < 10 * fxScale; i++) FX_ADD.spawn(p.x, p.y + 1.4, p.z, rand(-4, 4), rand(2, 7), rand(-4, 4), 0.6, 0.8, 0.1, PICK[p.type].color, 0xffffff, 0.9, 1, 4); }

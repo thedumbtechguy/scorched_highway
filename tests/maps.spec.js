@@ -60,9 +60,9 @@ test('garage: picking a mode offers only the maps that host it', async ({ page }
 test('sand is slower than dirt', async ({ page }) => {
   await boot(page);
   const k = await page.evaluate(() => {
-    const route = window.SH.getMap('route67'), sec = route.course.sections[5];
-    const river = sec.paths.find(p => !p.risky), road = sec.paths.find(p => p.risky), i = 20;
-    return [route.speed(river.x[i], river.z[i]), route.speed(road.x[i], road.z[i])];
+    const route = window.SH.getMap('route67'), paths = route.course.sections.flatMap(s => s.paths);
+    const wash = paths.find(p => p.name === 'Dry wash'), flats = paths.find(p => p.name === 'Desert flats'), i = 20;
+    return [route.speed(wash.x[i], wash.z[i]), route.speed(flats.x[i], flats.z[i])];
   });
   expect(k[0]).toBeLessThan(1); expect(k[1]).toBeGreaterThanOrEqual(1);
 });
