@@ -84,7 +84,7 @@ export function step(dt, rdt) {
     if (n !== lastCount) { lastCount = n; if (n > 0) { bigText(String(n), 0.8); playSfx('beep'); } else { bigText('Go!', 0.8); playSfx('go'); } }
   } else G.clock += dt;
   G.time += dt;
-  if (p.alive && G.state === 'playing') readPlayerInput(p); else { p.mgHeld = p.wHeld = false; p.input.throttle = 0; p.input.steer = 0; }
+  if (p.alive && G.state === 'playing') readPlayerInput(p, dt); else { p.mgHeld = p.wHeld = false; p.input.throttle = 0; p.input.steer = 0; }
   if (G.countdown > 0) { for (const c of G.cars) { c.input.throttle = 0; c.input.steer = 0; c.input.handbrake = true; } if (p.alive) { p.wFire = false; p.sFire = false; } }
   for (const ai of G.ais) ai.update(dt);
   if (G.countdown > 0) for (const c of G.cars) { c.input.throttle = 0; c.input.handbrake = true; c.wFire = false; c.sFire = false; }

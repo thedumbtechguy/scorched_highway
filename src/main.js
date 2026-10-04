@@ -1,4 +1,6 @@
 import { ensureAudio } from './audio/audio.js';
+import { lockLandscape, watchOrientation } from './game/orientation';
+import { controlsTable } from './input/bindings';
 import { giveAmmo } from './combat/arsenal';
 import { MINES, PROJ, SMOKES, initPools } from './combat/pools.js';
 import { applyTod } from './engine/sky';
@@ -11,24 +13,35 @@ import { applyQuality, startLoop, tick } from './game/loop.js';
 import { pauseGame, resumeGame, startMatch, step } from './game/match.js';
 import { buildGarage, goGarage, goTitle, selectCar, show } from './game/screens.js';
 import { G } from './game/state.js';
-import { setupTouch } from './input/input.js';
+import { LAST, setupTouch } from './input/input.js';
 import { buildPickups } from './world/pickups';
 import { buildProps } from './world/props.js';
 import { buildStatic, buildTerrain, decorBlocked } from './world/scenery.js';
 import { buildScatter, buildTumbleweeds } from './world/flora';
-import { baseHeight } from './world/terrain.js';
+import { baseHeight, ground } from './world/terrain.js';
 
 // ================= boot =================
+/** The help screen's controls table, for one device (it opens on the one the player is using). */
+function showControls(d) {
+  $('#controlsTable').innerHTML = controlsTable(d);
+  for (const b of $('#controlsDevice').querySelectorAll('button')) b.setAttribute('aria-pressed', String(/** @type {any} */ (b).dataset.v === d));
+}
+function showHelp() { showControls(LAST.device); show('help'); }
 function wireUI() {
-  $('#toGarage').addEventListener('click', () => { ensureAudio(); goGarage(); });
-  $('#toHelp').addEventListener('click', () => { G.helpFrom = G.state; show('help'); });
+  $('#toGarage').addEventListener('click', () => { ensureAudio(); lockLandscape(); goGarage(); });
+  $('#toHelp').addEventListener('click', () => { G.helpFrom = G.state; showHelp(); });
   $('#helpClose').addEventListener('click', () => { if (G.helpFrom === 'paused') show('pause'); else if (G.helpFrom === 'title') show('title'); else show(null); });
   $('#gBack').addEventListener('click', goTitle);
-  $('#startBtn').addEventListener('click', startMatch);
+  $('#startBtn').addEventListener('click', () => { lockLandscape(); startMatch(); });
   $('#resumeBtn').addEventListener('click', resumeGame);
   $('#restartBtn').addEventListener('click', startMatch);
   $('#quitBtn').addEventListener('click', goGarage);
-  $('#pHelpBtn').addEventListener('click', () => { G.helpFrom = 'paused'; show('help'); });
+  $('#pHelpBtn').addEventListener('click', () => { G.helpFrom = 'paused'; showHelp(); });
+  $('#toSettings').addEventListener('click', () => { G.helpFrom = 'title'; show('settings'); });
+  $('#pSetBtn').addEventListener('click', () => { G.helpFrom = 'paused'; show('settings'); });
+  $('#settingsClose').addEventListener('click', () => show(G.helpFrom === 'paused' ? 'pause' : 'title'));
+  for (const b of $('#controlsDevice').querySelectorAll('button')) b.addEventListener('click', () => showControls(/** @type {any} */ (b).dataset.v));
+  watchOrientation(pauseGame);
   $('#pauseBtn').addEventListener('click', pauseGame);
   $('#againBtn').addEventListener('click', startMatch);
   $('#oGarageBtn').addEventListener('click', goGarage);
@@ -49,7 +62,14 @@ function boot() {
   startLoop();
 }
 // handle for tests, tools and the browser console
-window.SH = { combat: { PROJ, MINES, SMOKES, giveAmmo }, G, CARS, step, tick, startMatch, goGarage, selectCar, damageCar, buildCarModel, disposeCarModel, applyTod, applyQuality, camera, renderer, scene };
+/** Tests: put the player on open desert facing the town, opponent 1 `d` m straight ahead facing back, the rest far away. */
+function testPark(d) {
+  const put = (c, x, z, yaw) => { c.x = x; c.z = z; c.yaw = yaw; c.vx = c.vy = c.vz = 0; c.y = c.prevG = ground(x, z); c.grounded = true; };
+  const [p, o, ...rest] = G.cars;
+  put(p, 0, 118, Math.PI); put(o, 0, 118 - d, 0);
+  rest.forEach((c, i) => put(c, Math.sin(2 + i * 1.3) * 150, Math.cos(2 + i * 1.3) * 150, 0));
+}
+window.SH = { testPark, combat: { PROJ, MINES, SMOKES, giveAmmo }, G, CARS, step, tick, startMatch, goGarage, selectCar, damageCar, buildCarModel, disposeCarModel, applyTod, applyQuality, camera, renderer, scene };
 
 (function start() {
   let done = false; const go = () => { if (done) return; done = true; try { boot(); } catch (e) { console.error(e); $('#loading').lastChild.textContent = 'Something went wrong starting the game: ' + e.message; } };

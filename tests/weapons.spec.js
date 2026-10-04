@@ -46,7 +46,7 @@ test('a decoy flare pulls homing missiles off its car', async ({ page }) => {
   const r = await page.evaluate(() => {
     const { G, step, combat } = window.SH, p = G.player, foe = G.cars[1];
     // park the opponent 40 m straight ahead of the player, facing it, and fire a missile at the player
-    foe.x = p.x + Math.sin(p.yaw) * 40; foe.z = p.z + Math.cos(p.yaw) * 40; foe.y = p.y; foe.vx = foe.vz = 0; foe.yaw = p.yaw + Math.PI; step(1 / 60, 1 / 60);
+    window.SH.testPark(40);
     foe.ammo.missile = 5; foe.weapon = 'missile'; foe.cdW = 0; foe.wFire = true; foe.wCombo = 0;
     step(1 / 60, 1 / 60);
     const m = combat.PROJ.find(q => q.type === 'missile'); const aimedAtPlayer = m && m.target === p;
@@ -68,7 +68,7 @@ test('mines: at most six live per car, and smoke breaks a missile lock', async (
   expect(mines).toBe(6);
   const lost = await page.evaluate(() => {
     const { G, step, combat } = window.SH, p = G.player, foe = G.cars[1];
-    foe.x = p.x + Math.sin(p.yaw) * 45; foe.z = p.z + Math.cos(p.yaw) * 45; foe.y = p.y; foe.vx = foe.vz = 0; foe.yaw = p.yaw + Math.PI; step(1 / 60, 1 / 60);
+    window.SH.testPark(45);
     foe.ammo.missile = 5; foe.weapon = 'missile'; foe.cdW = 0; foe.wFire = true; foe.wCombo = 0;
     step(1 / 60, 1 / 60);
     const m = combat.PROJ.find(q => q.type === 'missile');

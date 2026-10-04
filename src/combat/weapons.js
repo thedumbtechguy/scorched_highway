@@ -5,7 +5,7 @@ import { explode, ring, sparks } from './effects.js';
 import { COMBOS, COMBO_COST, CONE, RANGE, WEAPON_ORDER } from './arsenal';
 import { MINES, PROJ, SMOKES, takeMesh } from './pools.js';
 import { FX_ADD, FX_SMOKE, fxScale } from '../engine/particles.js';
-import { TAU, _v1, _v2, clamp, rand } from '../engine/util.js';
+import { TAU, _v1, _v2, angDiff, clamp, rand } from '../engine/util.js';
 import { bigText } from '../game/hud.js';
 import { G, shake } from '../game/state.js';
 import { lineOfSight, pointBlocked } from '../world/collision.js';
@@ -13,9 +13,17 @@ import { PROPS, breakProp, damageProp } from '../world/props.js';
 import { ARENA_R, ground } from '../world/terrain.js';
 
 // ================= targeting =================
-/** Best car to aim at within `range` and `cone` of heading `yaw`; with `needSight`, only cars it can see. */
+/**
+ * Best car to aim at within `range` and `cone` of heading `yaw`; with `needSight`, only cars it can see.
+ * The car's chosen target (`c.pref`) wins whenever it qualifies, with a little extra cone.
+ */
 export function findTarget(c, range, cone, needSight = false, yaw = c.yaw) {
   let best = null, bestS = 1e9; const fx = Math.sin(yaw), fz = Math.cos(yaw);
+  const pf = c.pref;
+  if (pf && pf.alive) {
+    const dx = pf.x - c.x, dz = pf.z - c.z, d = Math.hypot(dx, dz);
+    if (d <= range && d >= 0.5 && Math.acos(clamp((dx * fx + dz * fz) / d, -1, 1)) <= cone * 1.5 && (!needSight || canSee(c.x, c.y + 1.4, c.z, pf))) return pf;
+  }
   for (const o of G.cars) {
     if (o === c || !o.alive) continue;
     const dx = o.x - c.x, dz = o.z - c.z, d = Math.hypot(dx, dz);
@@ -201,6 +209,13 @@ function autoSwitch(c) {
   if (c.weapon && c.ammo[c.weapon] > 0.01) return;
   c.weapon = null;
   for (const w of WEAPON_ORDER) if (c.ammo[w] > 0.01) { c.weapon = w; break; }
+}
+/** Choose the next target: cars ordered by how far they are off the nose, starting with the one most ahead. */
+export function cycleTarget(c) {
+  const off = o => Math.abs(angDiff(c.yaw, Math.atan2(o.x - c.x, o.z - c.z)));
+  const others = G.cars.filter(o => o !== c && o.alive).sort((a, b) => off(a) - off(b));
+  c.pref = others.length ? others[(others.indexOf(c.pref) + 1) % others.length] : null;
+  if (c.pref) playSfx('click', c.x, c.z, 0.5);
 }
 export function cycleWeapon(c, dir) {
   const i0 = c.weapon ? WEAPON_ORDER.indexOf(c.weapon) : -1;

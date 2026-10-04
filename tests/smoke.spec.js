@@ -34,6 +34,7 @@ test('every car model builds in every time of day', async ({ page }) => {
 });
 
 test('garage shows each car', async ({ page }) => {
+  test.slow(); // six model builds and showroom renders on a software GPU, slower when the other tests share the CPU
   const errors = await boot(page);
   await page.click('#toGarage');
   for (const btn of await page.locator('.carbtn').all()) await btn.click();

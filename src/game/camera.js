@@ -6,11 +6,22 @@ import { ground } from '../world/terrain.js';
 
 // ================= camera =================
 export const CAM = { x: 0, y: 30, z: -60, yaw: 0, fov: 62, orbit: 0 };
+/** Field of view for menus and the garage showroom. */
 export function baseFov() { return camera.aspect < 1 ? 80 : 62; }
+/** View width settings, in horizontal degrees: every screen shape sees the same width. */
+const VIEW_WIDTH = { narrow: 86, normal: 100, wide: 114 };
+/** Camera settings: how far back and how high the chase camera sits, relative to normal. */
+const CAM_DIST = { close: [0.82, 0.85], normal: [1, 1], far: [1.25, 1.4] };
+/** Vertical FOV (what three.js takes) that shows the chosen view width, plus `extra` degrees, at the screen's aspect. */
+export function playFov(extra = 0) {
+  const h = (VIEW_WIDTH[G.settings.view] || VIEW_WIDTH.normal) + extra, r = Math.PI / 180;
+  return clamp(2 * Math.atan(Math.tan(h * r / 2) / camera.aspect) / r, 40, 85);
+}
 export function chaseCam(dt, c) {
   const sp = c.speed;
   CAM.yaw += angDiff(CAM.yaw, c.yaw) * (1 - Math.exp(-(c.grounded ? 4.2 : 1.6) * dt));
-  const back = 8.8 + sp * 0.07, up = 3.5 + sp * 0.03;
+  const [kb, ku] = CAM_DIST[G.settings.cam] || CAM_DIST.normal;
+  const back = (8.8 + sp * 0.07) * kb, up = (3.5 + sp * 0.03) * ku;
   const fx = Math.sin(CAM.yaw), fz = Math.cos(CAM.yaw);
   let tx = c.x - fx * back, tz = c.z - fz * back, ty = c.y + up;
   // pull in if a building is between
@@ -21,7 +32,7 @@ export function chaseCam(dt, c) {
   const s = G.shake * 0.8;
   camera.position.set(CAM.x + rand(-s, s), CAM.y + rand(-s, s), CAM.z + rand(-s, s));
   camera.lookAt(c.x + fx * 6, c.y + 1.7, c.z + fz * 6);
-  const tf = baseFov() + clamp(sp / 45, 0, 1.3) * 10 + (c.boost > 0 ? 7 : 0);
+  const tf = playFov(clamp(sp / 45, 0, 1.3) * 8 + (c.boost > 0 ? 6 : 0)); // widens with speed
   if (Math.abs(camera.fov - tf) > 0.05) { camera.fov = lerp(camera.fov, tf, 1 - Math.exp(-4 * dt)); camera.updateProjectionMatrix(); }
 }
 export function orbitCam(dt, cx, cy, cz, radius, height, speed, lookY) {

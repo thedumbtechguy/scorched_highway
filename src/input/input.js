@@ -1,7 +1,10 @@
 import { ensureAudio } from '../audio/audio.js';
-import { cycleWeapon } from '../combat/weapons.js';
+import { CONE, RANGE } from '../combat/arsenal';
+import { cycleTarget, cycleWeapon, findTarget } from '../combat/weapons.js';
+import { BINDINGS, actionForKey } from './bindings';
 import { $, clamp, isTouch } from '../engine/util.js';
 import { pauseGame, resumeGame } from '../game/match.js';
+import { TAGS } from '../game/hud.js';
 import { G } from '../game/state.js';
 import { blockedAt } from '../world/collision.js';
 import { puff } from '../world/props.js';
@@ -9,39 +12,36 @@ import { ground } from '../world/terrain.js';
 
 // ================= input =================
 export const KEYS = {};
-const INP = { wPress: false, combo: 0, sPress: false, cycle: 0, reset: false };
-const dirTaps = [];
-const nowS = () => performance.now() / 1000;
-function readCombo() {
-  const n = nowS(); const r = dirTaps.filter(t => n - t.t < 0.9); dirTaps.length = 0;
-  if (r.length >= 2) {
-    const A = r[r.length - 2], B = r[r.length - 1];
-    if (n - B.t < 0.6 && B.t - A.t < 0.45) { if (A.d === 'u' && B.d === 'u') return 1; if (A.d === 'd' && B.d === 'd') return 2; }
-  }
-  return 0;
-}
+const INP = { wPress: false, combo: 0, sPress: false, cycle: 0, target: false, reset: false };
+/** The device the player last used, so hints show the right buttons. */
+export const LAST = { device: /** @type {import('./bindings').Device} */ (isTouch ? 'touch' : 'keys') };
 const GAME_KEYS = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'Tab']);
 addEventListener('keydown', e => {
   if (GAME_KEYS.has(e.code) && G.state === 'playing') e.preventDefault();
   const first = !KEYS[e.code]; KEYS[e.code] = true;
   if (!first || e.repeat) return;
-  if (G.state === 'playing') {
-    if (e.code === 'ArrowUp' || e.code === 'KeyW') dirTaps.push({ d: 'u', t: nowS() });
-    if (e.code === 'ArrowDown' || e.code === 'KeyS') dirTaps.push({ d: 'd', t: nowS() });
-    if (e.code === 'KeyK' || e.code === 'KeyX') { INP.wPress = true; INP.combo = readCombo(); }
-    if (e.code === 'KeyL' || e.code === 'KeyC') INP.sPress = true;
-    if (e.code === 'KeyQ') INP.cycle = -1;
-    if (e.code === 'KeyE' || e.code === 'Tab') INP.cycle = 1;
-    if (e.code === 'KeyR') INP.reset = true;
-  }
-  if (e.code === 'KeyP' || e.code === 'Escape') { if (G.state === 'playing') pauseGame(); else if (G.state === 'paused') resumeGame(); }
+  const a = actionForKey(e.code); if (!a) return;
+  LAST.device = 'keys';
+  if (G.state === 'playing') press(a, e.code === 'KeyQ' ? -1 : 1);
+  if (a === 'pause') { if (G.state === 'playing') pauseGame(); else if (G.state === 'paused') resumeGame(); }
 });
+/** One-shot actions (held ones are read each frame in readPlayerInput). */
+function press(a, dir = 1) {
+  if (a === 'fire') { INP.wPress = true; INP.combo = 0; }
+  else if (a === 'attack') { INP.wPress = true; INP.combo = 1; }
+  else if (a === 'defend') { INP.wPress = true; INP.combo = 2; }
+  else if (a === 'special') INP.sPress = true;
+  else if (a === 'swap') INP.cycle = dir;
+  else if (a === 'target') INP.target = true;
+  else if (a === 'flip') INP.reset = true;
+}
+const held = a => BINDINGS[a].keys.some(k => KEYS[k]);
 addEventListener('keyup', e => { KEYS[e.code] = false; });
 addEventListener('keydown', () => ensureAudio(), { once: true });
 addEventListener('blur', () => { for (const k in KEYS) KEYS[k] = false; });
 
 // touch controls
-const TOUCH = { active: false, jx: 0, jy: 0, gun: false, w: false, drift: false };
+const TOUCH = { active: false, jx: 0, jy: 0, w: false, drift: false };
 export function setupTouch() {
   if (isTouch) document.body.classList.add('touch');
   const zone = $('#stickZone'), base = $('#stickBase'), knob = $('#stickKnob');
@@ -70,10 +70,15 @@ export function setupTouch() {
     const up = () => { TOUCH[key] = false; el.classList.remove('on'); };
     el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
   };
-  hold($('#bGun'), 'gun'); hold($('#bDrift'), 'drift');
+  hold($('#bDrift'), 'drift');
   const tap = (el, fn) => el.addEventListener('pointerdown', e => { e.preventDefault(); el.classList.add('on'); fn(); setTimeout(() => el.classList.remove('on'), 120); });
   tap($('#bSpec'), () => { INP.sPress = true; });
-  tap($('#bSwap'), () => { INP.cycle = 1; });
+  $('.wpn').addEventListener('pointerdown', e => { e.preventDefault(); INP.cycle = 1; }); // tap the weapon panel to switch
+  $('#tags').addEventListener('pointerdown', e => { // tap a name tag to make that car your target
+    const tag = /** @type {HTMLElement} */ (e.target).closest('.tag'); if (!tag || !G.player) return;
+    const t = TAGS.find(t => t.el === tag); if (t) { e.preventDefault(); G.player.pref = t.c; }
+  });
+  addEventListener('pointerdown', e => { if (e.pointerType === 'touch') LAST.device = 'touch'; }, { capture: true });
   $('#bReset').addEventListener('pointerdown', e => { e.preventDefault(); INP.reset = true; });
   // fire: tap = fire, hold = hold (torch), swipe up/down = combo
   const fb = $('#bFire'); let fid = null, fy0 = 0, fstate = '', ftimer = 0;
@@ -90,48 +95,56 @@ export function setupTouch() {
   fb.addEventListener('pointerup', fend); fb.addEventListener('pointercancel', fend);
 }
 
-// gamepad
-const PAD = { prev: [], ay: 0, active: false, steer: 0, thr: 0, mg: false, w: false, hb: false };
+// gamepad (standard mapping)
+const PAD = { prev: [], active: false, steer: 0, thr: 0, mg: false, w: false, hb: false };
+/** @type {Array<[number, import('./bindings').Action, number?]>} button index, action, direction */
+const PAD_PRESS = [[0, 'fire'], [5, 'attack'], [4, 'defend'], [3, 'special'], [14, 'swap', -1], [15, 'swap', 1], [11, 'target'], [8, 'flip']];
 export function pollGamepad() {
   const pads = navigator.getGamepads ? navigator.getGamepads() : [];
   let gp = null; for (const p of pads) if (p && p.connected) { gp = p; break; }
   if (!gp) { PAD.active = false; return; }
   const b = i => !!(gp.buttons[i] && gp.buttons[i].pressed), bv = i => gp.buttons[i] ? gp.buttons[i].value : 0;
   const edge = i => b(i) && !PAD.prev[i];
-  const ax = gp.axes[0] || 0, ay = gp.axes[1] || 0;
+  const ax = gp.axes[0] || 0;
   PAD.steer = Math.abs(ax) > 0.15 ? ax : 0;
   PAD.thr = bv(7) - bv(6);
   PAD.mg = b(2); PAD.w = b(0); PAD.hb = b(1);
-  PAD.active = PAD.active || Math.abs(ax) > 0.3 || PAD.thr !== 0 || gp.buttons.some(x => x.pressed);
-  if (G.state === 'playing') {
-    if ((ay < -0.7 && PAD.ay >= -0.4) || edge(12)) dirTaps.push({ d: 'u', t: nowS() });
-    if ((ay > 0.7 && PAD.ay <= 0.4) || edge(13)) dirTaps.push({ d: 'd', t: nowS() });
-    if (edge(0)) { INP.wPress = true; INP.combo = readCombo(); }
-    if (edge(3)) INP.sPress = true;
-    if (edge(4)) INP.cycle = -1; if (edge(5)) INP.cycle = 1;
-    if (edge(8)) INP.reset = true;
-  }
+  const used = Math.abs(ax) > 0.3 || PAD.thr !== 0 || gp.buttons.some(x => x.pressed);
+  if (used) LAST.device = 'pad';
+  PAD.active = PAD.active || used;
+  if (G.state === 'playing') for (const [i, a, dir] of PAD_PRESS) if (edge(i)) press(a, dir);
   if (edge(9)) { if (G.state === 'playing') pauseGame(); else if (G.state === 'paused') resumeGame(); }
-  PAD.ay = ay;
   PAD.prev = gp.buttons.map(x => x.pressed);
 }
-export function readPlayerInput(c) {
+
+const AUTO = { sightT: 0, inSights: false, hardT: 0 };
+export function readPlayerInput(c, dt = 1 / 60) {
   const k = KEYS;
   let thr = ((k.ArrowUp || k.KeyW) ? 1 : 0) - ((k.ArrowDown || k.KeyS) ? 1 : 0);
   let steer = ((k.ArrowRight || k.KeyD) ? 1 : 0) - ((k.ArrowLeft || k.KeyA) ? 1 : 0);
-  let hb = !!k.Space, mg = !!(k.KeyJ || k.KeyZ), w = !!(k.KeyK || k.KeyX);
+  let hb = held('drift'), mg = held('gun'), w = held('fire');
   if (TOUCH.jx || TOUCH.jy) {
     const jy = -TOUCH.jy, jx = TOUCH.jx;
     thr = Math.abs(jy) < 0.15 ? 0 : clamp(jy * 1.6, -1, 1);
     steer = Math.sign(jx) * Math.pow(Math.min(1, Math.abs(jx) * 1.15), 1.4);
   }
-  if (TOUCH.gun) mg = true; if (TOUCH.w) w = true; if (TOUCH.drift) hb = true;
+  if (TOUCH.w) w = true; if (TOUCH.drift) hb = true;
   if (PAD.active) { if (PAD.thr) thr = PAD.thr; if (PAD.steer) steer = PAD.steer; mg = mg || PAD.mg; w = w || PAD.w; hb = hb || PAD.hb; }
+  // automatic machine gun: fires whenever a car is in its sights (checked ten times a second)
+  if (G.settings.autofire === 'on') {
+    AUTO.sightT -= dt;
+    if (AUTO.sightT <= 0) { AUTO.sightT = 0.1; AUTO.inSights = !!findTarget(c, RANGE.mg, CONE.mg, true); }
+    mg = mg || AUTO.inSights;
+  }
+  // automatic drift: holding the steering hard over at speed for a moment slides the back out
+  AUTO.hardT = Math.abs(steer) > 0.85 && thr > 0 && c.speed > 22 ? AUTO.hardT + dt : 0;
+  if (G.settings.autodrift === 'on' && AUTO.hardT > 0.25) hb = true;
   c.input.throttle = thr; c.input.steer = steer; c.input.handbrake = hb;
   c.mgHeld = mg; c.wHeld = w;
   if (INP.wPress) { c.wFire = true; c.wCombo = INP.combo; INP.wPress = false; INP.combo = 0; }
   if (INP.sPress) { c.sFire = true; INP.sPress = false; }
   if (INP.cycle) { cycleWeapon(c, INP.cycle); INP.cycle = 0; }
+  if (INP.target) { INP.target = false; cycleTarget(c); }
   if (INP.reset) { INP.reset = false; flipBack(c); }
 }
 function flipBack(c) {

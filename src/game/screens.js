@@ -12,7 +12,7 @@ import { PICKUPS } from '../world/pickups';
 import { drawnGround } from '../world/surface.js';
 
 // ================= screens =================
-export function show(id) { for (const s of ['title', 'garage', 'pause', 'over', 'help']) $('#' + s).hidden = s !== id; }
+export function show(id) { for (const s of ['title', 'garage', 'pause', 'over', 'help', 'settings']) $('#' + s).hidden = s !== id; }
 export function goTitle() {
   G.state = 'title'; show('title'); $('#hud').hidden = true; camera.clearViewOffset(); clearShowcase();
   for (const pk of PICKUPS) pk.visible = true;
@@ -35,20 +35,21 @@ export function buildGarage() {
     b.innerHTML = `<i style="background:${d.tag}"></i>${d.name}`;
     b.addEventListener('click', () => selectCar(d.id)); list.appendChild(b);
   }
-  document.querySelectorAll('.seg').forEach((/** @type {HTMLElement} */ seg) => {
+  document.querySelectorAll('.seg[data-opt]').forEach((/** @type {HTMLElement} */ seg) => {
     const key = seg.dataset.opt;
     seg.querySelectorAll('button').forEach(btn => btn.addEventListener('click', () => {
       const v = key === 'opponents' || key === 'difficulty' ? +btn.dataset.v : btn.dataset.v;
       G.settings[key] = v; saveSettings(); syncSegs();
       if (key === 'tod') { applyTod(String(v)); if (G.showcase) { for (const b of G.showcase.beams) b.visible = curTod.night; G.showcase.lights(curTod.night, false, true); } }
       if (key === 'quality') applyQuality();
+      if (key === 'view') resize();
       if (key === 'sound') { ensureAudio(); setSound(v === 'on'); }
     }));
   });
   syncSegs();
 }
 function syncSegs() {
-  document.querySelectorAll('.seg').forEach((/** @type {HTMLElement} */ seg) => {
+  document.querySelectorAll('.seg[data-opt]').forEach((/** @type {HTMLElement} */ seg) => {
     const key = seg.dataset.opt;
     seg.querySelectorAll('button').forEach(btn => btn.setAttribute('aria-pressed', String(String(G.settings[key]) === btn.dataset.v)));
   });

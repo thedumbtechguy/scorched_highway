@@ -141,18 +141,29 @@ kbd{font-family:var(--ui);font-weight:700;background:rgba(246,234,212,.12);borde
 #stickBase{position:absolute;width:128px;height:128px;border-radius:50%;border:2px solid rgba(246,234,212,.35);background:rgba(30,17,42,.35);
   left:calc(34px + env(safe-area-inset-left));bottom:calc(30px + env(safe-area-inset-bottom));transition:opacity .2s}
 #stickKnob{position:absolute;left:50%;top:50%;width:56px;height:56px;margin:-28px 0 0 -28px;border-radius:50%;background:rgba(246,234,212,.8)}
-#tbtns{position:absolute;right:calc(18px + env(safe-area-inset-right));bottom:calc(20px + env(safe-area-inset-bottom));width:236px;height:200px;pointer-events:none}
+#tbtns{position:absolute;right:calc(18px + env(safe-area-inset-right));bottom:calc(20px + env(safe-area-inset-bottom));width:180px;height:180px;pointer-events:none}
 .tb{position:absolute;pointer-events:auto;border-radius:50%;background:rgba(30,17,42,.6);border:2px solid rgba(246,234,212,.4);font-weight:700;font-size:14px;color:var(--bone);touch-action:none}
 .tb.on{background:rgba(242,177,52,.85);color:var(--ink)}
 #bFire{width:92px;height:92px;right:0;bottom:0;background:rgba(192,57,43,.7);font-size:17px}
 #bFire small{display:block;font-size:10px;font-weight:600;opacity:.8}
-#bGun{width:74px;height:74px;right:100px;bottom:0}
 #bSpec{width:66px;height:66px;right:14px;bottom:102px;background:rgba(123,84,214,.6)}
-#bSwap{width:52px;height:52px;right:94px;bottom:88px;font-size:12px}
-#bDrift{width:58px;height:58px;right:176px;bottom:70px;font-size:12px}
+#bDrift{width:64px;height:64px;right:104px;bottom:6px;font-size:12px}
 #bReset{position:absolute;left:50%;top:40%;transform:translateX(-50%);pointer-events:auto;background:var(--sun);color:var(--ink);font-weight:700;padding:10px 18px;border-radius:20px}
 .touch .hud-tl{width:190px}
-.touch #comboHint{display:none}
+.touch #comboHint{font-size:11px}
+/* touch: tap the weapon panel to switch weapons, tap a name tag to target that car */
+.touch .wpn{pointer-events:auto;cursor:pointer}
+.touch .tag{pointer-events:auto;padding:10px;margin:-10px}
+.tag.pref span::before{content:'◆ '}
+.tag.pref span{text-decoration:underline;text-underline-offset:3px}
+/* help: the controls table */
+#controlsDevice{display:inline-flex;margin:4px 0 8px}
+.controls td{padding:3px 8px 3px 0;vertical-align:top}
+/* landscape only on phones and tablets */
+#rotate{display:none;position:fixed;inset:0;z-index:100;background:var(--panel);color:var(--bone);flex-direction:column;align-items:center;justify-content:center;gap:18px;font-size:20px;font-weight:600;text-align:center;padding:24px}
+#rotate .phone{width:46px;height:78px;border:4px solid var(--sun);border-radius:9px;animation:turn 2s ease-in-out infinite}
+@keyframes turn{0%,25%{transform:rotate(0)}55%,100%{transform:rotate(-90deg)}}
+@media (orientation:portrait){.touch #rotate{display:flex}}
 
 @media (max-width:900px),(max-height:520px){
   .hud-tl{width:180px}
@@ -175,21 +186,8 @@ kbd{font-family:var(--ui);font-weight:700;background:rgba(246,234,212,.12);borde
   .btn{padding:10px 18px;font-size:16px}
   #big{top:28%}
 }
-@media (orientation:portrait) and (max-width:700px){
-  .hud-tc{left:auto;right:max(14px,env(safe-area-inset-right));transform:none;top:calc(116px + env(safe-area-inset-top));font-size:13px;padding:4px 10px;gap:8px}
-  #feed{top:calc(150px + env(safe-area-inset-top))}
-  #tbtns{width:196px;height:180px}
-  #bGun{right:100px;bottom:0}
-  #bSpec{right:0;bottom:102px}
-  #bSwap{right:74px;bottom:112px}
-  #bDrift{right:138px;bottom:84px;width:54px;height:54px}
-  #stickBase{left:calc(18px + env(safe-area-inset-left))}
-  #garage{align-items:flex-end}
-  .gpanel{width:100%;height:58%;border-right:0;border-top:1px solid var(--line);border-radius:16px 16px 0 0}
-  .results{grid-template-columns:repeat(2,1fr)}
-  #stickZone{height:45%}
-}
 @media (prefers-reduced-motion:reduce){
   #loading .stripes{animation:none}
   #feed div{animation:none}
+  #rotate .phone{animation:none;transform:rotate(-90deg)}
 }
