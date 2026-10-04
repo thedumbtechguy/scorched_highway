@@ -54,6 +54,10 @@ window.SH = { G, CARS, step, tick, startMatch, goGarage, selectCar, damageCar, b
   let done = false; const go = () => { if (done) return; done = true; try { boot(); } catch (e) { console.error(e); $('#loading').lastChild.textContent = 'Something went wrong starting the game: ' + e.message; } };
   // signs and liveries are painted with the web fonts, so wait (at most 2.5 s) for the stylesheet, then the font
   const css = /** @type {HTMLLinkElement | null} */ (document.getElementById('fontcss'));
-  const cssReady = new Promise(res => { if (!css || css.media === 'all') res(); else { css.addEventListener('load', res); css.addEventListener('error', res); } });
+  const cssReady = new Promise(res => {
+    if (!css) return res();
+    const on = () => { css.media = 'all'; res(); }; // loaded as media=print so it can't block startup
+    if (css.sheet) on(); else { css.addEventListener('load', on); css.addEventListener('error', () => res()); }
+  });
   if (document.fonts && document.fonts.ready) { cssReady.then(() => document.fonts.load('40px Shrikhand')).catch(() => { }).then(() => document.fonts.ready).then(go, go); setTimeout(go, 2500); } else go();
 })();
