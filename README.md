@@ -25,7 +25,7 @@ npm run check      # lint + typecheck + build + smoke tests, the same as CI
 | `npm run lint` | ESLint, which catches undefined names, unused code and writes to imported values |
 | `npm run typecheck` | TypeScript checks the JavaScript (loose mode) against Three.js's types; catches wrong property names and argument types |
 | `npm test` | Playwright smoke tests against the build: boot, every car model, garage, a fast-forwarded match |
-| `npm run perf -- [--quality high\|low] [--frames 60]` | Benchmark: boot timings, a scripted 6-car match driven frame by frame, draw calls, triangles and vertex memory per scene layer (shadow pass included), and the hottest functions. Writes `shots/perf-*.json`. It runs on a software GPU, so compare runs with each other |
+| `npm run perf -- [--quality high\|low] [--phone] [--frames 60]` | Benchmark: boot timings (median of warm loads), a scripted 6-car match driven frame by frame, draw calls, triangles and vertex memory per scene layer (shadow pass included), and the hottest functions. `--phone` emulates a phone viewport with touch and a 4x slower CPU. Writes `shots/perf-*.json`. It runs on a software GPU, so compare runs with each other |
 | `npm run shots -- cars\|env [--tod noon\|sunset\|night] [names]` | Screenshots into `shots/` with a contact sheet: each car from three angles, or fixed viewpoints around the arena |
 
 The first test run needs a browser: `npx playwright install chromium`.

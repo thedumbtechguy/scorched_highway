@@ -8,13 +8,13 @@ import { TAU, mulberry32 } from '../engine/util.js';
 import { fbm, toTexture } from './textures';
 
 // ---------- textures ----------
-const S = 512;
+const S = 256, B = S / 8; // texture size; B = one board, plank or brick course (8 per tile)
 function clapboard() { // horizontal boards, 8 per tile, chipped paint
   const n = fbm(S, [4, 64, 128], 41), chip = fbm(S, [16, 64, 128], 42), r = mulberry32(3);
   return toTexture(S, img => {
     for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
-      const i = y * S + x, by = y % 64, grain = 0.92 + (n[(y * 8 % S) * S + x] - 0.5) * 0.16;
-      const v = grain * (by < 3 ? 1.08 : by > 58 ? 0.55 + (63 - by) * 0.06 : 1);
+      const i = y * S + x, by = y % B, grain = 0.92 + (n[(y * 8 % S) * S + x] - 0.5) * 0.16, lip = B * 0.08; // shadow under each board's lip
+      const v = grain * (by < B * 0.04 ? 1.08 : by > B - lip ? 0.55 + (B - 1 - by) / lip * 0.27 : 1);
       let rr = v, gg = v, bb = v;
       if (chip[i] > 0.76) { rr = 0.55 * grain; gg = 0.42 * grain; bb = 0.32 * grain; } // bare wood
       const k = (1 + (r() - 0.5) * 0.04) * 255;
@@ -26,8 +26,8 @@ function planks() { // vertical weathered planks with dark gaps
   const n = fbm(S, [2, 32, 256], 51), r = mulberry32(5), tone = Array.from({ length: 8 }, () => 0.8 + r() * 0.25);
   return toTexture(S, img => {
     for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
-      const i = y * S + x, px = x % 64, t = tone[(x / 64) | 0] * (0.85 + (n[((y / 8) | 0) * S + x] - 0.5) * 0.35);
-      const v = px < 2 ? 0.25 : t;
+      const i = y * S + x, px = x % B, t = tone[(x / B) | 0] * (0.85 + (n[((y / 8) | 0) * S + x] - 0.5) * 0.35);
+      const v = px < 1 ? 0.25 : t;
       img.data[i * 4] = v * 196; img.data[i * 4 + 1] = v * 152; img.data[i * 4 + 2] = v * 112; img.data[i * 4 + 3] = 255;
     }
   });
@@ -42,8 +42,8 @@ function brick() { // running bond, 8 courses per tile
   const n = fbm(S, [32, 128], 71), r = mulberry32(7), tones = Array.from({ length: 128 }, () => 0.75 + r() * 0.3);
   return toTexture(S, img => {
     for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
-      const i = y * S + x, row = (y / 64) | 0, off = row % 2 ? 64 : 0, bx = (x + off) % 128, by = y % 64, id = row * 4 + (((x + off) / 128) | 0) % 4;
-      const mortar = bx < 5 || by < 5, t = tones[id % 128] * (0.9 + (n[i] - 0.5) * 0.3);
+      const i = y * S + x, row = (y / B) | 0, off = row % 2 ? B : 0, bx = (x + off) % (2 * B), by = y % B, id = row * 4 + (((x + off) / (2 * B)) | 0) % 4;
+      const mortar = bx < B * 0.08 || by < B * 0.08, t = tones[id % 128] * (0.9 + (n[i] - 0.5) * 0.3);
       const [cr, cg, cb] = mortar ? [205, 192, 172] : [178 * t, 92 * t, 70 * t];
       img.data[i * 4] = cr; img.data[i * 4 + 1] = cg; img.data[i * 4 + 2] = cb; img.data[i * 4 + 3] = 255;
     }

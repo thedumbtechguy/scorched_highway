@@ -40,7 +40,7 @@ function ribbedTube(points: THREE.Vector3[], radius: number, ribs: number, seg: 
   }
   tube.computeVertexNormals();
   colorize(tube, (x, y, z, i, out) => out.setHex((i % ring) % 2 ? 0x2f5a2c : 0x4f8a42).lerp(new THREE.Color(0x8a8a4a), Math.max(0, 0.35 - y * 0.25)));
-  const end = points[points.length - 1], tip = new THREE.SphereGeometry(radius * 0.86, ribs * 2, 6, 0, TAU, 0, Math.PI / 2);
+  const end = points[points.length - 1], tip = new THREE.SphereGeometry(radius * 0.86, ribs * 2, 3, 0, TAU, 0, Math.PI / 2);
   tip.translate(end.x, end.y - radius * 0.05, end.z);
   colorize(tip, (x, y, z, i, out) => out.setHex(0x5a9248).lerp(new THREE.Color(0xd8c890), y > end.y + radius * 0.6 ? 0.5 : 0));
   return [tube, tip];
@@ -91,8 +91,8 @@ function grassTuft(r: () => number): THREE.BufferGeometry {
 }
 function sagebrush(r: () => number): THREE.BufferGeometry {
   const parts: THREE.BufferGeometry[] = [];
-  for (let i = 0; i < 6; i++) {
-    const g = new THREE.IcosahedronGeometry(0.32 + r() * 0.2, 0), a = r() * TAU, d = r() * 0.35;
+  for (let i = 0; i < 5; i++) {
+    const g = new THREE.IcosahedronGeometry(0.34 + r() * 0.2, 0), a = r() * TAU, d = r() * 0.35;
     g.scale(1, 0.75, 1); g.translate(Math.sin(a) * d, 0.28 + r() * 0.2, Math.cos(a) * d);
     parts.push(colorize(g, (x, y, z, k, out) => out.setHex(r() < 0.5 ? 0x7d8a5e : 0x949a70).multiplyScalar(0.85 + y * 0.3)));
   }
@@ -101,7 +101,7 @@ function sagebrush(r: () => number): THREE.BufferGeometry {
 function pricklyPear(r: () => number): THREE.BufferGeometry {
   const parts: THREE.BufferGeometry[] = [];
   const pad = (x: number, y: number, z: number, ry: number, rz: number, s: number) => {
-    const g = new THREE.SphereGeometry(0.28 * s, 7, 4); g.scale(1, 1.25, 0.32); g.rotateZ(rz); g.rotateY(ry); g.translate(x, y, z);
+    const g = new THREE.SphereGeometry(0.28 * s, 6, 3); g.scale(1, 1.25, 0.32); g.rotateZ(rz); g.rotateY(ry); g.translate(x, y, z);
     parts.push(colorize(g, (px, py, pz, k, out) => out.setHex(0x5f8a4a).lerp(new THREE.Color(0x9aa04a), r() * 0.25)));
   };
   for (let i = 0; i < 4; i++) { const a = r() * TAU; pad(Math.sin(a) * 0.25, 0.3, Math.cos(a) * 0.25, a, (r() - 0.5) * 0.6, 1); pad(Math.sin(a) * 0.35, 0.75, Math.cos(a) * 0.35, a + 0.5, (r() - 0.5) * 0.9, 0.85); }
@@ -175,7 +175,7 @@ export function buildScatter({ lowQ, blocked }: ScatterOpts) {
     bins.get(key)!.push(part);
   }
   const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, metalness: 0, side: THREE.DoubleSide });
-  const v = new THREE.Vector3(), nm = new THREE.Matrix3();
+  const nm = new THREE.Matrix3();
   for (const [key, list] of bins) {
     const layer = key.split(',')[2] as Layer;
     let n = 0; for (const part of list) n += flatGeo(part.geo).attributes.position.count;
@@ -183,10 +183,14 @@ export function buildScatter({ lowQ, blocked }: ScatterOpts) {
     let o = 0;
     for (const part of list) {
       const f = flatGeo(part.geo), P = f.attributes.position.array, N = f.attributes.normal.array, C = f.attributes.color.array, cnt = f.attributes.position.count;
+      // transform inline (this loop touches every vertex of the ground cover, so no Vector3 calls)
       nm.getNormalMatrix(part.m);
-      for (let i = 0; i < cnt; i++) {
-        v.set(P[i * 3], P[i * 3 + 1], P[i * 3 + 2]).applyMatrix4(part.m); pos[(o + i) * 3] = v.x; pos[(o + i) * 3 + 1] = v.y; pos[(o + i) * 3 + 2] = v.z;
-        v.set(N[i * 3], N[i * 3 + 1], N[i * 3 + 2]).applyMatrix3(nm).normalize(); nor[(o + i) * 3] = v.x; nor[(o + i) * 3 + 1] = v.y; nor[(o + i) * 3 + 2] = v.z;
+      const e = part.m.elements, q = nm.elements;
+      for (let i = 0, j = o * 3; i < cnt * 3; i += 3, j += 3) {
+        const x = P[i], y = P[i + 1], z = P[i + 2], nx = N[i], ny = N[i + 1], nz = N[i + 2];
+        pos[j] = e[0] * x + e[4] * y + e[8] * z + e[12]; pos[j + 1] = e[1] * x + e[5] * y + e[9] * z + e[13]; pos[j + 2] = e[2] * x + e[6] * y + e[10] * z + e[14];
+        const tx = q[0] * nx + q[3] * ny + q[6] * nz, ty = q[1] * nx + q[4] * ny + q[7] * nz, tz = q[2] * nx + q[5] * ny + q[8] * nz, l = Math.hypot(tx, ty, tz) || 1;
+        nor[j] = tx / l; nor[j + 1] = ty / l; nor[j + 2] = tz / l;
       }
       col.set(C as Float32Array, o * 3);
       if (part.handle) { part.handle.start = o; part.handle.count = cnt; part.handle.saved = pos.slice(o * 3, (o + cnt) * 3); }
