@@ -69,6 +69,7 @@ export function buildGarage() {
 function setSetting(key, v) {
   G.settings[key] = v; saveSettings();
   if (key === 'tod') { applyTod(String(v)); if (G.showcase) { for (const b of G.showcase.beams) b.visible = curTod.night; G.showcase.lights(curTod.night, false, true); } }
+  if (key === 'mode') syncStart();
   if (key === 'quality') applyQuality();
   if (key === 'view') resize();
   if (key === 'sound') { ensureAudio(); setSound(v === 'on'); }
@@ -79,6 +80,8 @@ function syncSegs() {
     seg.querySelectorAll('button').forEach(btn => btn.setAttribute('aria-pressed', String(String(G.settings[key]) === btn.dataset.v)));
   });
 }
+/** The start button names what you're starting. */
+function syncStart() { $('#startBtn').textContent = G.settings.mode === 'route67' ? 'Start the race' : 'Start the fight'; }
 /** Show the previous (-1) or next (1) car. */
 export function stepCar(dir) {
   const i = CARS.findIndex(d => d.id === G.settings.car);
@@ -99,6 +102,6 @@ export function goGarage() {
   G.state = 'garage'; show('garage'); $('#hud').hidden = true;
   clearMatch(); applyTod(G.settings.tod);
   for (const pk of PICKUPS) pk.visible = false;
-  selectCar(CAR_BY_ID[G.settings.car] ? G.settings.car : 'sundowner');
+  selectCar(CAR_BY_ID[G.settings.car] ? G.settings.car : 'sundowner'); syncStart();
   CAM.orbit = 0.4; resize();
 }

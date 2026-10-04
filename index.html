@@ -51,6 +51,7 @@
       <div class="special"><strong id="cSpecial"></strong><span id="cSpecialDesc"></span></div>
     </div>
     <div class="gcard setup">
+      <div class="cyc" data-opt="mode" data-vals="arena,route67" data-labels="Arena,Route 67 race"></div>
       <div class="cyc" data-opt="opponents" data-vals="2,3,4,5" data-labels="2 opponents,3 opponents,4 opponents,5 opponents"></div>
       <div class="cyc" data-opt="difficulty" data-vals="0,1,2" data-labels="Easy,Normal,Hard"></div>
       <div class="cyc" data-opt="tod" data-vals="noon,sunset,night" data-labels="Noon,Sunset,Night"></div>
@@ -82,8 +83,8 @@
     <div class="oplace"><b id="rPlace">1st</b><span id="rOf">of 6</span></div>
     <div class="results">
       <div><b id="rKills">0</b><span>Wrecks</span></div>
-      <div><b id="rDmg">0</b><span>Damage dealt</span></div>
-      <div><b id="rTime">0:00</b><span>Survived</span></div>
+      <div><b id="rDmg">0</b><span id="rDmgL">Damage dealt</span></div>
+      <div><b id="rTime">0:00</b><span id="rTimeL">Survived</span></div>
     </div>
     <div class="badges" id="rBadges"></div>
     <h3>Standings</h3>
@@ -132,6 +133,8 @@
       <tr><td>Mines</td><td>Mine toss · Kickback (throws everyone off you)</td></tr>
       <tr><td>Torch</td><td>Fireball · Ring of fire</td></tr>
     </table>
+    <h3>Route 67</h3>
+    <p>A three-lap race through the canyon. At each fork you choose: the mine shaft (shorter, and homing missiles can't follow you in) or the canyon road; the gorge jump (fastest if you land it) or the switchback; the old highway or the slower sandy riverbed. Wreck and you're back on the track three seconds later, at the start of that stretch, with half your armour and no heavy weapons.</p>
     <h3>Tips</h3>
     <p>Homing missiles lose you behind buildings and in smoke. Rockets fly straight, so line them up. Mortars arc over cover. Red barrels and gas pumps explode. Ramps and dunes launch you, and the water tower can come down on someone's head.</p>
     <div class="row" style="margin-top:16px"><button class="btn primary" id="helpClose">Got it</button></div>
@@ -153,6 +156,7 @@
   <div id="feed"></div>
   <div class="hud-tr"><button id="pauseBtn" aria-label="Pause">❚❚</button><canvas id="radar" width="264" height="264"></canvas></div>
   <div id="big"></div>
+  <div id="lights" hidden><i></i><i></i><i></i></div>
   <div id="speedo"><b id="spd">0</b><span>mph</span></div>
   <div id="touch">
     <div id="stickZone"><div id="stickBase"><div id="stickKnob"></div></div></div>

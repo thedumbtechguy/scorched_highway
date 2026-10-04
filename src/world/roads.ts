@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { addToScene } from '../engine/renderer.js';
 import { mulberry32 } from '../engine/util.js';
 import { ground } from './terrain.js';
+import { REGION_X, trackRoadLift } from '../race/track';
 
 // where the roads run; buildRoads() draws them and roadLift() lets things sit on them
 const HIGHWAY = { half: 6.5, lift: 0.05 }, TRACK = { half: 4.5, lift: 0.04 };
@@ -11,6 +12,7 @@ const northX = (z: number) => 4 + 12 * Math.sin(Math.max(0, z - 30) * 0.02);
 const southX = (z: number) => -18 + 10 * Math.sin((z + 26) * 0.025);
 /** How far the road surface floats above the ground at (x, z): 0 off the roads. */
 export function roadLift(x: number, z: number): number {
+  if (x > REGION_X) return trackRoadLift(x, z);
   if (Math.abs(z) < HIGHWAY.half && Math.abs(x) <= 214) return HIGHWAY.lift;
   if (z >= 12 && z <= 214 && Math.abs(x - northX(z)) < TRACK.half) return TRACK.lift;
   if (z <= -26 && z >= -214 && Math.abs(x - southX(z)) < TRACK.half) return TRACK.lift;
@@ -37,7 +39,7 @@ function grain(x: CanvasRenderingContext2D, seed: number, base: [number, number,
   }
   x.putImageData(img, 0, 0);
 }
-function asphalt() {
+export function asphalt() {
   return canvasTex(x => {
     const r = mulberry32(12);
     x.fillStyle = 'rgba(232,206,96,1)'; for (const o of [-5, 5]) x.fillRect(W / 2 + o - 3, 0, 6, H * 0.45); // double yellow, dashed
@@ -52,7 +54,7 @@ function asphalt() {
     x.globalCompositeOperation = 'source-atop'; x.fillStyle = g; x.fillRect(0, 0, W, H);
   });
 }
-function dirt() {
+export function dirt() {
   return canvasTex(x => {
     grain(x, 41, [196, 146, 100], 0.3, 0.22);
     x.globalCompositeOperation = 'source-atop';
@@ -62,7 +64,7 @@ function dirt() {
 }
 
 /** A strip following `points` (x, z) across the ground; the texture repeats every `tile` metres. */
-function ribbon(points: Array<[number, number]>, width: number, yOff: number, tile: number, mat: THREE.Material) {
+export function ribbon(points: Array<[number, number]>, width: number, yOff: number, tile: number, mat: THREE.Material) {
   const pos: number[] = [], uv: number[] = [], idx: number[] = []; let along = 0;
   for (let i = 0; i < points.length; i++) {
     const a = points[Math.max(0, i - 1)], b = points[Math.min(points.length - 1, i + 1)], [x, z] = points[i];
@@ -81,7 +83,7 @@ function ribbon(points: Array<[number, number]>, width: number, yOff: number, ti
 }
 // No polygon offset: it scales with depth-buffer precision, so far away it lifted the road through the
 // bottom of distant cars. The ribbons sit a few centimetres above the ground instead.
-const roadMat = (map: THREE.Texture, rough: number) => new THREE.MeshStandardMaterial({ map, roughness: rough, metalness: 0, transparent: true, depthWrite: false });
+export const roadMat = (map: THREE.Texture, rough: number) => new THREE.MeshStandardMaterial({ map, roughness: rough, metalness: 0, transparent: true, depthWrite: false });
 
 export function buildRoads() {
   const hw: Array<[number, number]> = []; for (let x = -214; x <= 214; x += 3) hw.push([x, 0]);

@@ -8,7 +8,8 @@ import { FX_ADD, FX_SMOKE, fxScale } from '../engine/particles.js';
 import { TAU, _v1, _v2, angDiff, clamp, rand } from '../engine/util.js';
 import { bigText } from '../game/hud.js';
 import { G, shake } from '../game/state.js';
-import { lineOfSight, pointBlocked } from '../world/collision.js';
+import { lineOfSight, outOfBounds, pointBlocked } from '../world/collision.js';
+import { REGION_X, inTunnel } from '../race/track';
 import { PROPS, breakProp, damageProp } from '../world/props.js';
 import { ARENA_R, ground } from '../world/terrain.js';
 
@@ -34,7 +35,10 @@ export function findTarget(c, range, cone, needSight = false, yaw = c.yaw) {
   return best;
 }
 /** Clear line of sight to a car: not behind a building or the ground, and not through smoke. */
-export function canSee(x, y, z, o) { return lineOfSight(x, y, z, o.x, o.y + 1.2, o.z) && !smokeBetween(x, z, o.x, o.z); }
+export function canSee(x, y, z, o) {
+  if (o.x > REGION_X && inTunnel(o.x, o.z) !== inTunnel(x, z)) return false; // nothing homes into or out of the mine shaft
+  return lineOfSight(x, y, z, o.x, o.y + 1.2, o.z) && !smokeBetween(x, z, o.x, o.z);
+}
 /** Does the line between two points pass through a smoke cloud? */
 export function smokeBetween(x1, z1, x2, z2) {
   for (const s of SMOKES) {
@@ -357,7 +361,7 @@ export function updateProjectiles(dt) {
         if (car) { impact(p, car, null); done = true; break; }
         const pr = propHit(p);
         if (pr) { impact(p, null, pr); done = true; break; }
-        if (pointBlocked(p.x, p.y, p.z) || Math.hypot(p.x, p.z) > 215) { impact(p, null, null); done = true; break; }
+        if (pointBlocked(p.x, p.y, p.z) || outOfBounds(p.x, p.z)) { impact(p, null, null); done = true; break; }
       }
     }
     if (done) { if (p.mesh) p.mesh.visible = false; p.alive = false; PROJ.splice(i, 1); continue; }
@@ -411,7 +415,7 @@ function impact(p, car, prop) {
     }
     case 'bomblet': explode(p.x, p.y, p.z, 4.5, 10, o, { direct: car, size: 0.8, push: 6, lift: 6 }); break;
     case 'minetoss': {
-      const x = clamp(p.x, -ARENA_R, ARENA_R), z = clamp(p.z, -ARENA_R, ARENA_R);
+      const onRoute = p.x > REGION_X, x = onRoute ? p.x : clamp(p.x, -ARENA_R, ARENA_R), z = onRoute ? p.z : clamp(p.z, -ARENA_R, ARENA_R);
       if (car) explode(p.x, p.y, p.z, 6, 24, o, { direct: car, size: 1.3, push: 10, lift: 14 });
       else { addMine(x, z, o); const m = MINES[MINES.length - 1]; m.arm = 0.3; m.grace = 0.3; }
       break;

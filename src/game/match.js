@@ -11,12 +11,16 @@ import { clearDebris } from '../engine/debris.js';
 import { FX_ADD, PSYS, fxScale } from '../engine/particles.js';
 import { camera, renderer, scene } from '../engine/renderer.js';
 import { applyTod } from '../engine/sky';
-import { $, rand } from '../engine/util.js';
+import { $, clamp, rand } from '../engine/util.js';
 import { CAM } from './camera.js';
 import { TAGS, bigText, buildTags, feed, hud } from './hud.js';
 import { resize } from './loop.js';
 import { clearShowcase, show } from './screens.js';
 import { showResults } from './results';
+import { RESPAWN_DELAY, raceTime, setupRace, updateRace, wrecked } from '../race/race';
+import { buildRoute67, isBuilt } from '../race/scenery';
+import { LAPS, distance } from '../race/track';
+import { damageCar } from '../combat/damage.js';
 import { G, later } from './state.js';
 import { KEYS, readPlayerInput } from '../input/input.js';
 import { PICK, PICKUPS, resetPickups, updatePickups } from '../world/pickups';
@@ -36,6 +40,8 @@ export function startMatch() {
   ensureAudio();
   clearShowcase(); clearMatch(); camera.clearViewOffset();
   applyTod(G.settings.tod);
+  G.mode = G.settings.mode === 'route67' ? 'race' : 'arena';
+  if (G.mode === 'race' && !isBuilt()) { const t = performance.now(); buildRoute67(G.settings.quality === 'low'); performance.measure('race:build', { start: t }); }
   const pdef = CAR_BY_ID[G.settings.car] || CARS[0];
   const others = CARS.filter(d => d !== pdef).sort(() => Math.random() - 0.5).slice(0, G.settings.opponents);
   const spots = SPAWNS.slice().sort(() => Math.random() - 0.5);
@@ -43,9 +49,10 @@ export function startMatch() {
   [pdef, ...others].forEach((d, i) => {
     const c = new Car(d, i === 0); const [x, z] = spots[i];
     c.reset(x, z, Math.atan2(-x, -z)); c.speedK = i === 0 ? 1 : diff.speed;
-    c.ammo.missile = 3; c.weapon = 'missile';
+    if (G.mode === 'arena') { c.ammo.missile = 3; c.weapon = 'missile'; } // on Route 67 weapons come from the track
     G.cars.push(c); if (i > 0) G.ais.push(new AI(c)); else G.player = c;
   });
+  if (G.mode === 'race') { setupRace(G.cars); G.raceEndT = -1; }
   G.time = 0; G.clock = 0; G.countdown = 3.2; G.endT = -1; G.result = null; G.slowT = 0; G.timeScale = 1; G.shake = 0;
   const p = G.player; CAM.yaw = p.yaw; CAM.x = p.x - Math.sin(p.yaw) * 30; CAM.z = p.z - Math.cos(p.yaw) * 30; CAM.y = p.y + 14;
   hud.cache = {}; hud.hName.textContent = pdef.name; hud.hName.style.color = pdef.tag;
@@ -54,8 +61,37 @@ export function startMatch() {
   renderer.compile(scene, camera); // compile every shader now (pooled effects included) instead of stuttering when they first appear
 }
 let lastCount = 4;
+const RACE_EVENTS = {
+  lap(c, t, lap) {
+    if (!c.isPlayer) return;
+    feed(`Lap ${lap}: ${raceTime(t)}`, true);
+    if (lap === LAPS - 1) later(0.2, () => bigText('Final lap!', 1.4));
+  },
+  finish(c, place) {
+    if (G.raceEndT < 0) G.raceEndT = 45; // once the winner is home, everyone else has this long to finish
+    if (c.isPlayer) { G.endT = 4; G.result = { win: place === 1, place }; bigText(place === 1 ? 'You win!' : `${ordinal(place)} place`, 2.5); G.slowT = 1; }
+    else feed(`${c.def.driver} finishes ${ordinal(place)}`, false);
+  },
+  fell(c) { c.fellLap = c.race.progress.lap; damageCar(c, c.hp + 1, G.time - c.lastHitTime < 4 ? c.lastHitBy : null, 'fall'); },
+  respawned(c) { if (c.isPlayer) bigText('Go!', 0.6); },
+};
+/** Route 67, every step: laps and positions, a gentle catch-up for the bots, wrong-way warning, the finish window. */
+function raceStep(dt, rdt) {
+  updateRace(G.cars, dt, RACE_EVENTS);
+  const p = G.player, pd = distance(p.race.progress), diff = DIFF[G.settings.difficulty];
+  for (const c of G.cars) if (!c.isPlayer) c.speedK = diff.speed * (1 + clamp((pd - distance(c.race.progress)) / 600, -0.05, 0.05));
+  if (p.alive && p.race.wrongT > 1 && (G.time % 1.2) < dt) bigText('Wrong way!', 0.7);
+  if (G.raceEndT > 0 && G.endT < 0 && (G.raceEndT -= rdt) <= 0) { G.endT = 0.5; G.result = { win: false, place: 0 }; }
+}
+const ordinal = n => n + (n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] || 'th');
 export function onCarKilled(c, by) {
   c.wreckedBy = by || null;
+  if (G.mode === 'race') { // Route 67: wrecks come back after a few seconds, nobody is out
+    wrecked(c);
+    if (by && by.isPlayer) bigText('Wrecked ' + c.def.driver.split(' ')[0] + '!', 1.1, true);
+    if (c.isPlayer) { G.slowT = 0.5; bigText(`Wrecked! Back in ${RESPAWN_DELAY}`, 1.6); }
+    return;
+  }
   if (by && by.isPlayer) { G.slowT = 0.55; bigText('Wrecked ' + c.def.driver.split(' ')[0] + '!', 1.1, true); }
   if (c.isPlayer) { G.slowT = 0.8; bigText('Wrecked!', 2); G.endT = 3.2; G.result = { win: false, by }; }
   const alive = G.cars.filter(o => o.alive);
@@ -89,8 +125,9 @@ export function step(dt, rdt) {
   for (const c of G.cars) tickCarWeapons(c, dt);
   updateProjectiles(dt); updateMines(dt, G.time); updateRings(dt); updateProps(dt);
   updatePickups(dt, G.time);
+  if (G.mode === 'race') raceStep(dt, rdt);
   // collect
-  for (const c of G.cars) {
+  if (G.mode === 'arena') for (const c of G.cars) {
     if (!c.alive) continue;
     for (const pk of PICKUPS) {
       if (!pk.active) continue; const dx = c.x - pk.x, dz = c.z - pk.z;

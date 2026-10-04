@@ -1,4 +1,5 @@
 import { lerp, smooth } from '../engine/util.js';
+import { REGION_X, trackHeight, trackRamp, trackSurface } from '../race/track';
 
 // ================= terrain =================
 export const ARENA_R = 184;
@@ -28,7 +29,10 @@ export const RAMPS = [
   { x: 70, z: 100, yaw: -Math.PI / 2, len: 16, w: 9, h: 4.0 },
 ].map(r => ({ ...r, s: Math.sin(r.yaw), c: Math.cos(r.yaw), base: rawHeight(r.x, r.z) }));
 for (const r of RAMPS) FLATS.push({ x: r.x, z: r.z, r: 14, f: 10, h: r.base });
+/** Is (x, z) on Route 67 rather than in the arena? */
+export const onTrack = x => x > REGION_X;
 export function baseHeight(x, z) {
+  if (x > REGION_X) return trackHeight(x, z);
   let h = rawHeight(x, z);
   for (let i = 0; i < FLATS.length; i++) {
     const f = FLATS[i]; const dx = x - f.x, dz = z - f.z; const d2 = dx * dx + dz * dz; const R = f.r + f.f;
@@ -39,6 +43,7 @@ export function baseHeight(x, z) {
   return h;
 }
 export function rampHeight(x, z) {
+  if (x > REGION_X) return trackRamp(x, z);
   for (let i = 0; i < RAMPS.length; i++) {
     const R = RAMPS[i]; const dx = x - R.x, dz = z - R.z;
     const u = dx * R.s + dz * R.c; if (u < -R.len / 2 || u > R.len / 2) continue;
@@ -55,6 +60,7 @@ export function ground(x, z) { return baseHeight(x, z) + rampHeight(x, z); }
 let gridSize = 0, gridSeg = 0;
 export function setTerrainGrid(size, seg) { gridSize = size; gridSeg = seg; }
 export function surfaceHeight(x, z) {
+  if (x > REGION_X) return trackSurface(x, z);
   if (!gridSeg) return baseHeight(x, z);
   const s = gridSize / gridSeg, half = gridSize / 2, fx = (x + half) / s, fz = (z + half) / s;
   if (fx < 0 || fz < 0 || fx >= gridSeg || fz >= gridSeg) return baseHeight(x, z);
