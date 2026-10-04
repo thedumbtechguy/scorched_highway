@@ -62,11 +62,15 @@ if (mode === 'race') {
       for (const q of window.SH.combat.PROJ) if (!seen.has(q)) { seen.add(q); use[q.type] = (use[q.type] || 0) + 1; }
     }
     const kills = G.cars.reduce((a, c) => a + c.kills, 0);
-    return { t: Math.round(t), kills, use };
+    // finishing place per car: survivors by health share, then the wrecks, last wrecked first
+    const order = [...G.cars.filter(c => c !== p && c.alive).sort((a, b) => b.hp / b.def.hp - a.hp / a.def.hp), ...G.cars.filter(c => c !== p && !c.alive).sort((a, b) => a.place - b.place)];
+    return { t: Math.round(t), kills, use, places: order.map((c, i) => [c.def.id, i + 1, c.kills]) };
   }));
   const ts = res.map(r => r.t).sort((a, b) => a - b);
   console.log('match lengths (s):', ts.join(' '), '| median', ts[ts.length >> 1]);
   const use = {}; for (const r of res) for (const [k, v] of Object.entries(r.use)) use[k] = (use[k] || 0) + v;
+  const per = {}; for (const r of res) for (const [id, place, k] of r.places) { const e = per[id] ||= { n: 0, place: 0, wins: 0, kills: 0 }; e.n++; e.place += place; e.kills += k; if (place === 1) e.wins++; }
+  console.log('per car (avg place, wins, kills per match):'); for (const [id, e] of Object.entries(per).sort((a, b) => a[1].place / a[1].n - b[1].place / b[1].n)) console.log(`  ${id.padEnd(12)} place ${(e.place / e.n).toFixed(1)}  wins ${e.wins}/${e.n}  kills ${(e.kills / e.n).toFixed(1)}`);
   console.log('shots per match (machine gun excluded):', Object.fromEntries(Object.entries(use).filter(([k]) => k !== 'bullet').map(([k, v]) => [k, +(v / N).toFixed(1)])));
 }
 await browser.close(); if (server) await server.close();
