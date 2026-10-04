@@ -1,7 +1,7 @@
 // Terrain, the canyon wall around the arena, and mesas. They share one material that shades flat
 // ground as rippled sand and steep ground as banded sandstone, so they blend into each other.
 import * as THREE from 'three';
-import { scene } from '../engine/renderer.js';
+import { addToScene } from '../engine/renderer.js';
 import { TAU, clamp, mulberry32, smooth } from '../engine/util.js';
 import { ARENA_R, baseHeight } from './terrain.js';
 import { rockTexture, sandNormal, sandTexture, strataTexture } from './textures';
@@ -29,6 +29,7 @@ export function desertMaterial(): THREE.MeshStandardMaterial {
           float slope = 1.0 - clamp(wn.y, 0.0, 1.0);
           float warp = texture2D(uRockTex, vWP.xz * 0.0035).r;
           rockK = smoothstep(0.22, 0.42, slope + (warp - 0.5) * 0.25);
+          if (rockK > 0.001) { // flat sand (most of the screen) skips the triplanar rock work
           vec3 tw = pow(abs(wn), vec3(4.0)); tw /= (tw.x + tw.y + tw.z);
           float d = texture2D(uRockTex, vWP.zy * 0.06).r * tw.x + texture2D(uRockTex, vWP.xz * 0.06).r * tw.y + texture2D(uRockTex, vWP.xy * 0.06).r * tw.z;
           float d2 = texture2D(uRockTex, vWP.zy * 0.013 + 0.3).r * tw.x + texture2D(uRockTex, vWP.xz * 0.013).r * tw.y + texture2D(uRockTex, vWP.xy * 0.013 + 0.6).r * tw.z;
@@ -37,10 +38,11 @@ export function desertMaterial(): THREE.MeshStandardMaterial {
           vec3 rockCol = strata * (0.5 + 0.8 * d) * (0.7 + 0.5 * d2);
           rockCol = mix(rockCol, vec3(dot(rockCol, vec3(0.33))), 0.12);
           diffuseColor.rgb = mix(diffuseColor.rgb, rockCol, rockK);
+          }
         }`)
       .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\nnormal = normalize(mix(normal, geometryNormal, max(rockK, 0.75 * (1.0 - smoothstep(56.0, 84.0, length(vWP.xz))))));');
   };
-  m.customProgramCacheKey = () => 'desert-v3';
+  m.customProgramCacheKey = () => 'desert-v4';
   return (desertMat = m);
 }
 function worldUV(g: THREE.BufferGeometry) {
@@ -64,19 +66,48 @@ function sandTint(x: number, y: number, z: number, out: THREE.Color) {
   const r = Math.hypot(x, z); if (r < 82) out.lerp(TOWN, (1 - smooth(52, 82, r)) * 0.55);
 }
 
+// ---------- chunking ----------
+/** Split an indexed mesh into pieces by a key per triangle (null drops the triangle), keeping its normals, so
+ *  each piece gets its own bounds and can be culled. */
+function splitByTriangle(g: THREE.BufferGeometry, keyOf: (cx: number, cy: number, cz: number) => number | null): THREE.BufferGeometry[] {
+  const idx = g.index!.array, pos = g.attributes.position, buckets = new Map<number, number[]>();
+  for (let i = 0; i < idx.length; i += 3) {
+    const a = idx[i], b = idx[i + 1], c = idx[i + 2];
+    const k = keyOf((pos.getX(a) + pos.getX(b) + pos.getX(c)) / 3, (pos.getY(a) + pos.getY(b) + pos.getY(c)) / 3, (pos.getZ(a) + pos.getZ(b) + pos.getZ(c)) / 3);
+    if (k == null) continue;
+    if (!buckets.has(k)) buckets.set(k, []);
+    buckets.get(k)!.push(a, b, c);
+  }
+  const out: THREE.BufferGeometry[] = [];
+  for (const tris of buckets.values()) {
+    const remap = new Map<number, number>(), sub = new THREE.BufferGeometry(), newIdx: number[] = [];
+    for (const v of tris) { let n = remap.get(v); if (n == null) { n = remap.size; remap.set(v, n); } newIdx.push(n); }
+    for (const name in g.attributes) {
+      const src = g.attributes[name], size = src.itemSize, arr = new Float32Array(remap.size * size);
+      for (const [o, n] of remap) for (let k = 0; k < size; k++) arr[n * size + k] = src.array[o * size + k];
+      sub.setAttribute(name, new THREE.BufferAttribute(arr, size));
+    }
+    sub.setIndex(newIdx); sub.computeBoundingSphere(); out.push(sub);
+  }
+  g.dispose();
+  return out;
+}
+
 // ---------- terrain ----------
-export let terrainMesh: THREE.Mesh | null = null;
 export function buildTerrainMesh(lowQ: boolean) {
   const SIZE = 440, SEG = lowQ ? 110 : 180;
   const g = new THREE.PlaneGeometry(SIZE, SIZE, SEG, SEG); g.rotateX(-Math.PI / 2);
   const p = g.attributes.position;
   for (let i = 0; i < p.count; i++) p.setY(i, baseHeight(p.getX(i), p.getZ(i)));
   g.computeVertexNormals(); worldUV(g); paintVerts(g, sandTint);
-  terrainMesh = new THREE.Mesh(g, desertMaterial()); terrainMesh.receiveShadow = true; scene.add(terrainMesh);
+  // 4x4 tiles for culling; ground beyond the canyon wall is never seen, so it's dropped
+  const TILE = SIZE / 4;
+  for (const piece of splitByTriangle(g, (x, y, z) => Math.hypot(x, z) > 212 ? null : Math.floor((x + SIZE / 2) / TILE) * 4 + Math.floor((z + SIZE / 2) / TILE))) {
+    const m = new THREE.Mesh(piece, desertMaterial()); m.receiveShadow = true; addToScene(m, 'landscape');
+  }
   // distant desert floor beyond the canyon, seen through the passes
   const og = new THREE.RingGeometry(200, 1500, 64, 4); og.rotateX(-Math.PI / 2); og.translate(0, 29.6, 0); og.computeVertexNormals(); worldUV(og); paintVerts(og, (x, y, z, c) => c.copy(SAND_B));
-  scene.add(new THREE.Mesh(og, desertMaterial()));
-  return terrainMesh;
+  addToScene(new THREE.Mesh(og, desertMaterial()), 'landscape');
 }
 
 // ---------- canyon wall ----------
@@ -117,8 +148,10 @@ export function buildCanyonWall(lowQ: boolean) {
   }
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
   worldUV(g); paintVerts(g, sandTint);
-  const mesh = new THREE.Mesh(g, desertMaterial()); mesh.receiveShadow = true; mesh.castShadow = true; scene.add(mesh);
-  return mesh;
+  // 16 slices around the ring, so only the stretch near the player is drawn into the shadow map
+  for (const piece of splitByTriangle(g, (x, y, z) => Math.floor(((Math.atan2(x, z) + Math.PI) / TAU) * 16) % 16)) {
+    const mesh = new THREE.Mesh(piece, desertMaterial()); mesh.receiveShadow = true; mesh.castShadow = true; addToScene(mesh, 'landscape');
+  }
 }
 
 // ---------- mesas and buttes ----------
@@ -142,9 +175,20 @@ export function mesaGeometry(cx: number, cz: number, baseY: number, r: number, h
   worldUV(g); paintVerts(g, sandTint);
   return g;
 }
-export function addMesa(cx: number, cz: number, baseY: number, r: number, h: number, seed: number, segs: number, shadows: boolean) {
-  const m = new THREE.Mesh(mesaGeometry(cx, cz, baseY, r, h, seed, segs), desertMaterial());
-  m.castShadow = shadows; m.receiveShadow = shadows; scene.add(m); return m;
+/** Several mesas merged into one mesh: [x, z, baseY, r, h, seed] each. */
+export function addMesas(list: number[][], segs: number, shadows: boolean) {
+  const geos = list.map(([cx, cz, baseY, r, h, seed]) => mesaGeometry(cx, cz, baseY, r, h, seed, segs));
+  let nv = 0, ni = 0; for (const g of geos) { nv += g.attributes.position.count; ni += g.index!.count; }
+  const out = new THREE.BufferGeometry(), idx = new Uint32Array(ni);
+  for (const name of ['position', 'normal', 'uv', 'color']) {
+    const size = geos[0].attributes[name].itemSize, arr = new Float32Array(nv * size); let o = 0;
+    for (const g of geos) { arr.set(g.attributes[name].array as Float32Array, o); o += g.attributes[name].array.length; }
+    out.setAttribute(name, new THREE.BufferAttribute(arr, size));
+  }
+  let vo = 0, io = 0;
+  for (const g of geos) { const src = g.index!.array; for (let i = 0; i < src.length; i++) idx[io + i] = src[i] + vo; io += src.length; vo += g.attributes.position.count; g.dispose(); }
+  out.setIndex(new THREE.BufferAttribute(idx, 1)); out.computeBoundingSphere();
+  const m = new THREE.Mesh(out, desertMaterial()); m.castShadow = shadows; m.receiveShadow = shadows; addToScene(m, 'landscape'); return m;
 }
 
 /** Boulders as one mesh in the desert material: [x, y, z, sx, sy, sz, yaw, seed] each. */
@@ -159,6 +203,6 @@ export function addBoulders(list: number[][]) {
   for (const g of parts) { pos.set(g.attributes.position.array as Float32Array, o); nor.set(g.attributes.normal.array as Float32Array, o); o += g.attributes.position.array.length; }
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
   worldUV(g); paintVerts(g, (x, y, z, c) => c.setHex(0xc48a5e));
-  const mesh = new THREE.Mesh(g, desertMaterial()); mesh.castShadow = true; mesh.receiveShadow = true; scene.add(mesh);
+  const mesh = new THREE.Mesh(g, desertMaterial()); mesh.castShadow = true; mesh.receiveShadow = true; addToScene(mesh, 'landscape');
   return mesh;
 }

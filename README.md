@@ -25,11 +25,12 @@ npm run check      # lint + typecheck + build + smoke tests, the same as CI
 | `npm run lint` | ESLint, which catches undefined names, unused code and writes to imported values |
 | `npm run typecheck` | TypeScript checks the JavaScript (loose mode) against Three.js's types; catches wrong property names and argument types |
 | `npm test` | Playwright smoke tests against the build: boot, every car model, garage, a fast-forwarded match |
+| `npm run perf -- [--quality high\|low] [--frames 60]` | Benchmark: boot timings, a scripted 6-car match driven frame by frame, draw calls, triangles and vertex memory per scene layer (shadow pass included), and the hottest functions. Writes `shots/perf-*.json`. It runs on a software GPU, so compare runs with each other |
 | `npm run shots -- cars\|env [--tod noon\|sunset\|night] [names]` | Screenshots into `shots/` with a contact sheet: each car from three angles, or fixed viewpoints around the arena |
 
 The first test run needs a browser: `npx playwright install chromium`.
 
-In the browser console, `window.SH` exposes the game state and a few entry points (`SH.G`, `SH.step(dt, dt)`, `SH.startMatch()`, `SH.buildCarModel(def)` ...). The tests and tools use it too.
+In the browser console, `window.SH` exposes the game state and a few entry points (`SH.G`, `SH.tick(ms)`, `SH.step(dt, dt)`, `SH.startMatch()`, `SH.buildCarModel(def)` ...). The tests and tools use it too. Everything in the scene is added with `addToScene(obj, layer)` (`landscape`, `town`, `scatter`, `cars`, ...), so a layer can be found or hidden with `SH.scene.traverse(o => o.userData.layer === 'scatter' && (o.visible = false))`.
 
 ## Features
 
@@ -84,6 +85,13 @@ ES modules bundled by Vite, with Three.js (pinned to r128) from npm. Modules are
 | `tests/`, `tools/` | Smoke tests; the car screenshot tool |
 
 New modules can be written in TypeScript (`.ts`) directly; Vite compiles them and `npm run typecheck` checks them alongside the JavaScript. Add JSDoc types (`/** @type {...} */`) when the checker can't infer something.
+
+### Performance notes
+
+- Draw calls matter most on phones. Static scenery is merged per area (terrain tiles, canyon slices, ground-cover cells) so it can be culled without costing a call per object; repeated things are instanced (wheels, pickups, barrels, tumbleweeds).
+- Cars use one material for paint, chrome and trim, reading roughness, metalness and clear coat from a per-vertex attribute, so a car is about five draw calls. Distant cars swap to simple wheels.
+- All shaders are compiled at boot and at match start (`renderer.compile`), so effects don't stutter the first time they appear.
+- Run `npm run perf` before and after a change that adds geometry or materials.
 
 Everything visual is built from code. There are no image, model or audio files.
 

@@ -3,8 +3,12 @@ import { M_CHROME, M_COUNT, M_DECAL, M_PAINT, M_TRIM } from './constants.js';
 import { WHITE_UV } from './decals.js';
 import { DUST, _cA, _nm3 } from './loft.js';
 import { smooth } from '../../engine/util.js';
+import { flatGeo } from '../../engine/geometry.js';
 
 // ----- multi-material mesh builder -----
+const _gp = new THREE.Vector3(), _nv = new THREE.Vector3(), _gm = new THREE.Matrix3();
+// per-slot surface: [roughness, metalness, clear coat] for paint, chrome, glass, trim, lamp, decal (see constants.js)
+const PBR = [[0.42, 0.12, 1], [0.16, 1, 0], [0.05, 0.25, 0], [0.82, 0, 0], [1, 0, 0], [0.4, 0.08, 1]];
 export class MB {
   constructor(dirt) { this.g = []; for (let i = 0; i < M_COUNT; i++) this.g.push({ p: [], n: [], c: [], u: [] }); this.dirt = dirt || 0; }
   vert(mi, x, y, z, nx, ny, nz, hex, u, v) {
@@ -15,11 +19,13 @@ export class MB {
     g.c.push(_cA.r, _cA.g, _cA.b);
   }
   geo(mi, geo, m, color) {
-    let g = geo.clone(); g.applyMatrix4(m); if (g.index) { const t = g.toNonIndexed(); g.dispose(); g = t; }
-    if (!g.attributes.normal) g.computeVertexNormals();
-    const p = g.attributes.position.array, n = g.attributes.normal.array;
-    for (let i = 0; i < p.length; i += 3) this.vert(mi, p[i], p[i + 1], p[i + 2], n[i], n[i + 1], n[i + 2], typeof color === 'function' ? color(p[i], p[i + 1], p[i + 2]) : color);
-    g.dispose(); return this;
+    const f = flatGeo(geo), p = f.attributes.position.array, n = f.attributes.normal.array, fn = typeof color === 'function';
+    _gm.getNormalMatrix(m);
+    for (let i = 0; i < p.length; i += 3) {
+      _gp.set(p[i], p[i + 1], p[i + 2]).applyMatrix4(m); _nv.set(n[i], n[i + 1], n[i + 2]).applyMatrix3(_gm).normalize();
+      this.vert(mi, _gp.x, _gp.y, _gp.z, _nv.x, _nv.y, _nv.z, fn ? color(_gp.x, _gp.y, _gp.z) : color);
+    }
+    return this;
   }
   // cls: hex (paint) | fn(cx,cy,cz,nx,ny,nz) -> hex or [mi, hex]
   loft(L, cls, m) {
@@ -44,12 +50,51 @@ export class MB {
     }
     return this;
   }
-  build() {
-    let count = 0; for (const g of this.g) count += g.p.length / 3;
+  /** Vertex counts so far, for mirrorX. */
+  mark() { return this.g.map(g => g.p.length); }
+  /** Duplicate everything added since `mark`, mirrored across x = 0 (wound so it still faces out). */
+  mirrorX(mark) {
+    this.g.forEach((g, mi) => {
+      const end = g.p.length;
+      for (let i = mark[mi]; i < end; i += 9) for (const k of [0, 2, 1]) {
+        const v = i / 3 + k;
+        g.p.push(-g.p[v * 3], g.p[v * 3 + 1], g.p[v * 3 + 2]); g.n.push(-g.n[v * 3], g.n[v * 3 + 1], g.n[v * 3 + 2]);
+        g.c.push(g.c[v * 3], g.c[v * 3 + 1], g.c[v * 3 + 2]); g.u.push(g.u[v * 2], g.u[v * 2 + 1]);
+      }
+    });
+  }
+  /** Merge material slots into draw groups: `groups[i]` lists the slots drawn with material i. Each vertex gets
+   *  a `pbr` attribute (roughness, metalness, clear coat) from its slot, which the car materials read. */
+  buildMerged(groups) {
+    let count = 0; for (const slots of groups) for (const mi of slots) count += this.g[mi].p.length / 3;
+    const pos = new Float32Array(count * 3), nor = new Float32Array(count * 3), col = new Float32Array(count * 3), uv = new Float32Array(count * 2), pbr = new Float32Array(count * 3);
+    const out = new THREE.BufferGeometry(); let o = 0;
+    groups.forEach((slots, gi) => {
+      const start = o;
+      for (const mi of slots) {
+        const g = this.g[mi], n = g.p.length / 3; if (!n) continue;
+        pos.set(g.p, o * 3); nor.set(g.n, o * 3); col.set(g.c, o * 3); uv.set(g.u, o * 2);
+        for (let i = 0; i < n; i++) pbr.set(PBR[mi], (o + i) * 3);
+        o += n;
+      }
+      if (o > start) out.addGroup(start, o - start, gi);
+    });
+    out.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    out.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+    out.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    out.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+    out.setAttribute('pbr', new THREE.BufferAttribute(pbr, 3));
+    out.computeBoundingSphere();
+    return out;
+  }
+  /** Build a geometry; `only` limits it to some material slots (group indices still match the full material list). */
+  build(only) {
+    const use = (mi) => !only || only.includes(mi);
+    let count = 0; this.g.forEach((g, mi) => { if (use(mi)) count += g.p.length / 3; });
     const pos = new Float32Array(count * 3), nor = new Float32Array(count * 3), col = new Float32Array(count * 3), uv = new Float32Array(count * 2);
     const out = new THREE.BufferGeometry(); let o = 0;
     this.g.forEach((g, mi) => {
-      const n = g.p.length / 3; if (!n) return;
+      const n = g.p.length / 3; if (!n || !use(mi)) return;
       pos.set(g.p, o * 3); nor.set(g.n, o * 3); col.set(g.c, o * 3); uv.set(g.u, o * 2);
       out.addGroup(o, n, mi); o += n;
     });

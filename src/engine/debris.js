@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { scene } from './renderer.js';
+import { addToScene } from './renderer.js';
 import { GRAV, rand } from './util.js';
 import { ground } from '../world/terrain.js';
 
@@ -8,7 +8,7 @@ const debrisGeo = new THREE.BoxGeometry(1, 1, 1);
 const DEBRIS = [];
 for (let i = 0; i < 70; i++) {
   const m = new THREE.Mesh(debrisGeo, new THREE.MeshLambertMaterial({ color: 0x444444 }));
-  m.visible = false; m.castShadow = false; scene.add(m);
+  m.visible = false; m.castShadow = false; addToScene(m, 'combat');
   DEBRIS.push({ m, life: 0, vx: 0, vy: 0, vz: 0, rx: 0, ry: 0, s: 1 });
 }
 let debrisIdx = 0;

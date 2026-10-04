@@ -1,8 +1,8 @@
 // The town: textured false-front buildings, porches, the gas station, ramps and roadside bits.
 // Built as one multi-material mesh; textures are near-white so vertex colours paint them.
 import * as THREE from 'three';
-import { signTexture } from '../engine/geometry.js';
-import { scene } from '../engine/renderer.js';
+import { flatGeo, signTexture } from '../engine/geometry.js';
+import { addToScene } from '../engine/renderer.js';
 import { onTod } from '../engine/sky';
 import { TAU, mulberry32 } from '../engine/util.js';
 import { fbm, toTexture } from './textures';
@@ -67,10 +67,16 @@ class TownBuilder {
   g = Array.from({ length: 9 }, () => ({ p: [] as number[], n: [] as number[], c: [] as number[], u: [] as number[] }));
   frame = new THREE.Matrix4();
   private nm = new THREE.Matrix3(); private v = new THREE.Vector3(); private w = new THREE.Vector3(); private col = new THREE.Color();
+  private m = new THREE.Matrix4(); private tp: number[] = []; private tn: number[] = [];
   add(mi: M, geo: THREE.BufferGeometry, local: THREE.Matrix4, color: number) {
-    let g = geo.clone(); g.applyMatrix4(new THREE.Matrix4().multiplyMatrices(this.frame, local));
-    if (g.index) { const t = g.toNonIndexed(); g.dispose(); g = t; }
-    const p = g.attributes.position.array as Float32Array, n = g.attributes.normal.array as Float32Array, b = this.g[mi], tile = TILE[mi];
+    const f = flatGeo(geo), src = f.attributes.position.array, srcN = f.attributes.normal.array, b = this.g[mi], tile = TILE[mi];
+    this.m.multiplyMatrices(this.frame, local); this.nm.getNormalMatrix(this.m);
+    // transform into scratch arrays, then project UVs per triangle
+    const p = this.tp, n = this.tn; p.length = n.length = src.length;
+    for (let i = 0; i < src.length; i += 3) {
+      this.v.set(src[i], src[i + 1], src[i + 2]).applyMatrix4(this.m); p[i] = this.v.x; p[i + 1] = this.v.y; p[i + 2] = this.v.z;
+      this.v.set(srcN[i], srcN[i + 1], srcN[i + 2]).applyMatrix3(this.nm).normalize(); n[i] = this.v.x; n[i + 1] = this.v.y; n[i + 2] = this.v.z;
+    }
     this.col.setHex(color);
     for (let i = 0; i < p.length; i += 9) {
       // project each triangle on the axis its face points along
@@ -82,7 +88,6 @@ class TownBuilder {
         if (ay >= ax && ay >= az) b.u.push(x / tile, z / tile); else if (ax >= az) b.u.push(z / tile, y / tile); else b.u.push(x / tile, y / tile);
       }
     }
-    g.dispose();
   }
   box(mi: M, w: number, h: number, d: number, color: number, x: number, y: number, z: number, ry = 0, rx = 0, rz = 0) {
     this.add(mi, BOX, mat(x, y, z, rx, ry, rz, w, h, d), color);
@@ -171,7 +176,7 @@ export const SIGNS: THREE.Mesh[] = [];
 function sign(text: string, colors: [string, string], w: number, x: number, y: number, z: number, ry: number, frame: (sw: number) => void) {
   const tex = signTexture(text, colors[0], colors[1], 512, 128);
   const sm = new THREE.Mesh(new THREE.PlaneGeometry(w, w / 4.2), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.7 }));
-  sm.position.set(x, y, z); sm.rotation.y = ry; scene.add(sm); SIGNS.push(sm); frame(w);
+  sm.position.set(x, y, z); sm.rotation.y = ry; addToScene(sm, 'town'); SIGNS.push(sm); frame(w);
 }
 
 // ---------- the buildings ----------
@@ -301,7 +306,7 @@ export function buildTown(buildings: Building[], ramps: Array<{ x: number; z: nu
   T.box(M.Planks, 2.4, 0.7, 0.8, 0xffffff, -35, 0.35, 11.6); T.box(M.Glass, 2.2, 0.05, 0.6, 0xffffff, -35, 0.66, 11.6);
 
   const mats = townMaterials();
-  const mesh = new THREE.Mesh(T.build(), mats); mesh.castShadow = true; mesh.receiveShadow = true; scene.add(mesh);
+  const mesh = new THREE.Mesh(T.build(), mats); mesh.castShadow = true; mesh.receiveShadow = true; addToScene(mesh, 'town');
   return mesh;
 }
 

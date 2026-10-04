@@ -7,6 +7,8 @@ renderer.setClearColor(0x2a1838);
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.getElementById('stage').appendChild(renderer.domElement);
 export const scene = new THREE.Scene();
+/** Add to the scene under a named layer (landscape, town, cars, ...) so tools can toggle or measure it. */
+export function addToScene(obj, layer) { obj.userData.layer = layer; scene.add(obj); return obj; }
 export const camera = new THREE.PerspectiveCamera(62, 1, 0.3, 2400);
 export const fog = new THREE.Fog(0xe89a5c, 130, 560);
 scene.fog = fog;

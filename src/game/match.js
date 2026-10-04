@@ -9,7 +9,7 @@ import { clearWeapons } from '../combat/pools.js';
 import { tickCarWeapons, updateMines, updateProjectiles } from '../combat/weapons.js';
 import { clearDebris } from '../engine/debris.js';
 import { FX_ADD, PSYS, fxScale } from '../engine/particles.js';
-import { camera } from '../engine/renderer.js';
+import { camera, renderer, scene } from '../engine/renderer.js';
 import { applyTod } from '../engine/sky';
 import { $, loadStore, rand, store } from '../engine/util.js';
 import { CAM } from './camera.js';
@@ -18,7 +18,7 @@ import { resize } from './loop.js';
 import { clearShowcase, show } from './screens.js';
 import { G, later } from './state.js';
 import { KEYS, readPlayerInput } from '../input/input.js';
-import { AMMO_CAP, PICK, PICKUPS, resetPickups, updatePickups } from '../world/pickups.js';
+import { AMMO_CAP, PICK, PICKUPS, resetPickups, updatePickups } from '../world/pickups';
 import { resetProps, updateProps } from '../world/props.js';
 
 // ================= match =================
@@ -50,6 +50,7 @@ export function startMatch() {
   hud.cache = {}; hud.hName.textContent = pdef.name; hud.hName.style.color = pdef.tag;
   buildTags(); show(null); $('#hud').hidden = false; G.state = 'playing'; lastCount = 4;
   resize();
+  renderer.compile(scene, camera); // compile every shader now (pooled effects included) instead of stuttering when they first appear
 }
 let lastCount = 4;
 export function onCarKilled(c, by) {
@@ -107,7 +108,7 @@ function applyPickup(c, p) {
   if (t === 'repair') { if (c.hp >= c.def.hp - 0.5) return; c.hp = Math.min(c.def.hp, c.hp + PICK.repair.amt); c.burning = 0; }
   else if (t === 'special') { if (c.special >= 6) return; c.special = Math.min(6, c.special + 2); }
   else { if (c.ammo[t] >= AMMO_CAP[t]) return; c.ammo[t] = Math.min(AMMO_CAP[t], c.ammo[t] + PICK[t].amt); if (!c.weapon || c.ammo[c.weapon] <= 0.01) c.weapon = t; }
-  p.active = false; p.group.visible = false; p.respawn = t === 'repair' ? 22 : 14;
+  p.active = false; p.respawn = t === 'repair' ? 22 : 14;
   for (let i = 0; i < 16 * fxScale; i++) FX_ADD.spawn(p.x, p.y + 1.4, p.z, rand(-6, 6), rand(2, 9), rand(-6, 6), 0.5, 1, 0.1, PICK[t].color, 0xffffff, 0.9, 1.5, 6);
   if (c.isPlayer) { playSfx(t === 'repair' ? 'repair' : 'pickup'); feed(t === 'repair' ? 'Repaired' : '+' + PICK[t].amt + (t === 'flame' ? 's' : '') + ' ' + PICK[t].label, true); if (t !== 'repair' && t !== 'special' && c.weapon !== t && !c.weapon) c.weapon = t; }
 }

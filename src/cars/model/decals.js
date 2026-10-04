@@ -31,6 +31,8 @@ function decalPx(d, r, ppu) {
   return (a, b) => [r.x + (a - d.a0) * ppu, r.y + (d.b1 - b) * ppu];
 }
 const LIVERY = {};
+// liveries are painted with web fonts; if those arrive after a car was built, repaint on the next build
+if (document.fonts) document.fonts.addEventListener('loadingdone', () => { for (const k in LIVERY) { LIVERY[k].tex.dispose(); delete LIVERY[k]; } });
 export function drawLivery(key, decals) {
   if (LIVERY[key]) return LIVERY[key];
   const pk = packDecals(decals), ppu = pk.ppu;
@@ -88,7 +90,7 @@ export function emitDecals(mb, decals, pk) {
     const sides = d.kind === 'side' ? (d.sides || [-1, 1]) : [0];
     for (const s of sides) {
       const r = rs.length > 1 ? rs.find(q => q.side === s) : rs[0], px = decalPx(d, r, ppu);
-      const nu = Math.max(2, Math.ceil((d.a1 - d.a0) / 0.08)), nv = Math.max(2, Math.ceil((d.b1 - d.b0) / 0.06));
+      const nu = Math.max(2, Math.ceil((d.a1 - d.a0) / 0.15)), nv = Math.max(2, Math.ceil((d.b1 - d.b0) / 0.12)); // about the hull's own spacing
       const grid = [];
       for (let i = 0; i <= nu; i++) {
         const row = []; const a = lerp(d.a0, d.a1, i / nu);

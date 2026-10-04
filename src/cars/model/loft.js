@@ -11,10 +11,13 @@ export const _cA = new THREE.Color(), _cB = new THREE.Color(), _nm3 = new THREE.
 export const DUST = new THREE.Color(0xb08a62);
 
 // ----- lofted hull -----
-// A cross-section is a rounded trapezoid; `section` returns its right half as 16 points from
-// bottom-centre round to top-centre. Index 5..9 is the flat side, 9..15 the top.
-const ARC = [0.25, 0.5, 0.75], SIDE_T = [0.25, 0.5, 0.75];
-function section(s) {
+// A cross-section is a rounded trapezoid; `section` returns its right half from bottom-centre round to
+// top-centre. Full detail has 3 points per corner and 3 along the side; `simple` (small parts) has 1 and 0.
+const DETAIL = { full: { arc: [0.25, 0.5, 0.75], side: [0.25, 0.5, 0.75] }, simple: { arc: [0.5], side: [] } };
+/** Index range of the flat side within a half section: [start, end]; the top runs from end to the last point. */
+const sideIdx = d => [2 + d.arc.length, 3 + d.arc.length + d.side.length];
+function section(s, d) {
+  const ARC = d.arc, SIDE_T = d.side;
   const y0 = s.y0, y1 = Math.max(s.y1, s.y0 + 0.004), h = y1 - y0, w = s.w, wt = s.wt == null ? w : s.wt;
   const rb = clamp(s.rb == null ? 0.06 : s.rb, 0.004, Math.min(h * 0.45, w * 0.9)), rt = clamp(s.rt == null ? 0.1 : s.rt, 0.004, Math.min(h * 0.45, wt * 0.9));
   const b = s.bulge || 0, cr = s.crown || 0;
@@ -33,7 +36,9 @@ class Loft {
   // stations: [{z, y0, y1, w, wt, rb, rt, bulge, crown, crease}], sorted by z
   constructor(stations, opt) {
     opt = opt || {};
-    this.rings = stations.map(s => ({ z: s.z, half: section(s), crease: s.crease }));
+    const detail = DETAIL[opt.detail || 'full'];
+    const [iS, iT] = sideIdx(detail); this.iS = iS; this.iT = iT; // where the flat side starts and ends in a half section
+    this.rings = stations.map(s => ({ z: s.z, half: section(s, detail), crease: s.crease }));
     const segs = []; let cur = [];
     for (const r of this.rings) { cur.push(r); if (r.crease && cur.length > 1) { segs.push(cur); cur = [r]; } }
     if (cur.length > 1) segs.push(cur);
@@ -74,18 +79,19 @@ class Loft {
     }
     return R[R.length - 1].half;
   }
-  sideRange(z) { const h = this.secAt(z); return [h[5][1], h[9][1]]; }
+  sideRange(z) { const h = this.secAt(z); return [h[this.iS][1], h[this.iT][1]]; }
   sideX(z, y) {
     const h = this.secAt(z);
-    if (y <= h[5][1]) return h[5][0]; if (y >= h[9][1]) return h[9][0];
-    for (let i = 5; i < 9; i++) { const a = h[i], b = h[i + 1]; if (y <= b[1]) return lerp(a[0], b[0], (y - a[1]) / Math.max(1e-6, b[1] - a[1])); }
-    return h[9][0];
+    const S = this.iS, T = this.iT;
+    if (y <= h[S][1]) return h[S][0]; if (y >= h[T][1]) return h[T][0];
+    for (let i = S; i < T; i++) { const a = h[i], b = h[i + 1]; if (y <= b[1]) return lerp(a[0], b[0], (y - a[1]) / Math.max(1e-6, b[1] - a[1])); }
+    return h[T][0];
   }
-  topHalf(z) { return this.secAt(z)[9][0]; }
+  topHalf(z) { return this.secAt(z)[this.iT][0]; }
   topY(z, x) {
     const h = this.secAt(z); x = Math.abs(x);
-    for (let i = 15; i > 9; i--) { const a = h[i], b = h[i - 1]; if (x <= b[0]) return lerp(a[1], b[1], (x - a[0]) / Math.max(1e-6, b[0] - a[0])); }
-    return h[9][1];
+    for (let i = h.length - 1; i > this.iT; i--) { const a = h[i], b = h[i - 1]; if (x <= b[0]) return lerp(a[1], b[1], (x - a[0]) / Math.max(1e-6, b[0] - a[0])); }
+    return h[this.iT][1];
   }
 }
 // Build a loft by sampling profile functions along z. Arches lift the floor of the hull
@@ -111,5 +117,5 @@ export function loftZ(o) {
 export function rboxLoft(w, h, d, r) {
   const hw = w / 2, hh = h / 2, hd = d / 2, e = Math.min(r * 0.7, hd * 0.45, hw * 0.45, hh * 0.45);
   const s = (z, k) => ({ z, y0: -hh + k, y1: hh - k, w: hw - k, rb: r, rt: r });
-  return new Loft([s(-hd, e), s(-hd + e, 0), s(hd - e, 0), s(hd, e)].map((v, i) => Object.assign(v, { crease: i === 1 || i === 2 })));
+  return new Loft([s(-hd, e), s(-hd + e, 0), s(hd - e, 0), s(hd, e)].map((v, i) => Object.assign(v, { crease: i === 1 || i === 2 })), { detail: 'simple' });
 }
