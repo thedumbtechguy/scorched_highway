@@ -1,7 +1,7 @@
 import { DIFF } from '../combat/damage.js';
 import { TAU, angDiff, clamp, rand } from '../engine/util.js';
 import { G } from '../game/state.js';
-import { blockedAt, lineOfSight } from '../world/collision.js';
+import { blockedAt, lineOfSight, obstacleAt } from '../world/collision.js';
 import { COMBO_COST, RANGE, WEAPON_ORDER } from '../combat/arsenal';
 import { PROJ } from '../combat/pools.js';
 import { smokeBetween } from '../combat/weapons.js';
@@ -17,7 +17,7 @@ export class AI {
   constructor(car) {
     this.car = car; this.pers = car.def.ai; this.P = PERS[this.pers];
     this.target = null; this.goal = { type: 'wander' }; this.think = rand(0, 0.3); this.stuck = 0; this.reverseT = 0; this.revSteer = 1;
-    this.cd = rand(0.8, 2); this.defCd = 0; this.mem = {}; this.want = 99; this.targetT = 0; this.strafe = Math.random() < 0.5 ? 1 : -1; this.los = false; this.mgOn = false; this.wander = null; this.wanderT = 0;
+    this.cd = rand(0.8, 2); this.defCd = 0; this.mem = {}; this.want = 99; this.targetT = 0; this.strafe = Math.random() < 0.5 ? 1 : -1; this.los = false; this.mgOn = false; this.wander = null; this.wanderT = 0; this.line = false; this.why = '';
   }
   decide() {
     const c = this.car, diff = DIFF[G.settings.difficulty];
@@ -32,7 +32,7 @@ export class AI {
         let s = Math.hypot(o.x - c.x, o.z - c.z);
         if (this.pers === 'opportunist') s -= (1 - o.hp / o.def.hp) * 70;
         if (o === c.lastHitBy && G.time - c.lastHitTime < 4) s -= 45;
-        if (o.isPlayer) s -= diff.bias;
+        if (o.isPlayer) s -= diff.bias + (G.mode.rivalry || 0);
         s += rand(0, 20);
         if (s < bs) { bs = s; best = o; }
       }
@@ -58,7 +58,8 @@ export class AI {
   }
   probe(ang, dist) {
     const c = this.car, a = c.yaw + ang;
-    return blockedAt(c.x + Math.sin(a) * dist, c.z + Math.cos(a) * dist, 2.2, c);
+    // on a racing line the road's edges are the line's business: look out only for things in the way
+    return (this.line ? obstacleAt : blockedAt)(c.x + Math.sin(a) * dist, c.z + Math.cos(a) * dist, 2.2, c);
   }
   update(dt) {
     const c = this.car; if (!c.alive) return;
@@ -70,6 +71,7 @@ export class AI {
       if (!g.p.active) { this.think = 0; } gx = g.p.x; gz = g.p.z;
     }
     const line = G.mode.drive ? G.mode.drive(this) : null; // the mode may set the course (a racing line)
+    this.line = !!line;
     this.want = line ? line.want : 99;
     if (line) { gx = line.x; gz = line.z; }
     else if (g.type === 'pickup') { /* steering set above */ } else if (g.type === 'attack' && t && t.alive) {
@@ -91,8 +93,9 @@ export class AI {
     const desired = Math.atan2(gx - c.x, gz - c.z);
     let da = angDiff(c.yaw, desired);
     // obstacle avoidance
-    const sp = c.speed, L = 6 + sp * 0.32;
+    const sp = c.speed, L = 6 + sp * 0.32; this.why = 'full'; // why the bot isn't flat out (tools/botmatch.js)
     if (this.probe(0, L) || this.probe(0, L * 0.5)) {
+      this.why = 'avoid';
       const lf = !this.probe(0.55, L * 0.8), rf = !this.probe(-0.55, L * 0.8);
       if (lf && (!rf || da > 0)) da = 1.1; else if (rf) da = -1.1; else da = da >= 0 ? 1.6 : -1.6;
     } else {
@@ -101,11 +104,11 @@ export class AI {
     }
     let steer = clamp(-da * 2.4, -1, 1), throttle = 1, hb = false;
     const ada = Math.abs(da);
-    if (ada > 1.25) { throttle = 0.6; if (sp > 18) hb = true; }
-    else if (ada > 0.6 && sp > 30) throttle = 0.4;
-    if (sp > this.want) throttle = sp > this.want + 3 ? -0.5 : 0.25; // brake for the corner ahead
+    if (ada > 1.25) { throttle = 0.6; if (sp > 18) hb = true; if (this.why === 'full') this.why = 'sharp'; }
+    else if (ada > 0.6 && sp > 30) { throttle = 0.4; if (this.why === 'full') this.why = 'turn'; }
+    if (sp > this.want) { throttle = sp > this.want + 3 ? -0.5 : 0.25; if (this.why === 'full') this.why = 'corner'; } // brake for the corner ahead
     if (g.type === 'pickup') { const pd = Math.hypot(g.p.x - c.x, g.p.z - c.z); if (pd < 12 && ada > 0.8) throttle = 0.35; }
-    if (this.reverseT > 0) { this.reverseT -= dt; throttle = -1; steer = this.revSteer; hb = false; }
+    if (this.reverseT > 0) { this.reverseT -= dt; throttle = -1; this.why = 'reverse'; steer = this.revSteer; hb = false; }
     else {
       if (sp < 2.2 && G.countdown <= 0) this.stuck += dt; else this.stuck = Math.max(0, this.stuck - dt * 2);
       if (this.stuck > 1.0) { this.reverseT = rand(0.8, 1.3); this.revSteer = steer >= 0 ? -1 : 1; this.stuck = 0; this.strafe *= -1; }

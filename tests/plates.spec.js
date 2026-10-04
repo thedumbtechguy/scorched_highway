@@ -86,10 +86,10 @@ test('rubber banding: bots behind you speed up, bots ahead ease off; off in sett
     const set = () => { p.race.progress.lap = 2; behind.race.progress.lap = 1; ahead.race.progress.lap = 3; behind.race.progress.s = ahead.race.progress.s = p.race.progress.s; };
     set(); step(1 / 60, 1 / 60); const on = { behind: behind.speedK, ahead: ahead.speedK };
     G.settings.rubber = 'off'; set(); step(1 / 60, 1 / 60); const off = { behind: behind.speedK, ahead: ahead.speedK };
-    return { on, off, base: 0.97 };
+    return { on, off };
   });
-  expect(r.on.behind).toBeGreaterThan(r.base * 1.05); expect(r.on.ahead).toBeLessThan(r.base * 0.95);
-  expect(r.off.behind).toBeCloseTo(r.base, 2); expect(r.off.ahead).toBeCloseTo(r.base, 2);
+  // Normal: up to 8% either way, in full at a lap's gap
+  expect(r.on.behind / r.off.behind).toBeCloseTo(1.08, 3); expect(r.on.ahead / r.off.ahead).toBeCloseTo(0.92, 3);
 });
 
 test('tucked in behind another car, you get a slipstream', async ({ page }) => {
@@ -100,4 +100,12 @@ test('tucked in behind another car, you get a slipstream', async ({ page }) => {
     return { k: p.speedK, draft: p.draft };
   });
   expect(r.draft).toBeGreaterThan(0.9); expect(r.k).toBeGreaterThan(1.05);
+});
+
+test("race bots are matched to the player's car, not stuck with their own top speed", async ({ page }) => {
+  const r = await page.evaluate(() => {
+    const { G, step } = window.SH; G.settings.rubber = 'off'; step(1 / 60, 1 / 60);
+    const p = G.player; return G.cars.filter(c => !c.isPlayer).map(c => c.def.max * c.speedK / (p.def.max * 0.99));
+  });
+  for (const k of r) { expect(k).toBeGreaterThan(0.96); expect(k).toBeLessThan(1.04); }
 });
