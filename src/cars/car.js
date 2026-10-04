@@ -29,6 +29,7 @@ export class Car {
     this.radius = 1.9; this.mass = def.mass; this.up = new THREE.Vector3(0, 1, 0);
     this.input = { throttle: 0, steer: 0, handbrake: false };
     this.speedK = 1; // top-speed scale; AI difficulty lowers it
+    this.accelK = 1; // acceleration scale (race bots are matched to the player's car)
     /** @type {import('../modes/race').RaceState | null} progress in a race */ this.race = null;
     // each wheel's position in the car's frame and the drawn ground under it, for resting the car on its wheels
     this.contacts = this.model.wheels.map(w => ({ wheel: w, lx: w.x, ly: w.y, lz: w.z, r: w.r, h: 0, need: 0 }));
@@ -73,7 +74,7 @@ export class Car {
     if (this.grounded) {
       const thr = inp.throttle;
       if (this.boost > 0) vF += d.accel * 2.4 * dt;
-      else if (thr > 0.05) { if (vF < maxS) vF += d.accel * thr * dt * (vF < 0 ? 2.2 : 1); }
+      else if (thr > 0.05) { if (vF < maxS) vF += d.accel * this.accelK * thr * dt * (vF < 0 ? 2.2 : 1); }
       else if (thr < -0.05) { if (vF > 0.5) vF += 44 * thr * dt; else if (vF > -17) vF += d.accel * 0.75 * thr * dt; }
       else vF *= Math.max(0, 1 - 0.7 * dt);
       if (vF > maxS) vF = lerp(vF, maxS, 1 - Math.exp(-3 * dt));
@@ -238,7 +239,7 @@ export class Car {
   }
   /** Bring a wrecked car back (in a race): half health and no pickup weapons; score, special ammo and race state carry over. */
   respawn(x, z, yaw) {
-    const keep = { kills: this.kills, dealt: this.dealt, special: this.special, race: this.race, pref: this.pref, speedK: this.speedK, mgLocked: this.mgLocked };
+    const keep = { kills: this.kills, dealt: this.dealt, special: this.special, race: this.race, pref: this.pref, speedK: this.speedK, accelK: this.accelK, mgLocked: this.mgLocked };
     this.reset(x, z, yaw); Object.assign(this, keep); this.hp = this.def.hp * 0.5; this.resetCd = 2;
     for (const b of this.model.beams) b.visible = curTod.night;
   }

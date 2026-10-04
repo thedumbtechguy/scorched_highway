@@ -1,33 +1,35 @@
 // Balance check: bots-only matches, simulated as fast as possible (no rendering).
 // Deathmatch: the player's car is parked out of the way and can't be hurt; reports match length and weapon use.
-// Race: the player's car sits on the grid (so rubber banding is off: it would hold every bot back to it); reports finish and lap times, wrecks, which branch each bot took at
+// Race: the player's car sits on the grid (so rubber banding is off: it would hold every bot back to it), or with
+// --player bot a bot drives it as a stand-in for a player who takes the shortcuts, to check the bots' pace; reports finish and lap times, wrecks, which branch each bot took at
 // each fork, when each one unlocked its machine gun (sword plate), the hazards skulls set off, and any bot that
 // stopped making progress (stuck).
-//   npm run bots -- [--mode deathmatch|race] [--map id] [--matches 6] [--url http://localhost:4173/]   (default: starts a dev server)
+//   npm run bots -- [--mode deathmatch|race] [--map id] [--matches 6] [--difficulty 0-2] [--car id] [--player bot] [--url http://localhost:4173/]   (default: starts a dev server)
 import { createServer } from 'vite';
 import { chromium } from '@playwright/test';
 const args = process.argv.slice(2), opt = (k, d) => { const i = args.indexOf('--' + k); return i >= 0 ? args[i + 1] : d; };
-const mode = opt('mode', 'deathmatch'), map = opt('map', mode === 'race' ? 'route67' : 'ghost-town'), N = +opt('matches', mode === 'race' ? 2 : 6);
+const standIn = opt('player', '') === 'bot', mode = opt('mode', 'deathmatch'), map = opt('map', mode === 'race' ? 'route67' : 'ghost-town'), N = +opt('matches', mode === 'race' ? 2 : 6);
 let server = null, url = opt('url');
 if (!url) { server = await createServer({ server: { port: 5197, strictPort: false }, logLevel: 'error' }); await server.listen(); url = server.resolvedUrls.local[0]; }
 const browser = await chromium.launch({ args: ['--use-gl=swiftshader', '--enable-unsafe-swiftshader'] });
 const page = await browser.newPage();
 page.on('pageerror', e => console.error('page error:', e.message));
 await page.route(/fonts\.(googleapis|gstatic)\.com/, r => r.fulfill({ status: 200, contentType: 'text/css', body: '' }));
-await page.addInitScript(s => localStorage.setItem('shwy_settings', JSON.stringify(s)), { mode, map, opponents: 5, quality: 'low', rubber: 'off' });
+await page.addInitScript(s => localStorage.setItem('shwy_settings', JSON.stringify(s)), { mode, map, opponents: 5, quality: 'low', rubber: standIn ? 'on' : 'off', difficulty: +opt('difficulty', 1), car: opt('car', 'sundowner') });
 await page.goto(url); await page.waitForFunction(() => window.SH && window.SH.G.state === 'title', null, { timeout: 60000 });
 
 if (mode === 'race') {
   for (let k = 0; k < N; k++) {
-    const r = await page.evaluate(() => {
-      const { G, goGarage, startMatch, step } = window.SH; goGarage(); startMatch(); G.countdown = 0;
+    const r = await page.evaluate(standIn => {
+      const { G, goGarage, startMatch, step, AI } = window.SH; goGarage(); startMatch(); G.countdown = 0;
       const p = G.player, bots = G.cars.filter(c => !c.isPlayer), course = G.map.course;
+      if (standIn) { const me = new AI(p); me.pers = 'rammer'; G.ais.push(me); bots.unshift(p); } // rammers take the shortcuts
       const wrecks = new Map(bots.map(c => [c, 0])), branches = new Map(bots.map(c => [c, []])), alive = new Map(bots.map(c => [c, true]));
       const last = new Map(bots.map(c => [c, { d: 0, t: 0 }])), stuck = [], armed = new Map(), hz = window.SH.hazards;
       let falls = 0, trucks = 0, rocks = 0, truck = null;
       let t = 0;
       for (; t < 420 && !bots.every(c => c.race.finished); t += 1 / 60) {
-        p.input = { throttle: 0, steer: 0, handbrake: true }; p.mgHeld = p.wHeld = p.wFire = p.sFire = false; p.hp = 1e6;
+        if (!standIn) { p.input = { throttle: 0, steer: 0, handbrake: true }; p.mgHeld = p.wHeld = p.wFire = p.sFire = false; p.hp = 1e6; }
         step(1 / 60, 1 / 60);
         if (hz.ROCKS.length > rocks) falls++; rocks = hz.ROCKS.length; if (hz.truck && hz.truck !== truck) trucks++; truck = hz.truck;
         for (const c of bots) {
@@ -43,9 +45,9 @@ if (mode === 'race') {
       const fmt = s => s ? `${Math.floor(s / 60)}:${(s % 60).toFixed(1).padStart(4, '0')}` : 'DNF';
       return {
         t: Math.round(t), stuck, hazards: `rockfalls ${falls}, trucks ${trucks}`,
-        rows: bots.map(c => `${c.def.id.padEnd(12)} ${fmt(c.race.finished).padEnd(7)} laps ${c.race.lapTimes.map(x => x.toFixed(1)).join(' / ').padEnd(20)} wrecks ${wrecks.get(c)}  gun ${armed.has(c) ? armed.get(c) + 's' : 'never'}  ${branches.get(c).map(b => b.name).join(', ')}`),
+        rows: [...bots].sort((a, b) => (a.race.finished || 1e9) - (b.race.finished || 1e9)).map(c => `${(c.isPlayer ? '*' : ' ') + c.def.id.padEnd(12)} ${fmt(c.race.finished).padEnd(7)} laps ${c.race.lapTimes.map(x => x.toFixed(1)).join(' / ').padEnd(20)} wrecks ${wrecks.get(c)}  gun ${armed.has(c) ? armed.get(c) + 's' : 'never'}  ${branches.get(c).map(b => b.name).join(', ')}`),
       };
-    });
+    }, standIn);
     console.log(`race ${k + 1} (${r.t} s, ${r.hazards})\n  ` + r.rows.join('\n  ') + (r.stuck.length ? '\n  STUCK: ' + r.stuck.join('; ') : ''));
   }
 } else {

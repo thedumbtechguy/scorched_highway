@@ -2,7 +2,7 @@
 // lap times, a finish window once the winner is home, wrecks that respawn with a penalty, falling off the
 // course, the wrong-way warning, plates (see plates.ts), rubber banding and slipstreams, and how bots drive the
 // racing line.
-import { DIFF, damageCar } from '../combat/damage.js';
+import { damageCar } from '../combat/damage.js';
 import { clamp, rand } from '../engine/util.js';
 import { bigText, feed } from '../game/hud.js';
 import { G, later } from '../game/state.js';
@@ -22,6 +22,14 @@ const FINISH_WINDOW = 45;
  * less, in full once the gap is BAND metres. Easy pulls the field back to you harder; Hard mostly helps the bots.
  */
 export const RUBBER = [{ up: 0.04, down: 0.12 }, { up: 0.08, down: 0.08 }, { up: 0.12, down: 0.04 }], BAND = 300;
+/**
+ * Bots' pace, by difficulty, as a share of the player's car: in a race every bot's top speed and acceleration are
+ * matched to the car the player picked (heavy cars aren't hopeless, fast ones aren't untouchable), then each one
+ * gets a few percent either way so the field spreads out.
+ */
+export const PACE = [0.9, 0.99, 1.05], SPREAD = 0.03;
+/** How often bots take the risky shortcut at a fork, by difficulty. */
+export const SHORTCUTS = [0.35, 0.7, 0.9];
 /** Slipstream: tucked in close behind another car at speed, top speed rises by up to this much. */
 export const DRAFT = 0.07;
 
@@ -62,8 +70,9 @@ function pick(bot: Bot, k: number): number {
   if (memo && memo.lap === lap) return memo.path;
   const risky = paths.findIndex(p => p.risky), safe = risky === 0 ? 1 : 0;
   // never straight back into whatever it just fell off this lap; less often when hurt or in a slow car
-  let chance = c.fellLap === lap || risky < 0 ? 0 : (c.hp / c.def.hp < 0.35 ? 0.1 : bot.pers === 'rammer' ? 0.8 : bot.pers === 'sniper' ? 0.25 : 0.5);
-  if (c.def.max < 38) chance *= 0.5;
+  // how often bots take the shortcuts depends on the difficulty, then a little on character; hardly ever when badly hurt
+  const nerve = SHORTCUTS[G.settings.difficulty] + (bot.pers === 'rammer' ? 0.1 : bot.pers === 'sniper' ? -0.15 : 0);
+  const chance = c.fellLap === lap || risky < 0 ? 0 : c.hp / c.def.hp < 0.35 ? 0.1 : nerve;
   const path = Math.random() < chance ? risky : safe; routes[k] = { lap, path }; return path;
 }
 /** The sample of path p nearest (x, z). */
@@ -83,27 +92,55 @@ function plateFor(bot: Bot, p: CoursePath, i: number): number | null {
   }
   return lat;
 }
-/** A point on the racing line ahead of the bot, and the speed the bend beyond it allows. */
+/** How sharply each sample of a path bends (radians per metre, over about 18 m), cached. */
+const BEND = new WeakMap<CoursePath, Float32Array>();
+function bendOf(p: CoursePath) {
+  let k = BEND.get(p); if (k) return k;
+  const n = p.x.length; k = new Float32Array(n);
+  for (let i = 0; i < n; i++) { const a = Math.max(0, i - 3), b = Math.min(n - 1, i + 3); k[i] = Math.acos(clamp(p.tx[a] * p.tx[b] + p.tz[a] * p.tz[b], -1, 1)) / (p.s[b] - p.s[a] || 1); }
+  BEND.set(p, k); return k;
+}
+/** Braking the bots plan on (m/s², a little under what the brakes give) and how much of the car's turning they use. */
+const BRAKE = 18, TURN_USE = 0.85;
+/**
+ * A point on the racing line ahead of the bot, and the speed it may carry now: the fastest speed from which it
+ * can still brake down to every bend's limit before reaching it. A bend's limit is the speed at which the car's
+ * steering (which weakens with speed, see cars/car.js) can just follow it.
+ */
 function drive(bot: Bot) {
-  const c = bot.car as Car & { race: RaceState }, pr = c.race.progress, n = course.sections.length;
+  const c = bot.car as Car & { race: RaceState }, pr = c.race.progress, n = course.sections.length, d = c.def;
   const lane = (bot.mem.lane ??= rand(-0.35, 0.35)) as number;
   let k = pr.section, p: CoursePath = course.sections[k].paths[pr.path], i = pr.i;
   // at a fork, keep to the branch picked even where it overlaps the other one (a ledge climbing away from the road below)
   const chosen = course.sections[k].paths[pick(bot, k)];
   if (chosen !== p) { const j = nearestSample(chosen, c.x, c.z); if (Math.hypot(chosen.x[j] - c.x, chosen.z[j] - c.z) < chosen.half + 3) { p = chosen; i = j; } }
-  const walk = (dist: number) => { // follow the chosen paths `dist` metres on
-    while (dist > 0) { if (i >= p.x.length - 1) { k = (k + 1) % n; p = course.sections[k].paths[pick(bot, k)]; i = 0; } dist -= p.s[i + 1] - p.s[i]; i++; }
-  };
-  const t0x = p.tx[i], t0z = p.tz[i];
-  walk(9 + c.speed * 0.5);
-  let lat = (p.open ? p.open * 0.25 : lane) * p.half; // on a ledge, hug the wall
-  const plate = plateFor(bot, p, i); if (plate !== null) lat = plate;
-  const x = p.x[i] + p.tz[i] * lat, z = p.z[i] - p.tx[i] * lat;
-  walk(26);
-  const turn = Math.acos(clamp(t0x * p.tx[i] + t0z * p.tz[i], -1, 1)); // how much the road bends over the next stretch
-  return { x, z, want: c.def.max * c.speedK * (1 - (p.open ? 0.8 : 0.5) * clamp(turn / 1.3, 0, 1)) }; // and take its bends gently
+  const top = d.max * c.speedK, a = d.turn * TURN_USE, horizon = top * top / (2 * BRAKE) + 20;
+  let want = top, gone = 0, aim: [number, number] | null = null;
+  const reach = 9 + c.speed * 0.5;
+  // walk the chosen paths ahead: where to steer, and the slowest bend coming up
+  while (gone < Math.max(horizon, reach)) {
+    if (i >= p.x.length - 1) { k = (k + 1) % n; p = course.sections[k].paths[pick(bot, k)]; i = 0; continue; }
+    gone += p.s[i + 1] - p.s[i]; i++;
+    if (!aim && gone >= reach) {
+      let lat = (p.open ? p.open * 0.25 : lane) * p.half; // on a ledge, hug the wall
+      const plate = plateFor(bot, p, i); if (plate !== null) lat = plate;
+      aim = [p.x[i] + p.tz[i] * lat, p.z[i] - p.tx[i] * lat];
+    }
+    const bend = bendOf(p)[i] * (p.open ? 1.25 : 1); // and give a ledge's bends some room
+    if (bend > 1e-4) { const limit = a / (bend + 0.3 * a / d.max); want = Math.min(want, Math.sqrt(limit * limit + 2 * BRAKE * Math.max(0, gone - 8))); }
+  }
+  return { x: aim![0], z: aim![1], want };
 }
-
+/** A bot's top-speed scale before rubber banding: the player's car's top speed, at the difficulty's pace, give or take its own spread. */
+const paceOf = new WeakMap<Car, number>();
+function pace(c: Car): number {
+  let k = paceOf.get(c);
+  if (k === undefined) {
+    k = (G.player as Car).def.max * PACE[G.settings.difficulty] * (1 + rand(-SPREAD, SPREAD)) / c.def.max; paceOf.set(c, k);
+    c.accelK = Math.max(1, (G.player as Car).def.accel / c.def.accel * k); // and the acceleration to get there
+  }
+  return k;
+}
 /** Right behind another running car, close and lined up, at speed. */
 function inSlipstream(c: Car): boolean {
   if (!c.alive || c.speed < 18) return false;
@@ -122,6 +159,7 @@ const RULES: PlateRules = {
 
 export const race: GameMode = {
   id: 'race', name: 'Race', startLabel: 'Start the race', againLabel: 'Race again', lights: true, unarmedHint: 'Sword plates and crates arm you',
+  rivalry: 35, // bots are racing you: they'd rather shoot you than each other
   /** Line the cars up on the grid, the player at the back like a challenger. */
   setup(list, map) {
     course = map.course!; finishers = 0; spawnSlot = 0; endT = -1; leader = null;
@@ -130,6 +168,7 @@ export const race: GameMode = {
       const s = slots[k]; c.reset(s.x, s.z, s.yaw);
       c.race = { progress: { ...s.progress }, finished: 0, lapStart: 0, lapTimes: [], respawnT: 0, wrongT: 0, best: 0 };
       c.mgLocked = true; // no machine gun until a sword plate
+      c.accelK = 1;
     });
   },
   step(dt, rdt) {
@@ -156,12 +195,12 @@ export const race: GameMode = {
       r.wrongT = c.speed > 5 && Math.sin(c.yaw) * hx + Math.cos(c.yaw) * hz < -0.3 ? r.wrongT + dt : 0;
     }
     // rubber banding and slipstreams; warnings; plates; the finish window
-    const p = G.player as Car & { race: RaceState }, pd = course.distance(p.race.progress), diff = DIFF[G.settings.difficulty];
+    const p = G.player as Car & { race: RaceState }, pd = course.distance(p.race.progress);
     const band = G.settings.rubber === 'off' ? { up: 0, down: 0 } : RUBBER[G.settings.difficulty];
     for (const c of cars()) {
       c.draft = clamp(c.draft + (inSlipstream(c) ? dt * 2 : -dt * 2), 0, 1);
       const gap = pd - course.distance(c.race.progress), k = gap > 0 ? band.up * clamp(gap / BAND, 0, 1) : -band.down * clamp(-gap / BAND, 0, 1);
-      c.speedK = (c.isPlayer ? 1 : diff.speed * (1 + k)) * (1 + DRAFT * c.draft);
+      c.speedK = (c.isPlayer ? 1 : pace(c) * (1 + k)) * (1 + DRAFT * c.draft);
     }
     leader = standings(cars())[0];
     if (p.alive && p.race.wrongT > 1 && (G.time % 1.2) < dt) bigText('Wrong way!', 0.7);

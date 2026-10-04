@@ -14,7 +14,14 @@ export function pushOut(c, nx, nz, e) { // bounce velocity for moving object c
 /** Keep a car out of the walls and static scenery of the map it's on; returns the impact speed. */
 export function resolveStatic(c) { return mapAt(c.x).collide(c); }
 export function blockedAt(x, z, m, ignore) {
-  if (mapAt(x).blocked(x, z, m) || hazardBlocked(x, z, m)) return true;
+  if (mapAt(x).blocked(x, z, m)) return true;
+  return obstacleAt(x, z, m, ignore);
+}
+/** Something in the way at (x, z) that isn't the map's edge: rocks and holes on a course, hazards, solid props, wrecks (bots following a racing line). */
+export function obstacleAt(x, z, m, ignore) {
+  const ob = mapAt(x).obstacles;
+  if (ob) for (const list of [ob.rocks, ob.holes]) for (const o of list) { const dx = x - o.x, dz = z - o.z, R = o.r + m; if (dx * dx + dz * dz < R * R) return true; }
+  if (hazardBlocked(x, z, m)) return true;
   for (const p of PROPS) if (p.solid && (p.kind === 'tower' || p.kind === 'billboard' || p.kind === 'pump')) { const dx = x - p.x, dz = z - p.z, R = p.r + m; if (dx * dx + dz * dz < R * R) return true; }
   for (const c of G.cars) if (!c.alive && c !== ignore) { const dx = x - c.x, dz = z - c.z, R = c.radius + m; if (dx * dx + dz * dz < R * R) return true; }
   return false;
