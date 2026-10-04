@@ -6,6 +6,8 @@ Runs in any modern browser, desktop or phone. Players need nothing installed; de
 
 ## Play
 
+**[Play it in your browser →](https://thedumbtechguy.github.io/scorched_highway/)**
+
 The game is a static site: `npm run build` produces `dist/`, which can be hosted anywhere. Pushes to `main` are built and published to GitHub Pages by CI (one-time setup: *Settings → Pages → Source: GitHub Actions*).
 
 ## Develop
