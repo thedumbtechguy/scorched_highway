@@ -58,7 +58,7 @@ test('a skull sets off the next hazard ahead', async ({ page }) => {
 
 test('a rockfall hurts whoever is under it and leaves boulders on the road', async ({ page }) => {
   const r = await page.evaluate(() => {
-    const { G, step, hazards } = window.SH, site = G.map.hazards.find(h => h.kind === 'rockfall'), d = site.drops[0], victim = G.cars[2], by = G.cars[3];
+    const { G, step, hazards } = window.SH, site = G.map.hazards.find(h => h.kind === 'rockfall'), d = site.drops[0], victim = G.cars[2], by = G.player;
     victim.reset(d.tx, d.tz, 0); const hp = victim.hp;
     hazards.triggerHazard(site, by);
     for (let i = 0; i < 60 * 6; i++) { victim.x = d.tx; victim.z = d.tz; victim.vx = victim.vz = 0; step(1 / 60, 1 / 60); }
@@ -71,7 +71,7 @@ test('a rockfall hurts whoever is under it and leaves boulders on the road', asy
 
 test('the wrong-way truck flattens what it meets', async ({ page }) => {
   const r = await page.evaluate(() => {
-    const { G, step, hazards } = window.SH, site = G.map.hazards.find(h => h.kind === 'truck'), victim = G.cars[2], by = G.cars[3];
+    const { G, step, hazards } = window.SH, site = G.map.hazards.find(h => h.kind === 'truck'), victim = G.cars[2], by = G.player;
     const m = site.route.x.length >> 1; victim.reset(site.route.x[m], site.route.z[m], 0); const hp = victim.hp;
     hazards.triggerHazard(site, by);
     let gone = false; for (let i = 0; i < 60 * 40 && !gone; i++) { step(1 / 60, 1 / 60); gone = !hazards.truck; }
@@ -88,8 +88,8 @@ test('rubber banding: bots behind you speed up, bots ahead ease off; off in sett
     G.settings.rubber = 'off'; set(); step(1 / 60, 1 / 60); const off = { behind: behind.speedK, ahead: ahead.speedK };
     return { on, off };
   });
-  // Normal: up to 8% either way, in full at a lap's gap
-  expect(r.on.behind / r.off.behind).toBeCloseTo(1.08, 3); expect(r.on.ahead / r.off.ahead).toBeCloseTo(0.92, 3);
+  // Normal, a lap apart: a bot that far behind gets the full far-behind 22%; one that far ahead eases off 8%
+  expect(r.on.behind / r.off.behind).toBeCloseTo(1.22, 3); expect(r.on.ahead / r.off.ahead).toBeCloseTo(0.92, 3);
 });
 
 test('tucked in behind another car, you get a slipstream', async ({ page }) => {

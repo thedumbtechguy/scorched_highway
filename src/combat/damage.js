@@ -16,6 +16,7 @@ export function damageCar(c, amt, by, kind, silent) {
   if (!c.alive || amt <= 0 || G.state !== 'playing') return;
   if (G.countdown > 0) return;
   if (c.isPlayer && by && by !== c) amt *= DIFF[G.settings.difficulty].toPlayer;
+  if (G.mode && G.mode.damageScale && by !== c) amt *= G.mode.damageScale(c, by);
   if (c.shieldT > 0 && kind !== 'fall') amt *= SHIELD_TAKES; // a shield plate's shield
   c.hp -= amt;
   if (!silent) c.flash = Math.min(0.6, c.flash + 0.35);

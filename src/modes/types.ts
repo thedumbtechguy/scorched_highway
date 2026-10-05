@@ -39,6 +39,8 @@ export interface GameMode {
   lights: boolean;
   /** Metres closer than they are that the player seems to bots picking a target (on top of the difficulty's bias). */
   rivalry?: number;
+  /** Scales the damage `by` does to `victim` (1 = as dealt). */
+  damageScale?(victim: Car, by: Car | null): number;
   /** A mode's own choice of target for a car's special weapon, or null to aim as usual. */
   specialTarget?(c: Car): Car | null;
   /** Weapon panel hint while the player has no heavy weapon. */

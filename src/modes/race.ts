@@ -19,9 +19,10 @@ export const RESPAWN_DELAY = 3;
 const FINISH_WINDOW = 45;
 /**
  * Rubber banding, by difficulty: a bot behind you gets up to `up` more top speed and one ahead of you up to `down`
- * less, in full once the gap is BAND metres. Easy pulls the field back to you harder; Hard mostly helps the bots.
+ * less, in full once the gap is BAND metres. A bot that has fallen well behind (up to 3 x BAND) gets up to `far`, so a
+ * player who gets away clean still has company. Easy pulls the field back to you harder; Hard mostly helps the bots.
  */
-export const RUBBER = [{ up: 0.04, down: 0.12 }, { up: 0.08, down: 0.08 }, { up: 0.12, down: 0.04 }], BAND = 300;
+export const RUBBER = [{ up: 0.04, down: 0.12, far: 0.16 }, { up: 0.08, down: 0.08, far: 0.22 }, { up: 0.12, down: 0.04, far: 0.28 }], BAND = 300;
 /**
  * Bots' pace, by difficulty, as a share of the player's car: in a race every bot's top speed and acceleration are
  * matched to the car the player picked (heavy cars aren't hopeless, fast ones aren't untouchable), then each one
@@ -172,6 +173,8 @@ const RULES: PlateRules = {
 export const race: GameMode = {
   id: 'race', name: 'Race', startLabel: 'Start the race', againLabel: 'Race again', lights: true, unarmedHint: 'Sword plates and crates arm you',
   rivalry: 35, // bots are racing you: they'd rather shoot you than each other
+  /** Bots hurt each other half as much: racing incidents shouldn't wreck the field out of contention. */
+  damageScale: (victim, by) => !victim.isPlayer && by && !by.isPlayer ? 0.5 : 1,
   /** Big Chill's brain freeze goes for the car just ahead of it in the race, wherever it is in sight. */
   specialTarget(c) {
     if (c.def.id !== 'bigchill') return null;
@@ -215,10 +218,10 @@ export const race: GameMode = {
     }
     // rubber banding and slipstreams; warnings; plates; the finish window
     const p = G.player as Car & { race: RaceState }, pd = course.distance(p.race.progress);
-    const band = G.settings.rubber === 'off' ? { up: 0, down: 0 } : RUBBER[G.settings.difficulty];
+    const band = G.settings.rubber === 'off' ? { up: 0, down: 0, far: 0 } : RUBBER[G.settings.difficulty];
     for (const c of cars()) {
       c.draft = clamp(c.draft + (inSlipstream(c) ? dt * 2 : -dt * 2), 0, 1);
-      const gap = pd - course.distance(c.race.progress), k = gap > 0 ? band.up * clamp(gap / BAND, 0, 1) : -band.down * clamp(-gap / BAND, 0, 1);
+      const gap = pd - course.distance(c.race.progress), k = gap > 0 ? band.up * clamp(gap / BAND, 0, 1) + (band.far - band.up) * clamp((gap - BAND) / (2 * BAND), 0, 1) : -band.down * clamp(-gap / BAND, 0, 1);
       c.speedK = (c.isPlayer ? raceTop(c.def) / c.def.max : pace(c) * (1 + k)) * (1 + DRAFT * c.draft);
       if (c.isPlayer) c.accelK = raceAccel(c.def) / c.def.accel;
     }
