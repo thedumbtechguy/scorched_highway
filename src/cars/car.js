@@ -31,6 +31,7 @@ export class Car {
     this.speedK = 1; // top-speed scale; AI difficulty lowers it
     this.aimAssist = 1; // lock-on cone scale (the player on touch controls gets more, see input.js)
     this.accelK = 1; // acceleration scale (race bots are matched to the player's car)
+    this.turnK = 1; this.gripK = 1; // steering and grip scales (races narrow the field's handling)
     /** @type {import('../modes/race').RaceState | null} progress in a race */ this.race = null;
     // each wheel's position in the car's frame and the drawn ground under it, for resting the car on its wheels
     this.contacts = this.model.wheels.map(w => ({ wheel: w, lx: w.x, ly: w.y, lz: w.z, r: w.r, h: 0, need: 0 }));
@@ -84,11 +85,11 @@ export class Car {
       const gF = ground(this.x + fx, this.z + fz), gB = ground(this.x - fx, this.z - fz);
       vF -= (gF - gB) * 0.5 * GRAV * 0.5 * dt;
       const hb = inp.handbrake;
-      vL *= Math.max(0, 1 - (hb ? 1.3 : d.grip) * dt);
+      vL *= Math.max(0, 1 - (hb ? 1.3 : d.grip * this.gripK) * dt);
       if (hb) vF *= Math.max(0, 1 - (this.alive ? 0.5 : 2.5) * dt);
       const sp = Math.abs(vF);
       const sf = clamp(sp / 7, 0, 1) * (1 - 0.3 * clamp(sp / d.max, 0, 1)) * (hb ? 1.5 : 1) * (this.frozen > 0 ? 0.6 : 1);
-      this.yaw -= inp.steer * d.turn * sf * (vF < -0.5 ? -1 : 1) * dt;
+      this.yaw -= inp.steer * d.turn * this.turnK * sf * (vF < -0.5 ? -1 : 1) * dt;
       // drift dust
       if (this.alive && (sp > 14 || Math.abs(vL) > 5)) {
         this.dustT -= dt * (sp / 20 + Math.abs(vL) / 6);
@@ -242,7 +243,7 @@ export class Car {
   }
   /** Bring a wrecked car back (in a race): half health and no pickup weapons; score, special ammo and race state carry over. */
   respawn(x, z, yaw) {
-    const keep = { kills: this.kills, dealt: this.dealt, special: this.special, race: this.race, pref: this.pref, speedK: this.speedK, accelK: this.accelK, mgLocked: this.mgLocked };
+    const keep = { kills: this.kills, dealt: this.dealt, special: this.special, race: this.race, pref: this.pref, speedK: this.speedK, accelK: this.accelK, turnK: this.turnK, gripK: this.gripK, mgLocked: this.mgLocked };
     this.reset(x, z, yaw); Object.assign(this, keep); this.hp = this.def.hp * 0.5; this.resetCd = 2;
     for (const b of this.model.beams) b.visible = curTod.night;
   }

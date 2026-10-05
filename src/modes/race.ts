@@ -29,13 +29,16 @@ export const RUBBER = [{ up: 0.04, down: 0.12 }, { up: 0.08, down: 0.08 }, { up:
  */
 export const PACE = [0.9, 0.99, 1.05], SPREAD = 0.03;
 /**
- * In a race the cars' top speeds and acceleration are pulled halfway towards the middle of the field: speed decides
+ * In a race the cars' top speeds, acceleration, steering and grip are pulled three quarters of the way to the middle of the field: speed decides
  * a race far more than a fight, so the fastest car would otherwise always be the right pick. Armour still pays (see
  * world/hazards.ts and the sand rule in cars/car.js).
  */
-export const RACE_TOP = 44, RACE_ACCEL = 25, NARROW = 0.5;
-export const raceTop = (d: Car['def']) => d.max + (RACE_TOP - d.max) * NARROW;
-const raceAccel = (d: Car['def']) => d.accel + (RACE_ACCEL - d.accel) * NARROW;
+export const RACE_TOP = 44, RACE_ACCEL = 25, RACE_TURN = 2.2, RACE_GRIP = 7.6, NARROW = 0.75;
+const toward = (v: number, mid: number) => v + (mid - v) * NARROW;
+export const raceTop = (d: Car['def']) => toward(d.max, RACE_TOP);
+const raceAccel = (d: Car['def']) => toward(d.accel, RACE_ACCEL);
+/** Steering and grip are narrowed too, for every car: light cars no longer out-corner heavy ones by a mile. */
+function narrowHandling(c: Car) { c.turnK = toward(c.def.turn, RACE_TURN) / c.def.turn; c.gripK = toward(c.def.grip, RACE_GRIP) / c.def.grip; }
 /** How often bots take the risky shortcut at a fork, by difficulty. */
 export const SHORTCUTS = [0.35, 0.7, 0.9];
 /** Slipstream: tucked in close behind another car at speed, top speed rises by up to this much. */
@@ -122,7 +125,7 @@ function drive(bot: Bot) {
   // at a fork, keep to the branch picked even where it overlaps the other one (a ledge climbing away from the road below)
   const chosen = course.sections[k].paths[pick(bot, k)];
   if (chosen !== p) { const j = nearestSample(chosen, c.x, c.z); if (Math.hypot(chosen.x[j] - c.x, chosen.z[j] - c.z) < chosen.half + 3) { p = chosen; i = j; } }
-  const top = d.max * c.speedK, a = d.turn * TURN_USE, horizon = top * top / (2 * BRAKE) + 20;
+  const top = d.max * c.speedK, a = d.turn * c.turnK * TURN_USE, horizon = top * top / (2 * BRAKE) + 20;
   let want = top, gone = 0, aim: [number, number] | null = null;
   const reach = 9 + c.speed * 0.5;
   // walk the chosen paths ahead: where to steer, and the slowest bend coming up
@@ -184,7 +187,7 @@ export const race: GameMode = {
       const s = slots[k]; c.reset(s.x, s.z, s.yaw);
       c.race = { progress: { ...s.progress }, finished: 0, lapStart: 0, lapTimes: [], respawnT: 0, wrongT: 0, best: 0 };
       c.mgLocked = true; // no machine gun until a sword plate
-      c.accelK = 1;
+      c.accelK = 1; narrowHandling(c);
     });
   },
   step(dt, rdt) {

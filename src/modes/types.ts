@@ -7,12 +7,12 @@ import type { RaceState } from './race';
 
 /** The parts of a car (cars/car.js) that modes use. */
 export interface Car {
-  def: { id: string; name: string; driver: string; tag: string; hp: number; max: number; accel: number; turn: number; ai: string };
+  def: { id: string; name: string; driver: string; tag: string; hp: number; max: number; accel: number; turn: number; grip: number; ai: string };
   isPlayer: boolean; alive: boolean; hp: number; x: number; y: number; z: number; yaw: number; readonly speed: number;
   vx: number; vy: number; vz: number; radius: number;
   /** Race rules: no machine gun until a sword plate; a shield plate's time left; time spent in someone's slipstream. */
   mgLocked: boolean; shieldT: number; draft: number;
-  kills: number; dealt: number; place: number; special: number; speedK: number; accelK: number; burning: number;
+  kills: number; dealt: number; place: number; special: number; speedK: number; accelK: number; turnK: number; gripK: number; burning: number;
   ammo: Record<string, number>; weapon: string | null;
   lastHitBy: Car | null; lastHitTime: number; wreckedBy: Car | null; fellLap?: number;
   race: RaceState | null;

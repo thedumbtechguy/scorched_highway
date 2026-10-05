@@ -97,7 +97,7 @@ test('tucked in behind another car, you get a slipstream', async ({ page }) => {
     const { G, step } = window.SH, p = G.player, o = G.cars[1], course = G.map.course, path = course.sections[0].paths[0], i = 40, yaw = Math.atan2(path.tx[i], path.tz[i]);
     p.reset(path.x[i], path.z[i], yaw); o.reset(path.x[i + 4], path.z[i + 4], yaw);
     for (let f = 0; f < 40; f++) { for (const c of [p, o]) { c.vx = Math.sin(yaw) * 30; c.vz = Math.cos(yaw) * 30; } step(1 / 60, 1 / 60); }
-    return { k: p.speedK / ((p.def.max + (44 - p.def.max) * 0.5) / p.def.max), draft: p.draft }; // over the car's race top speed
+    return { k: p.speedK / ((p.def.max + (44 - p.def.max) * 0.75) / p.def.max), draft: p.draft }; // over the car's race top speed
   });
   expect(r.draft).toBeGreaterThan(0.9); expect(r.k).toBeGreaterThan(1.05);
 });
@@ -113,11 +113,11 @@ test("race bots are matched to the player's car, not stuck with their own top sp
 test('races narrow the gap between fast and slow cars; heavy cars take hazards and sand better', async ({ page }) => {
   const r = await page.evaluate(() => {
     const { G, step } = window.SH, p = G.player; G.settings.rubber = 'off'; step(1 / 60, 1 / 60);
-    const top = d => d.max + (44 - d.max) * 0.5, CARS = window.SH.CARS, fast = CARS.find(d => d.id === 'scorcher'), slow = CARS.find(d => d.id === 'bigchill');
+    const top = d => d.max + (44 - d.max) * 0.75, CARS = window.SH.CARS, fast = CARS.find(d => d.id === 'scorcher'), slow = CARS.find(d => d.id === 'bigchill');
     const mass = p.mass; p.mass = slow.mass; const heavySand = p.surface(0.8); p.mass = fast.mass; const lightSand = p.surface(0.8); p.mass = mass;
     return { mine: p.def.max * p.speedK, expected: top(p.def), ratio: top(fast) / top(slow), heavySand, lightSand };
   });
   expect(r.mine).toBeCloseTo(r.expected, 3);
-  expect(r.ratio).toBeLessThan(1.3); // was 53 / 34 = 1.56
+  expect(r.ratio).toBeLessThan(1.15); // was 53 / 34 = 1.56
   expect(r.heavySand).toBeGreaterThan(r.lightSand);
 });
