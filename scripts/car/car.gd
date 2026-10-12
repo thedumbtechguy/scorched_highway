@@ -53,6 +53,9 @@ var grounded_wheels := 0
 var speed := 0.0 # signed, forward positive
 var rpm := 0.0 # 0..1 within the current gear, for audio
 var gear := 1
+## Seconds spent barely moving (pinned, wedged, beached). The game uses it to
+## offer the player a reset and to respawn bots that can't get out.
+var stuck_time := 0.0
 
 var _wheels: Array[Dictionary] = []
 var _steer_angle := 0.0
@@ -155,7 +158,7 @@ func point_velocity(p: Vector3) -> Vector3:
 
 
 func _physics_process(delta: float) -> void:
-	if driver and driver.has_method("drive") and not is_wrecked:
+	if driver and driver.has_method("drive") and not is_wrecked and not frozen_input:
 		driver.drive(self, delta)
 	if frozen_input or is_wrecked:
 		throttle = 0.0
@@ -166,6 +169,10 @@ func _physics_process(delta: float) -> void:
 		handbrake = is_wrecked or frozen_input
 
 	scrambled = maxf(0.0, scrambled - delta)
+	if frozen_input or is_wrecked or linear_velocity.length() > 1.5:
+		stuck_time = maxf(0.0, stuck_time - delta * 2.0)
+	else:
+		stuck_time += delta
 	speed = linear_velocity.dot(forward())
 	_update_boost(delta)
 	_update_steering(delta)
@@ -254,7 +261,8 @@ func _update_wheels(delta: float) -> void:
 		var f_long := 0.0
 		var drive_share: float = w.drive
 		if throttle > 0.0:
-			var fall := 1.0 - pow(clampf(speed / def.top_speed, 0.0, 1.0), 2.0)
+			# Pull stays strong through the mid-range and only tails off near top speed.
+			var fall := 1.0 - pow(clampf(speed / def.top_speed, 0.0, 1.0), 3.0)
 			f_long += throttle * def.engine_force * fall * drive_share
 		elif throttle < 0.0:
 			if speed > 1.0:
@@ -335,7 +343,7 @@ func _assists() -> void:
 
 func _apply_aero() -> void:
 	var v := linear_velocity
-	apply_central_force(-v * v.length() * 0.75)
+	apply_central_force(-v * v.length() * 0.55)
 	if grounded_wheels > 0:
 		apply_central_force(-global_basis.y * v.length_squared() * 1.2)
 

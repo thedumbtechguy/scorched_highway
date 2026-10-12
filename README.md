@@ -27,7 +27,8 @@ godot -e --path .         # open the editor
 | Special | K / E or right mouse | Y |
 | Choose car (before the match) | A / D or arrows | D-pad / left stick |
 | Start / restart | Enter | Start |
-| Quit | Esc | Back |
+| Reset when stuck | R | Back |
+| Quit (desktop) | Esc | |
 
 **How fights work:** collisions do damage from physics, and where a hit lands matters: the **front** takes ×0.35, **sides** ×1.0 and the **rear** ×1.3. The lighter car always takes the bigger jolt. The ram charge hardens your nose and hits harder. Every car has a machine gun and a signature special that recharges: cannons, a riot gun, fireworks mortars, a sound blast, scrap bombs, a tow hook, a hydraulic hop and a sidecar gunner.
 

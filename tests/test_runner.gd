@@ -20,6 +20,8 @@ func _ready() -> void:
 	var tests := [
 		test_every_car_rests_on_its_wheels,
 		test_every_car_drives_turns_and_stops,
+		test_acceleration,
+		test_bot_escapes_a_corner,
 		test_side_ram_hurts_victim_more,
 		test_heavy_beats_light_in_a_ram,
 		test_nose_into_wall_is_cheap,
@@ -35,6 +37,7 @@ func _ready() -> void:
 		test_tail_gunner_covers_rear_until_sidecar_lost,
 		test_frozen_bots_hold_fire,
 		test_full_match,
+		test_bots_keep_moving,
 	]
 	for t: Callable in tests:
 		_stage = Node3D.new()
@@ -134,10 +137,10 @@ func test_every_car_rests_on_its_wheels() -> bool:
 func test_every_car_drives_turns_and_stops() -> bool:
 	flat_ground()
 	var cars := {}
-	var x := -70.0
+	var x := -140.0
 	for id in CarDefs.ORDER:
 		cars[id] = make_car(id, Vector3(x, 0, 0))
-		x += 20.0
+		x += 40.0
 	await step(0.5)
 	for c: Car in cars.values():
 		c.throttle = 1.0
@@ -158,7 +161,7 @@ func test_every_car_drives_turns_and_stops() -> bool:
 	var slowest := {}
 	for id in cars:
 		slowest[id] = INF
-	for i in int(3.0 / TICK):
+	for i in int(4.0 / TICK):
 		await get_tree().physics_frame
 		for id in cars:
 			slowest[id] = minf(slowest[id], absf(cars[id].speed))
@@ -166,11 +169,58 @@ func test_every_car_drives_turns_and_stops() -> bool:
 	for id in cars:
 		var c: Car = cars[id]
 		print("      %-15s 5 s flat out %4.1f m/s, turned %3.0f deg, braked to %4.1f" % [id, speed[id], rad_to_deg(turned[id]), slowest[id]])
-		ok = check(speed[id] > 17.0 and speed[id] < 40.0, "%s speed %.1f" % [id, speed[id]]) and ok
+		ok = check(speed[id] > 25.0 and speed[id] < 46.0, "%s speed %.1f" % [id, speed[id]]) and ok
 		ok = check(turned[id] > 0.6, "%s barely turned" % id) and ok
 		ok = check(upright(c), "%s rolled over" % id) and ok
 		ok = check(slowest[id] < 1.0, "%s didn't stop: %.1f" % [id, slowest[id]]) and ok
 	return ok
+
+
+## Brisk but not twitchy: 0-100 km/h in about 3-4 s for most cars, slower for the trucks.
+func test_acceleration() -> bool:
+	flat_ground()
+	var cars := {}
+	var x := -70.0
+	for id in CarDefs.ORDER:
+		cars[id] = make_car(id, Vector3(x, 0, 0))
+		x += 20.0
+	await step(0.5)
+	var t100 := {}
+	for c: Car in cars.values():
+		c.throttle = 1.0
+	var t := 0.0
+	while t < 10.0 and t100.size() < cars.size():
+		await get_tree().physics_frame
+		t += TICK
+		for id in cars:
+			if not t100.has(id) and cars[id].speed >= 100.0 / 3.6:
+				t100[id] = t
+	var ok := true
+	for id in cars:
+		var limit := 6.5 if cars[id].def["class"] == &"heavy" else 5.0
+		var took: float = t100.get(id, 99.0)
+		print("      %-15s 0-100 km/h in %.1f s" % [id, took])
+		ok = check(took < limit, "%s too slow: %.1f s" % [id, took]) and ok
+		ok = check(took > 2.0, "%s too twitchy: %.1f s" % [id, took]) and ok
+	return ok
+
+
+## A bot driven nose-first into a corner, with a truck parked behind it, gets itself out.
+func test_bot_escapes_a_corner() -> bool:
+	flat_ground()
+	wall(Vector3(0, 2, -8), Vector3(20, 4, 1))
+	wall(Vector3(-8, 2, 0), Vector3(1, 4, 20))
+	var bot := make_car(&"lawdog", Vector3(-5, 0, -5), PI * 0.25)
+	var blocker := make_car(&"gravel_queen", Vector3(-1, 0, -1), PI * 0.25 + PI * 0.5)
+	blocker.remove_from_group(&"cars") # scenery here, not a target: the bot should head for the bait
+	var bait := make_car(&"sidewinder", Vector3(60, 0, 60))
+	bait.frozen_input = true
+	bot.set_driver(AIDriver.new())
+	var start := bot.global_position
+	await step(12.0)
+	var moved := bot.global_position.distance_to(start)
+	print("      bot moved %.1f m out of the corner" % moved)
+	return check(moved > 10.0, "bot still stuck in the corner")
 
 
 func test_side_ram_hurts_victim_more() -> bool:
@@ -413,3 +463,44 @@ func test_full_match() -> bool:
 	return (check(cars.size() == 8, "expected 8 cars, got %d" % cars.size())
 		and check(hurt >= 4, "bots aren't fighting")
 		and check(fell == 0, "%d cars left the arena" % fell))
+
+
+## Over a long bot match, nobody spends much of it stuck (respawns included).
+func test_bots_keep_moving() -> bool:
+	var game_script: GDScript = load("res://scripts/game.gd")
+	game_script.set("autopilot", true)
+	game_script.set("bot_count", 8)
+	var game: Node3D = load("res://scenes/main.tscn").instantiate()
+	_stage.add_child(game)
+	await step(4.0) # countdown
+	var still := {}
+	var alive := {}
+	var run := {}
+	var longest := {}
+	for i in int(90.0 / TICK):
+		await get_tree().physics_frame
+		for c: Car in game.cars:
+			if c.is_wrecked:
+				continue
+			alive[c] = alive.get(c, 0.0) + TICK
+			if c.linear_velocity.length() < 1.5:
+				still[c] = still.get(c, 0.0) + TICK
+				run[c] = run.get(c, 0.0) + TICK
+				longest[c] = maxf(longest.get(c, 0.0), run[c])
+			else:
+				run[c] = 0.0
+	# Per car, stillness swings with how the fights go; across the field it's stable.
+	# The promise per car is that nobody stays stuck for long.
+	var ok := true
+	var total_still := 0.0
+	var total_alive := 0.0
+	for c: Car in game.cars:
+		var frac: float = still.get(c, 0.0) / maxf(alive.get(c, 1.0), 1.0)
+		total_still += still.get(c, 0.0)
+		total_alive += alive.get(c, 0.0)
+		print("      %-15s still %3.0f%% of %3.0f s alive, longest %.1f s" % [c.def.id, frac * 100.0, alive.get(c, 0.0), longest.get(c, 0.0)])
+		ok = check(longest.get(c, 0.0) < 6.0, "%s stuck for %.1f s at a stretch" % [c.def.id, longest.get(c, 0.0)]) and ok
+	var field := total_still / maxf(total_alive, 1.0)
+	print("      whole field still %.0f%% of the time" % (field * 100.0))
+	ok = check(field < 0.25, "the field stood still %.0f%% of the time" % (field * 100.0)) and ok
+	return ok

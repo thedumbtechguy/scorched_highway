@@ -12,6 +12,8 @@ var car: Car
 var remaining := 0
 var message := ""
 var sub_message := ""
+## A short prompt above the bottom edge (e.g. how to reset when stuck).
+var hint := ""
 ## Car selection card; empty when not choosing.
 var select_info := {}
 var _zone_flash := { &"front": 0.0, &"left": 0.0, &"right": 0.0, &"rear": 0.0 }
@@ -51,6 +53,8 @@ func _draw() -> void:
 		_draw_select(vs, u)
 	if remaining > 0:
 		_text("%d CARS RUNNING" % remaining, Vector2(vs.x * 0.5, 64 * u), 20 * u, DIM, true)
+	if hint != "":
+		_text(hint, Vector2(vs.x * 0.5, vs.y - 60 * u), 26 * u, HOT, true)
 	if message != "":
 		_text(message, Vector2(vs.x * 0.5, vs.y * 0.42), 84 * u, INK, true)
 	if sub_message != "":

@@ -19,6 +19,10 @@ var camera: ChaseCamera
 var hud: Hud
 var state := State.SELECT
 var _timer := 0.0
+var _reset_cooldown := 0.0
+
+const BOT_RESPAWN_AFTER := 5.0 # seconds stuck before a bot is towed back in
+const PLAYER_HINT_AFTER := 2.0
 
 
 func _ready() -> void:
@@ -148,12 +152,51 @@ func _process(delta: float) -> void:
 				get_tree().create_timer(0.9).timeout.connect(func() -> void:
 					if state == State.FIGHT:
 						hud.message = "")
+		State.FIGHT:
+			_rescue_stuck_cars(delta)
 		State.OVER:
 			if Input.is_action_just_pressed(&"restart"):
 				Impact.reset()
 				get_tree().reload_current_scene()
 	if Input.is_action_just_pressed(&"quit") and not OS.has_feature("web"):
 		get_tree().quit()
+
+
+## Nobody should spend a match wedged in a corner. The player can reset when
+## stuck (R / Back); bots that can't free themselves get towed to open ground.
+func _rescue_stuck_cars(delta: float) -> void:
+	_reset_cooldown = maxf(0.0, _reset_cooldown - delta)
+	for c in running():
+		if c != player and c.stuck_time > BOT_RESPAWN_AFTER:
+			respawn_in_open(c)
+	if player and not player.is_wrecked:
+		var can_reset := _reset_cooldown <= 0.0 and (player.stuck_time > 0.6 or player.global_basis.y.y < 0.5)
+		hud.hint = "R / BACK  RESET" if can_reset and player.stuck_time > PLAYER_HINT_AFTER else ""
+		if can_reset and Input.is_action_just_pressed(&"reset"):
+			respawn_in_open(player)
+			_reset_cooldown = 3.0
+			hud.hint = ""
+
+
+## Put a car on the spawn point furthest from everyone else, facing the middle.
+func respawn_in_open(car: Car) -> void:
+	var best: Transform3D = arena.spawn_points[0]
+	var best_d := -1.0
+	for sp in arena.spawn_points:
+		var nearest := INF
+		for c in running():
+			if c != car:
+				nearest = minf(nearest, c.global_position.distance_to(sp.origin))
+		if nearest > best_d:
+			best_d = nearest
+			best = sp
+	var def: Dictionary = car.def
+	var ride: float = def.rest_length + def.wheel_radius - 0.1 - def.wheel_y + 0.3
+	car.teleport(Transform3D(best.basis, Vector3(best.origin.x, ride, best.origin.z)))
+	car.stuck_time = 0.0
+	Impact.shockwave(Vector3(best.origin.x, 0.2, best.origin.z), 4.0, Poster.CREAM, false)
+	if car == player:
+		camera.snap()
 
 
 func _on_wrecked(car: Car, _by: Car) -> void:

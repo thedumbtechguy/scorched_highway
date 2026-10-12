@@ -96,7 +96,8 @@ const CARS := {
 		# A sidecar rig wants to lift the chair in hard turns; a stronger roll assist keeps it down.
 		"roll_assist": 2.0,
 		# Bike on the left (front and rear), sidecar wheel on the right. Only the bike's rear wheel drives.
-		"wheels": [[-0.35, -1.3, true, 0.0, 0.18], [-0.35, 1.05, false, 1.0, 0.24], [0.9, 0.15, false, 0.0, 0.2]],
+		# The bike's rear wheel drives; the sidecar wheel helps a little (arcade licence).
+		"wheels": [[-0.35, -1.3, true, 0.0, 0.18], [-0.35, 1.05, false, 0.7, 0.24], [0.9, 0.15, false, 0.3, 0.2]],
 	},
 }
 
@@ -115,14 +116,14 @@ static func get_def(id: StringName) -> Dictionary:
 	# Top speeds sit in a narrow band so every class can race.
 	d.top_speed = 41.0 + st.speed * 1.6
 	d.reverse_speed = 13.0
-	d.engine_force = m * (4.0 + st.accel * 0.85)
+	d.engine_force = m * (6.5 + st.accel * 1.1)
 	d.brake_force = m * 12.0
 	d.boost_force = m * 5.0
 	d.boost_drain = 38.0
 	d.boost_regen = 11.0
 	d.grip = 1.2 + st.handling * 0.06
 	d.grip_rear_handbrake = d.grip * 0.32
-	d.steer_lock = 26.0 + st.handling * 2.5
+	d.steer_lock = 31.0 + st.handling * 2.0
 	d.steer_lock_fast = 6.0 + st.handling * 0.8
 	# Suspension sized so each wheel settles about 10 cm under the car's weight.
 	d.spring = m * 9.81 / n / 0.1
