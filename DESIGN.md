@@ -1,6 +1,8 @@
 # Scorched Highway: design
 
-This is the design for the Godot version. The web prototype (Vigilante 8 style: six light cars, lots of pickups, combos) showed that the setting and car combat work. It also felt floaty and busy, so this version starts again from three words: **heavy, hard hitting, premium**.
+This is the design for the Godot version. The web prototype showed that the setting and car combat work, but it felt floaty and busy. This version keeps the Vigilante 8 spirit (weapons, specials, characters, couch play) and the contact racing of Wreckfest, and builds both on three words: **heavy, hard hitting, premium**.
+
+**Decided so far:** races and arena combat are equal headline modes; V8-style weapons (a signature special per car plus pickups); four race types and four arena modes; a career mode; classed car upgrades; a televised-bloodsport alternate 1970s; 8-car events; split-screen for up to 4 players; online later; the Drive-In Poster visual direction.
 
 ## Pillars
 
@@ -13,7 +15,7 @@ Every car is two tonnes of steel or more, and you should feel it.
 - **A camera with mass.** The chase camera lags behind, swings into turns and leans on the car's velocity rather than its nose. The field of view widens with speed.
 
 ### 2. Hard hitting
-**The car is the main weapon. Guns set up hits; collisions finish them.**
+**Guns and rams matter equally, as in Vigilante 8.** Weapons do real damage; collisions are a weapon in their own right, and armour zones apply to both.
 
 - **Damage comes from physics.** Collision damage is the kinetic energy delivered along the contact normal: ½ · reduced mass · closing speed². A heavier car, or a faster one, hits harder. Nothing is scripted.
 - **Armour zones decide who wins a collision.** Every hit lands on the front, side or rear of each car:
@@ -26,7 +28,7 @@ Every car is two tonnes of steel or more, and you should feel it.
 
   T-bone someone and they take about three times the damage you do. Run nose-first into a wall and you mostly hurt the wall. Positioning beats button mashing.
 - **Ram charge.** The boost is also a ram. While it burns, extra thrust pushes the car on, front armour hardens to ×0.15 and ram damage goes up 50%. The meter is short, so every charge is a commitment.
-- **One heavy gun per car.** No weapon pickups to juggle. Each car mounts a slow, punchy gun: the starter car has a 40 mm autocannon (about three rounds a second) whose shells shove the target sideways and kick the shooter back. It heats up, so you fire in bursts. Its job is to knock a car out of line for a ram, not to grind down a health bar.
+- **Weapons, V8 style.** Every car has a signature special weapon, and pickups on the track or arena add the rest (missiles, mortar, mines and more). Every weapon hits with weight: shells and blasts shove cars, recoil kicks the shooter, and the armour zones apply, so a rocket up the tailpipe hurts more than one off the ram bar. The prototype's 40 mm autocannon (shove, recoil, overheating) is the template for how a weapon should feel.
 - **Every hit is felt.** Impacts scale with energy:
   - **Hitstop:** the game freezes for 30–120 ms.
   - **Camera trauma:** shake plus a kick away from the hit.
@@ -55,20 +57,44 @@ Chosen from three look tests (`tools/look_dev.tscn`). Every frame should look li
 - **HUD:** period type and print-style graphics, like a dashboard gauge or a magazine sidebar, in the same palette.
 ## The game
 
-**Modes.** *Wreck*: free-for-all in an arena, last car running wins. *Run* comes later: a race on the highway itself, with the same physics and damage, where ramming rivals off the road is as valid as outdriving them.
+### Premise
+An alternate 1970s where a TV network runs vehicular bloodsport coast to coast for ratings, in the spirit of *Death Race 2000*. Races and brawls are broadcast events with sponsors, commentators, rivalries and seasons. The premise justifies every mode and gives the career its structure.
 
-**Arena 1: The Pit.** A sunken quarry floor ringed by rock walls. Shipping containers and concrete pillars give cover and something to slam people into. A central mesa with ramps gives jumps and a place to be rammed off, and banked corners keep speed flowing.
+### Modes
+Races and arena combat carry equal weight. Every event has 8 cars, human or bot.
 
-**Cars.** A small roster where each car is a clear trade-off between mass, power and its gun. The vertical slice has one chassis, *Sundowner* (2,000 kg muscle car, 40 mm autocannon). The roster then grows towards:
+**Races.** Wreckfest-style contact racing with V8 weapons. Wrecked cars respawn after a few seconds, damaged and behind.
 
-| Car | Mass | Feel | Gun |
-| --- | --- | --- | --- |
-| Sundowner | 2.0 t | Balanced muscle car | 40 mm autocannon |
-| Gravel Queen | 3.4 t | Slow armoured truck, a battering ram | Mortar |
-| Scorcher | 1.6 t | Fast and fragile, hit and run | Twin rocket rails |
-| Lawdog | 2.4 t | Interceptor with a push bar | Slug shotgun |
+| Type | What it is |
+| --- | --- |
+| Branching circuits | Multi-lap tracks with forks, risky shortcuts, and routes that open mid-race when something is destroyed (a wall, a bridge, a water tower) |
+| Crossover tracks | Figure-8s and tracks that cross themselves, so the field collides head-on and side-on every lap |
+| Highway runs | Point-to-point dashes down the highway through traffic, tankers and roadblocks |
+| Elimination | Last place is knocked out each lap, or the field shrinks until one car is left |
 
-**AI.** Bots read the same zone rules as the player. They try to line up side and rear hits, back off when their front is not facing you, and use the gun to knock you off line before they charge.
+**Arena combat.**
+
+| Mode | What it is |
+| --- | --- |
+| Last car running | Free-for-all with no respawns; the last car alive wins |
+| Timed brawl | Respawns on; most wrecks when the clock runs out wins |
+| Team battle | Two teams with a shared score, under either rule set above |
+| Objective modes | Hold a zone, escort or attack a convoy, destroy a target structure |
+
+### Career
+Wreckfest-style championships across every mode: series of events, earning money and unlocks, with the TV network's seasons, sponsors and rivals as a light story on top.
+
+**Progression.** Unlock cars, buy performance and armour upgrades, paint and decals. Upgrades raise a car's class rating, and events (and online matchmaking later) are restricted by class, so upgrades never make online play unfair.
+
+### Multiplayer
+- **Split-screen** for up to 4 players on desktop (and consoles, if we go there). Cameras, HUD and input are per player from the start, and the visual budget assumes up to four views.
+- **Online** comes later; see *Platforms* for what that means for the design now.
+
+### Cars
+A roster where each car is a clear trade-off between mass, power, armour and its special weapon, each with a driver. The prototype has one chassis, *Sundowner* (a 2,000 kg muscle car). The roster, the drivers and the weapon list are still to be designed.
+
+### AI
+Bots read the same zone rules as the player: they try to land side and rear hits and keep their own nose towards trouble. In races they pick branches, fight for position and use pickups.
 
 ## Controls
 
