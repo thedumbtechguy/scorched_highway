@@ -2,7 +2,7 @@
 
 This is the design for the Godot version. The web prototype showed that the setting and car combat work, but it felt floaty and busy. This version keeps the Vigilante 8 spirit (weapons, specials, characters, couch play) and the contact racing of Wreckfest, and builds both on three words: **heavy, hard hitting, premium**.
 
-**Decided so far:** races and arena combat are equal headline modes; V8-style weapons (a signature special per car plus pickups); four race types and four arena modes; a career mode; classed car upgrades; a televised-bloodsport alternate 1970s; 8-car events; split-screen for up to 4 players; online later; the Drive-In Poster visual direction.
+**Decided so far:** races and arena combat are equal headline modes; V8-style weapons (a signature special per car plus pickups); four race types and four arena modes; a career mode; classed car upgrades; a televised-bloodsport alternate 1970s; 8-car events of 3–5 minutes; 8 cars at launch; heavy arcade handling; a choice of touch schemes; split-screen for up to 4 players; online later; the Drive-In Poster visual direction.
 
 ## Pillars
 
@@ -61,7 +61,7 @@ Chosen from three look tests (`tools/look_dev.tscn`). Every frame should look li
 An alternate 1970s where a TV network runs vehicular bloodsport coast to coast for ratings, in the spirit of *Death Race 2000*. Races and brawls are broadcast events with sponsors, commentators, rivalries and seasons. The premise justifies every mode and gives the career its structure.
 
 ### Modes
-Races and arena combat carry equal weight. Every event has 8 cars, human or bot.
+Races and arena combat carry equal weight. Every event has 8 cars, human or bot, and lasts 3–5 minutes: races of 3–4 laps, brawls on about a 4-minute clock.
 
 **Races.** Wreckfest-style contact racing with V8 weapons. Wrecked cars respawn after a few seconds, damaged and behind.
 
@@ -91,7 +91,9 @@ Wreckfest-style championships across every mode: series of events, earning money
 - **Online** comes later; see *Platforms* for what that means for the design now.
 
 ### Cars
-A roster where each car is a clear trade-off between mass, power, armour and its special weapon, each with a driver. The prototype has one chassis, *Sundowner* (a 2,000 kg muscle car). The roster, the drivers and the weapon list are still to be designed.
+Eight cars at launch, one per grid slot, each a clear trade-off between mass, power, armour and its special weapon, each with a driver. The prototype has one chassis, *Sundowner* (a 2,000 kg muscle car). The roster, the drivers and the weapon list are still to be designed.
+
+**Handling: heavy arcade.** Weight transfer, momentum and real collisions, but forgiving: generous grip, easy drifts, air control and quick recovery, so it plays well on gamepad, keyboard and touch.
 
 ### AI
 Bots read the same zone rules as the player: they try to land side and rear hits and keep their own nose towards trouble. In races they pick branches, fight for position and use pickups.
@@ -106,6 +108,8 @@ Bots read the same zone rules as the player: they try to land side and rear hits
 | Ram charge (boost) | Shift | B / LB |
 | Fire | J or left mouse | RB / X |
 | Restart (after a match) | Enter | Start |
+
+**Touch** offers a choice of schemes. The default has automatic throttle, thumb steering on the left, and buttons on the right for brake, fire, special and ram. Options add tilt steering and manual throttle, and gamepads work on phones too.
 
 ## Platforms
 
