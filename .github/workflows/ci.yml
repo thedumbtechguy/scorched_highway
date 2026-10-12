@@ -9,42 +9,32 @@ on:
 permissions:
   contents: read
 
+env:
+  GODOT_VERSION: 4.5.1
+
 jobs:
-  check:
+  test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Cache Godot
+        id: cache
+        uses: actions/cache@v4
         with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - run: npm run lint
-      - run: npm run typecheck
-      - run: npm run build
-      - run: npx playwright install --with-deps chromium
-      - run: npm test
-      - uses: actions/upload-artifact@v4
-        if: failure()
-        with:
-          name: playwright-report
-          path: test-results/
-      - uses: actions/upload-pages-artifact@v3
-        if: github.ref == 'refs/heads/main'
-        with:
-          path: dist
-
-  # Publishes main to GitHub Pages. One-time setup: Settings → Pages → Source: "GitHub Actions".
-  deploy:
-    if: github.ref == 'refs/heads/main'
-    needs: check
-    runs-on: ubuntu-latest
-    permissions:
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4
+          path: ~/godot
+          key: godot-${{ env.GODOT_VERSION }}
+      - name: Download Godot
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/godot
+          curl -sSL -o /tmp/godot.zip "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q /tmp/godot.zip -d ~/godot
+          mv ~/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64 ~/godot/godot
+      - name: Import project
+        run: timeout 300 ~/godot/godot --headless --path . --import
+      - name: Run tests
+        # Godot reports script errors without failing, so treat any SCRIPT ERROR as a failure too.
+        run: |
+          set -o pipefail
+          timeout 600 ~/godot/godot --headless --fixed-fps 120 --path . res://tests/test_runner.tscn 2>&1 | tee test.log
+          ! grep -q "SCRIPT ERROR" test.log
