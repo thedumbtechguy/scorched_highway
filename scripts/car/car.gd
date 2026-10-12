@@ -56,6 +56,7 @@ var _vel_hist: Array[Vector3] = [Vector3.ZERO, Vector3.ZERO, Vector3.ZERO]
 var _pending_contacts: Array[Dictionary] = []
 var _pair_cooldown := {}
 var _upside_down_time := 0.0
+var _teleport_to: Variant = null # Transform3D, applied inside the physics step
 
 
 func setup(car_def: Dictionary, paint_color: Color, player: bool) -> void:
@@ -118,6 +119,16 @@ func _add_shape(half: Vector3, pos: Vector3) -> void:
 	cs.shape = box
 	cs.position = pos
 	add_child(cs)
+
+
+## Move the car and stop it dead. Writing global_transform on a moving rigid
+## body can be overwritten by the physics step, so the move is applied in it.
+func teleport(xf: Transform3D) -> void:
+	_teleport_to = xf
+	global_transform = xf
+	linear_velocity = Vector3.ZERO
+	angular_velocity = Vector3.ZERO
+	reset_physics_interpolation()
 
 
 func set_driver(d: Node) -> void:
@@ -309,10 +320,7 @@ func _air_and_recovery(delta: float) -> void:
 		if _upside_down_time > 1.8:
 			_upside_down_time = 0.0
 			var yaw := atan2(-global_basis.z.x, -global_basis.z.z)
-			global_transform = Transform3D(Basis(Vector3.UP, yaw + PI), global_position + Vector3.UP * 1.5)
-			linear_velocity = Vector3.ZERO
-			angular_velocity = Vector3.ZERO
-			reset_physics_interpolation()
+			teleport(Transform3D(Basis(Vector3.UP, yaw + PI), global_position + Vector3.UP * 1.5))
 	else:
 		_upside_down_time = 0.0
 
@@ -332,6 +340,13 @@ func _update_rpm() -> void:
 # --- Collisions and damage ---
 
 func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
+	if _teleport_to != null:
+		state.transform = _teleport_to
+		state.linear_velocity = Vector3.ZERO
+		state.angular_velocity = Vector3.ZERO
+		_teleport_to = null
+		_pending_contacts.clear()
+		return
 	for i in state.get_contact_count():
 		var other := state.get_contact_collider_object(i)
 		if other == null:

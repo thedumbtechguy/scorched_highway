@@ -70,10 +70,8 @@ func stills() -> void:
 	# Staged T-bone in open ground, to see what a hit looks like.
 	var victim: Car = game.cars[1]
 	var rammer: Car = game.cars[2]
-	victim.global_transform = Transform3D(Basis.IDENTITY, Vector3(-2, 0.62, -38))
-	rammer.global_transform = Transform3D(Basis(Vector3.UP, -PI * 0.5), Vector3(-26, 0.62, -38))
-	victim.reset_physics_interpolation()
-	rammer.reset_physics_interpolation()
+	victim.teleport(Transform3D(Basis.IDENTITY, Vector3(-2, 0.62, -38)))
+	rammer.teleport(Transform3D(Basis(Vector3.UP, -PI * 0.5), Vector3(-26, 0.62, -38)))
 	free_cam(Vector3(-9, 1.6, -29.5), Vector3(-4, 0.6, -38), 50.0)
 	await wait(1.0)
 	rammer.linear_velocity = Vector3(24, 0, 0)
