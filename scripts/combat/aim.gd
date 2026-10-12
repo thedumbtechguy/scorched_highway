@@ -7,10 +7,29 @@ class_name Aim
 static func direction(car: Car, muzzle: Vector3, fwd: Vector3, cone: float, max_range: float, speed: float) -> Vector3:
 	var best := target_in_cone(car, muzzle, fwd, cone, max_range)
 	if best == null or car.scrambled > 0.0:
-		return (fwd + Vector3.UP * 0.01).normalized()
+		return zeroed(car, muzzle, fwd)
 	var t := muzzle.distance_to(best.global_position) / speed
 	var lead := best.global_position + (best.linear_velocity - car.linear_velocity) * t + Vector3.UP * 0.15
 	return (lead - muzzle).normalized()
+
+
+## Where an unassisted shot goes: along the ground the car is driving on (not
+## wherever the nose happens to be pitched), dropping to the height of a low
+## car's body at a typical fighting range, so a gun on a truck roof still hits
+## a buggy instead of sailing over it.
+const ZERO_RANGE := 30.0
+const MAX_PITCH := deg_to_rad(30.0)
+const ZERO_HEIGHT := 0.75
+
+static func zeroed(car: Car, muzzle: Vector3, fwd: Vector3) -> Vector3:
+	var down := PhysicsRayQueryParameters3D.create(muzzle, muzzle + Vector3.DOWN * 6.0, Car.LAYER_WORLD, [car.get_rid()])
+	var ground := car.get_world_3d().direct_space_state.intersect_ray(down)
+	if ground.is_empty():
+		return fwd # airborne: fire where the nose points
+	var n: Vector3 = ground.normal
+	var along := (fwd - n * fwd.dot(n)).normalized()
+	var aim_at: Vector3 = ground.position + along * ZERO_RANGE + n * ZERO_HEIGHT
+	return (aim_at - muzzle).normalized()
 
 
 static func target_in_cone(car: Car, from: Vector3, fwd: Vector3, cone: float, max_range: float) -> Car:
@@ -24,8 +43,12 @@ static func target_in_cone(car: Car, from: Vector3, fwd: Vector3, cone: float, m
 		var d := to.length()
 		if d > max_range or d < 0.5:
 			continue
-		var ang := fwd.angle_to(to)
-		if ang > cone:
+		# The cone is judged left-right only: a low car close in under a tall gun sits
+		# well below the nose but is plainly in the sights.
+		var flat_fwd := Vector3(fwd.x, 0, fwd.z).normalized()
+		var flat_to := Vector3(to.x, 0, to.z).normalized()
+		var ang := flat_fwd.angle_to(flat_to)
+		if ang > cone or absf(asin(clampf(to.y / d, -1.0, 1.0))) > MAX_PITCH:
 			continue
 		var score := ang * 40.0 + d
 		if score < best_score:

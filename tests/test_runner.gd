@@ -28,6 +28,7 @@ func _ready() -> void:
 		test_heavy_beats_light_in_a_ram,
 		test_nose_into_wall_is_cheap,
 		test_machine_gun_damages,
+		test_bullets_hit_low_cars,
 		test_damage_sheds_panels_and_signature_parts,
 		test_thunder_cannons_shove,
 		test_riot_gun_spins_light_more_than_heavy,
@@ -192,6 +193,7 @@ func test_acceleration() -> bool:
 		x += 20.0
 	await step(0.5)
 	var t100 := {}
+	var t50 := {}
 	for c: Car in cars.values():
 		c.throttle = 1.0
 	var t := 0.0
@@ -201,11 +203,17 @@ func test_acceleration() -> bool:
 		for id in cars:
 			if not t100.has(id) and cars[id].speed >= 100.0 / 3.6:
 				t100[id] = t
+			if not t50.has(id) and cars[id].speed >= 50.0 / 3.6:
+				t50[id] = t
 	var ok := true
 	for id in cars:
-		var limit := 6.5 if cars[id].def["class"] == &"heavy" else 5.0
+		var heavy: bool = cars[id].def["class"] == &"heavy"
+		var limit := 6.5 if heavy else 5.0
 		var took: float = t100.get(id, 99.0)
-		print("      %-15s 0-100 km/h in %.1f s" % [id, took])
+		var launch: float = t50.get(id, 99.0)
+		print("      %-15s 0-50 km/h in %.2f s, 0-100 km/h in %.1f s" % [id, launch, took])
+		# Off the line is where a car feels punchy or sluggish.
+		ok = check(launch < (1.6 if heavy else 1.2), "%s slow off the line: %.2f s" % [id, launch]) and ok
 		ok = check(took < limit, "%s too slow: %.1f s" % [id, took]) and ok
 		ok = check(took > 2.0, "%s too twitchy: %.1f s" % [id, took]) and ok
 	return ok
@@ -348,6 +356,32 @@ func test_machine_gun_damages() -> bool:
 	await step(0.3)
 	print("      1.5 s of fire: %.1f damage, heat %.2f" % [lost(target), heat])
 	return check(lost(target) > 8.0, "damage %.1f" % lost(target)) and check(heat > 0.2, "no heat")
+
+
+## Bullets don't sail over the low cars: the tallest gun (Long Haul's, on the
+## cab roof) locks on to a buggy or the bike close in and far out, and a car
+## firing without assist still drops its shots into a low car's body.
+func test_bullets_hit_low_cars() -> bool:
+	flat_ground()
+	var ok := true
+	var x := -100.0
+	for shooter_id in [&"long_haul", &"sundowner"]:
+		for low in [&"sidewinder", &"double_trouble"]:
+			for range_m in [12.0, 35.0]:
+				var shooter := make_car(shooter_id, Vector3(x, 0, 0))
+				var target := make_car(low, Vector3(x, 0, -range_m), PI * 0.5)
+				await step(1.0)
+				var assist: bool = shooter_id == &"long_haul"
+				if not assist:
+					shooter.scrambled = 99.0
+				shooter.fire = true
+				await step(1.0)
+				shooter.fire = false
+				await step(0.4)
+				print("      %-10s -> %-15s at %2.0f m, %s: %.1f damage" % [shooter_id, low, range_m, "assisted" if assist else "no assist", lost(target)])
+				ok = check(lost(target) > 4.0, "%s at %.0f m: shots went over" % [low, range_m]) and ok
+				x += 25.0
+	return ok
 
 
 func test_damage_sheds_panels_and_signature_parts() -> bool:

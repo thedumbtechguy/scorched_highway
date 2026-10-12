@@ -19,6 +19,9 @@ const IMPACT_MIN_SPEED := 4.0
 const SCENERY_MULT := 0.55
 const PAIR_COOLDOWN := 0.35
 
+const LAUNCH_KICK := 1.1 # extra pull at a standstill, as a fraction of the engine force
+const LAUNCH_FADE := 20.0 # m/s (about 70 km/h) by which the kick is gone
+const LONG_GRIP := 1.5 # tyre grip driving and braking, relative to sideways
 const LAYER_WORLD := 1
 const LAYER_CARS := 2
 const LAYER_DEBRIS := 4
@@ -267,7 +270,9 @@ func _update_wheels(delta: float) -> void:
 		if throttle > 0.0:
 			# Pull stays strong through the mid-range and only tails off near top speed.
 			var fall := 1.0 - pow(clampf(speed / def.top_speed, 0.0, 1.0), 3.0)
-			f_long += throttle * def.engine_force * fall * drive_share
+			# First gear kicks: extra shove off the line, fading out by about 70 km/h.
+			var launch := 1.0 + LAUNCH_KICK * pow(1.0 - clampf(speed / LAUNCH_FADE, 0.0, 1.0), 2.0)
+			f_long += throttle * def.engine_force * fall * launch * drive_share
 		elif throttle < 0.0:
 			if speed > 1.0:
 				f_long -= signf(v_long) * def.brake_force * -throttle / _wheels.size()
@@ -289,16 +294,22 @@ func _update_wheels(delta: float) -> void:
 			f_long = signf(f_long) * max_stop
 
 		# Lateral: cancel sideways slip, up to the grip limit.
-		var f_lat: float = -v_lat * per_wheel_mass / delta * 0.32 * w.lat
+		# Cancel a share of the sideways slip each tick, scaled so the tyre is equally
+		# stiff at any physics rate (32% per tick at 120 Hz).
+		var lat_share := 1.0 - pow(1.0 - 0.32, delta * 120.0)
+		var f_lat: float = -v_lat * per_wheel_mass / delta * lat_share * w.lat
 		var mu: float = def.grip
 		if handbrake and not w.front:
 			mu = def.grip_rear_handbrake
 		var limit := mu * load
 		var f := Vector2(f_long, f_lat)
+		# A friction ellipse, not a circle: tyres bite harder driving and braking
+		# than sideways (arcade licence), so launches punch without making cornering grippier.
+		var used := Vector2(f_long / LONG_GRIP, f_lat).length()
 		w.slip = 0.0
-		if f.length() > limit:
-			w.slip = clampf(f.length() / maxf(limit, 1.0) - 1.0, 0.0, 1.0)
-			f = f.normalized() * limit
+		if used > limit:
+			w.slip = clampf(used / maxf(limit, 1.0) - 1.0, 0.0, 1.0)
+			f *= limit / used
 		# Apply traction a little above the contact patch, so the body leans without tripping over itself.
 		var apply_at := contact.lerp(com, 0.45)
 		apply_force(fwd * f.x + right * f.y, apply_at - global_position)
