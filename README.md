@@ -31,8 +31,9 @@ godot -e --path .         # open the editor
 # Headless tests: physics at rest, driving, ram and wall damage, the cannon, wrecking, a full bot match
 godot --headless --fixed-fps 120 --path . res://tests/test_runner.tscn
 
-# Screenshots of a bot match (needs a GPU or software Vulkan; not --headless)
-godot --path . res://tools/screenshot.tscn -- shots 2 9 16
+# Stills and a gameplay clip of a bot match (needs a GPU or software Vulkan; not --headless)
+godot --fixed-fps 30 --path . res://tools/showcase.tscn -- stills shots
+godot --fixed-fps 30 --write-movie clip.avi --path . res://tools/showcase.tscn -- movie 15
 ```
 
 CI runs the tests on every push and pull request.

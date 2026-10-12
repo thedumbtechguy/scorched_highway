@@ -11,6 +11,9 @@ var enabled_time_effects := true
 var _base_scale := 1.0
 var _hitstop_until := 0.0
 var _slowmo_until := 0.0
+## Unscaled time, advanced per frame, so hitstop and slow motion last the same
+## whether the game runs live or frame by frame (tests, movie capture).
+var _clock := 0.0
 
 static var _spark_mesh: Mesh
 static var _chunk_mesh: Mesh
@@ -24,11 +27,12 @@ func _ready() -> void:
 	_make_shared()
 
 
-func _process(_delta: float) -> void:
-	var now := Time.get_ticks_msec() / 1000.0
-	if now >= _slowmo_until:
-		_base_scale = move_toward(_base_scale, 1.0, _delta * 2.5)
-	Engine.time_scale = 0.03 if now < _hitstop_until else _base_scale
+func _process(delta: float) -> void:
+	var real := delta / maxf(Engine.time_scale, 0.0001)
+	_clock += real
+	if _clock >= _slowmo_until:
+		_base_scale = move_toward(_base_scale, 1.0, real * 2.5)
+	Engine.time_scale = 0.03 if _clock < _hitstop_until else _base_scale
 
 
 func reset() -> void:
@@ -41,15 +45,14 @@ func reset() -> void:
 func hitstop(seconds: float) -> void:
 	if not enabled_time_effects:
 		return
-	var now := Time.get_ticks_msec() / 1000.0
-	_hitstop_until = maxf(_hitstop_until, now + seconds)
+	_hitstop_until = maxf(_hitstop_until, _clock + seconds)
 
 
 func slowmo(scale: float, seconds: float) -> void:
 	if not enabled_time_effects:
 		return
 	_base_scale = scale
-	_slowmo_until = Time.get_ticks_msec() / 1000.0 + seconds
+	_slowmo_until = _clock + seconds
 
 
 func shake(trauma: float, kick := Vector3.ZERO) -> void:
