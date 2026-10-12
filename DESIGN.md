@@ -2,7 +2,7 @@
 
 This is the design for the Godot version. The web prototype showed that the setting and car combat work, but it felt floaty and busy. This version keeps the Vigilante 8 spirit (weapons, specials, characters, couch play) and the contact racing of Wreckfest, and builds both on three words: **heavy, hard hitting, premium**.
 
-**Decided so far:** races and arena combat are equal headline modes; V8-style weapons (a signature special per car plus pickups); four race types and four arena modes; a career mode; classed car upgrades; a televised-bloodsport alternate 1970s; 8-car events of 3–5 minutes; 8 cars at launch; heavy arcade handling; a choice of touch schemes; split-screen for up to 4 players; online later; configurable bots in every multiplayer mode; the Drive-In Poster visual direction.
+**Decided so far:** races and arena combat are equal headline modes; V8-style weapons (a signature special per car plus pickups); four race types and four arena modes; a career mode; classed car upgrades; a televised-bloodsport alternate 1970s; 8-car events of 3–5 minutes; 8 cars at launch; heavy arcade handling; a choice of touch schemes; split-screen for up to 4 players; online later; configurable bots in every multiplayer mode; a comic-ink visual direction after Borderlands.
 
 ## Pillars
 
@@ -44,17 +44,19 @@ Every car is two tonnes of steel or more, and you should feel it.
 - **Fewer, better things.** One arena that is built well beats five rough ones. Each new car, gun or arena ships only when it is polished.
 - **Sound carries half the weight.** The engine note follows revs and load. Impacts have a sub-bass layer. Gunfire booms.
 
-## Visual direction: Drive-In Poster
+## Visual direction: comic ink (Borderlands)
 
-Chosen from three look tests (`tools/look_dev.tscn`). Every frame should look like a 1970s drive-in movie poster or a hot-rod magazine illustration. Borderlands and XIII are the closest game references; Hi-Fi Rush for how comic timing sells hits.
+Borderlands is the reference: a 3D world drawn like an inked comic, with a dusty 1970s desert palette. It started as the "Drive-In Poster" look test (`tools/look_dev.tscn`) and moved from pop-art poster towards ink and hatching. XIII is a secondary reference; Hi-Fi Rush shows how comic timing sells hits.
 
-- **Shading:** two-tone cel shading with hard light/shadow edges. Shadows are a warm purple (ambient), never grey or black.
-- **Line:** ink outlines on every silhouette and major crease, thinning with distance so the horizon stays clean. Outlines are drawn on the models (inverted hull), with a screen-space edge pass on top where the renderer supports it.
-- **Colour:** flat poster colour from a fixed period palette: sand ochre, canyon orange, sky gradient from burnt orange to cream, and car paints in saturated reds, teals, golds and creams. Textures are painted colour shapes and hatching, not photographic detail.
-- **Print texture:** a light halftone screen in the shadows and a faint paper grain over everything.
+- **Line:** bold black ink on every silhouette, with weight that swells and thins along an edge like a brush pen. It's drawn on the models (inverted hull) in every renderer, with a screen-space crease pass on top on desktop.
+- **Shading:** one hard light/shadow edge (cel shading). Shade is a dusty violet, never grey. It's filled with hand-drawn hatching that sticks to the surface, and cross-hatching in the deepest shade; cast shadows are hatched too.
+- **Surface:** surfaces carry grime blotches, drip streaks and ink flecks; the ground is cracked earth with pebbles. Paint, chrome and glass get one hard-edged glint; everything else is matte.
+- **Colour:** dusty ochre ground, rust-red canyon, a hard blue sky bleaching to gold at the horizon. Car paints are saturated against that, with cream accents.
+- **Finish:** a faint paper grain and a vignette. No halftone.
 - **Cars:** bold, graphic silhouettes with exaggerated proportions (fat tyres, big ram bars), painted stripes, numbers and decals. Damage shows as missing panels, crumples drawn in line, and scorch marks.
 - **Hits:** ink-streak sparks, chunky inked debris, impact frames (a one- or two-frame flash of high-contrast colour on big hits), speed lines on the ram charge, smoke as flat stylised shapes. Optional onomatopoeia for the biggest hits.
 - **HUD:** period type and print-style graphics, like a dashboard gauge or a magazine sidebar, in the same palette.
+
 ## The game
 
 ### Premise
@@ -141,7 +143,7 @@ Targets are desktop (Windows, macOS, Linux) and high-end phones (recent iOS and 
 | Medium | Older capable phones | Mobile renderer, lighting baked into the art |
 | Low | Web and weaker devices | Compatibility (WebGL 2) |
 
-Changing renderer needs a restart. The Drive-In Poster style scales down well because it relies on colour and line rather than lighting effects.
+Changing renderer needs a restart. The comic-ink style scales down well because it relies on colour, line and hatching rather than lighting effects.
 
 Online play comes later, and the design keeps it in mind now: the server decides collisions and damage, hitstop and slow motion affect only the local camera and effects, and matches plan for 4 to 8 cars.
 

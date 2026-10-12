@@ -31,9 +31,9 @@ func _ready() -> void:
 	add_poster_pass(self)
 
 
-## The Drive-In Poster finish for any camera: ink outlines, halftone in the
-## shadows, paper grain. The outline needs the depth-and-normal buffer, which
-## only Forward+ has.
+## The comic-ink finish for any camera: crease lines from the depth-and-normal
+## buffer (Forward+ only; every renderer gets the ink hulls), a little paper grain
+## and a vignette. No halftone: the shade is hatched on the surfaces themselves.
 static func add_poster_pass(cam: Camera3D) -> void:
 	var quad := MeshInstance3D.new()
 	quad.mesh = QuadMesh.new()
@@ -41,16 +41,14 @@ static func add_poster_pass(cam: Camera3D) -> void:
 	quad.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	var m := ShaderMaterial.new()
 	if RenderingServer.get_current_rendering_method() == "forward_plus":
-		# Desktop adds crease lines from the depth-and-normal buffer on top of the ink hulls.
 		m.shader = load("res://shaders/poster_post.gdshader")
-		m.set_shader_parameter("outline_px", 1.2)
+		m.set_shader_parameter("outline_px", 2.0)
 		m.set_shader_parameter("outline_color", Poster.INK)
 	else:
 		m.shader = load("res://shaders/poster_print.gdshader")
-	m.set_shader_parameter("halftone", 0.5)
-	m.set_shader_parameter("halftone_px", 5.0)
-	m.set_shader_parameter("grain", 0.03)
-	m.set_shader_parameter("vignette", 0.15)
+	m.set_shader_parameter("halftone", 0.0)
+	m.set_shader_parameter("grain", 0.035)
+	m.set_shader_parameter("vignette", 0.22)
 	quad.material_override = m
 	cam.add_child(quad)
 	quad.position = Vector3(0, 0, -1)

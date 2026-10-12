@@ -45,8 +45,8 @@ func _make_materials() -> void:
 func _environment() -> void:
 	var sun := DirectionalLight3D.new()
 	sun.rotation_degrees = Vector3(-30.0, -40.0, 0.0)
-	sun.light_color = Color(1.0, 0.95, 0.85)
-	sun.light_energy = 1.6
+	sun.light_color = Color(1.0, 0.93, 0.8)
+	sun.light_energy = 2.1
 	sun.shadow_enabled = true
 	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
 	sun.directional_shadow_max_distance = 220.0
@@ -54,10 +54,11 @@ func _environment() -> void:
 	add_child(sun)
 
 	var sky_mat := ProceduralSkyMaterial.new()
-	sky_mat.sky_top_color = Color(0.95, 0.45, 0.22)
-	sky_mat.sky_horizon_color = Color(1.0, 0.86, 0.52)
-	sky_mat.ground_horizon_color = Color(1.0, 0.8, 0.5)
-	sky_mat.ground_bottom_color = Color(0.6, 0.35, 0.25)
+	# A hard desert sky: deep blue overhead, bleaching to dusty gold at the horizon.
+	sky_mat.sky_top_color = Color(0.22, 0.45, 0.66)
+	sky_mat.sky_horizon_color = Color(0.94, 0.8, 0.58)
+	sky_mat.ground_horizon_color = Color(0.9, 0.74, 0.52)
+	sky_mat.ground_bottom_color = Color(0.45, 0.3, 0.2)
 	sky_mat.sky_curve = 0.25
 	sky_mat.sun_angle_max = 12.0
 	var sky := Sky.new()
@@ -69,15 +70,17 @@ func _environment() -> void:
 	env.tonemap_mode = Environment.TONE_MAPPER_LINEAR
 	env.tonemap_exposure = 1.0
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	# Shade stays coloured, never grey: a cool dusty violet against the warm sun.
 	env.ambient_light_color = Poster.PLUM
-	env.ambient_light_energy = 0.75
+	env.ambient_light_energy = 0.55
 	env.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
 	env.glow_enabled = true
 	env.glow_intensity = 0.25
 	env.glow_hdr_threshold = 1.2
 	env.fog_enabled = true
-	env.fog_light_color = Color(1.0, 0.82, 0.55)
-	env.fog_density = 0.0012
+	env.fog_light_color = Color(0.92, 0.78, 0.56)
+	env.fog_density = 0.0016
+	env.fog_sky_affect = 0.2 # haze on the ground, but keep the sky blue
 	env.adjustment_enabled = true
 	env.adjustment_saturation = 1.1
 	# The web/low-end renderer lights in a different colour space and comes out
@@ -85,9 +88,9 @@ func _environment() -> void:
 	if RenderingServer.get_current_rendering_method() == "gl_compatibility":
 		env.tonemap_exposure = 0.72
 		env.glow_enabled = false
-		env.ambient_light_energy = 0.55
-		sun.light_energy = 1.25
-		env.adjustment_saturation = 1.2
+		env.ambient_light_energy = 0.5
+		sun.light_energy = 1.05
+		env.adjustment_saturation = 1.0
 	var we := WorldEnvironment.new()
 	we.environment = env
 	add_child(we)

@@ -1,12 +1,12 @@
 # Scorched Highway
 
-Vehicular combat and contact racing in an alternate 1970s, where a TV network runs the bloodsport coast to coast. Eight cars, eight drivers, every one the star of a show, each with a signature special. Heavy, hard-hitting physics in a Drive-In Poster look.
+Vehicular combat and contact racing in an alternate 1970s, where a TV network runs the bloodsport coast to coast. Eight cars, eight drivers, every one the star of a show, each with a signature special. Heavy, hard-hitting physics in an inked-comic look after Borderlands.
 
 This is the Godot rebuild. The earlier browser prototype is in the git history. **[DESIGN.md](DESIGN.md)** sets out the game: pillars, damage rules, modes, roster, visual direction and roadmap.
 
 ## Play
 
-**[Play it in your browser →](https://thedumbtechguy.github.io/scorched_highway/)** Keyboard or gamepad; best in a desktop browser. The browser build uses Godot's simpler web renderer, so it lacks the ink outlines and halftone of the desktop version.
+**[Play it in your browser →](https://thedumbtechguy.github.io/scorched_highway/)** Keyboard or gamepad; best in a desktop browser. The browser build uses Godot's simpler web renderer; it has the same ink and hatching, without the desktop's extra crease lines.
 
 To run it locally instead:
 
@@ -60,7 +60,7 @@ CI runs the tests on every push and pull request.
 | `scripts/fx/chase_camera.gd` | A camera with mass, trauma shake and kicks |
 | `scripts/audio/sfx.gd` | Autoload `Sfx`: synthesised engine, impacts, cannon, explosions |
 | `scripts/world/arena.gd` | The Pit: poster sky and lighting, rocks, containers, ramps |
-| `scripts/fx/poster.gd`, `shaders/poster_post.gdshader` | The Drive-In Poster look: cel-shaded materials, palette, ink outlines, halftone |
+| `scripts/fx/poster.gd`, `shaders/ink_surface.gdshader`, `shaders/ink_outline.gdshader`, `shaders/poster_post.gdshader` | The comic-ink look: cel shading with hatched shade, grime and cracks, brush-weight outlines, palette, crease lines |
 | `scripts/ui/hud.gd` | Armour silhouette, speed, ram and heat meters |
 | `scripts/game.gd` | Car selection and match flow |
 

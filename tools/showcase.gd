@@ -3,6 +3,7 @@ extends Node
 ## renderer (a GPU, or software Vulkan under Xvfb), not --headless.
 ##
 ##   godot --fixed-fps 30 --path . res://tools/showcase.tscn -- stills <out_dir>
+##   godot --fixed-fps 30 --path . res://tools/showcase.tscn -- quick <out_dir>
 ##   godot --fixed-fps 30 --write-movie clip.avi --path . res://tools/showcase.tscn -- movie <seconds>
 ##   godot --fixed-fps 30 --path . res://tools/showcase.tscn -- roster <out_dir>
 
@@ -28,7 +29,7 @@ func _ready() -> void:
 	else:
 		out = args[1] if args.size() > 1 else "shots"
 		DirAccess.make_dir_recursive_absolute(out)
-		await stills()
+		await stills(mode == "quick")
 	get_tree().quit()
 
 
@@ -56,7 +57,9 @@ func free_cam(pos: Vector3, look: Vector3, fov := 45.0) -> void:
 	cam.make_current()
 
 
-func stills() -> void:
+## The beauty shots, a staged crash and the fight. `quick` skips the crash and
+## takes one fight shot, for fast look iteration.
+func stills(quick := false) -> void:
 	game._timer = 999.0 # hold the countdown: cars stay parked for the beauty shots
 	game.hud.visible = false
 	await wait(2.0)
@@ -73,6 +76,16 @@ func stills() -> void:
 	await wait(0.3)
 	await shot("arena")
 
+	if quick:
+		game.hud.visible = true
+		game.hud.watch(game.cars[0])
+		game.camera.target = game.cars[0]
+		game.camera.snap()
+		game.camera.make_current()
+		game._timer = 0.01
+		await wait(5.0)
+		await shot("fight_0")
+		return
 	# Staged T-bone in open ground, to see what a hit looks like.
 	var victim: Car = game.cars[1]
 	var rammer: Car = game.cars[2]

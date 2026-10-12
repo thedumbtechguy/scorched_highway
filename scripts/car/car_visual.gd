@@ -5,12 +5,12 @@ extends Node3D
 ## panels that come off by zone, signature parts that come off as health drops,
 ## and the mount points for guns.
 
-var paint_mat: StandardMaterial3D
-var accent_mat: StandardMaterial3D
-var trim_mat: StandardMaterial3D
-var chrome_mat: StandardMaterial3D
-var glass_mat: StandardMaterial3D
-var rubber_mat: StandardMaterial3D
+var paint_mat: Material
+var accent_mat: Material
+var trim_mat: Material
+var chrome_mat: Material
+var glass_mat: Material
+var rubber_mat: Material
 
 ## Where the machine gun and the special sit, in car space. Set by the body.
 var gun_mount := Vector3(0, 0.8, -0.4)
@@ -258,8 +258,9 @@ func hp_lost(fraction: float, car: Node3D) -> void:
 
 
 func char_paint() -> void:
-	for m in [paint_mat, accent_mat]:
-		m.albedo_color = m.albedo_color.darkened(0.8)
+	for m: ShaderMaterial in [paint_mat, accent_mat]:
+		var c: Color = m.get_shader_parameter("albedo")
+		m.set_shader_parameter("albedo", c.darkened(0.8))
 	for l in _lights:
 		if is_instance_valid(l):
 			var m: StandardMaterial3D = l.material_override
