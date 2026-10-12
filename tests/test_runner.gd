@@ -22,6 +22,7 @@ func _ready() -> void:
 		test_every_car_drives_turns_and_stops,
 		test_acceleration,
 		test_reverse,
+		test_turn_in,
 		test_bot_escapes_a_corner,
 		test_side_ram_hurts_victim_more,
 		test_heavy_beats_light_in_a_ram,
@@ -40,7 +41,11 @@ func _ready() -> void:
 		test_full_match,
 		test_bots_keep_moving,
 	]
+	# TEST_ONLY=name runs just the tests whose names contain it.
+	var only := OS.get_environment("TEST_ONLY")
 	for t: Callable in tests:
+		if only != "" and not t.get_method().contains(only):
+			continue
 		_stage = Node3D.new()
 		add_child(_stage)
 		var ok: bool = await t.call()
@@ -229,6 +234,50 @@ func test_reverse() -> bool:
 		print("      %-15s reversing %.1f m/s after 2 s, %.1f m/s after 5 s" % [id, at_2s[id], -c.speed])
 		ok = check(at_2s[id] > 9.0, "%s reverses too slowly: %.1f m/s after 2 s" % [id, at_2s[id]]) and ok
 		ok = check(-c.speed < c.def.reverse_speed + 0.5, "%s reverses past its limit: %.1f m/s" % [id, -c.speed]) and ok
+	return ok
+
+
+## Cornering should feel eager: from a 20 m/s cruise, full lock swings every car
+## through 90 degrees in under 2 s (trucks a little slower) and keeps most of
+## its speed, without spinning or rolling.
+func test_turn_in() -> bool:
+	flat_ground()
+	var cars := {}
+	var x := -140.0
+	for id in CarDefs.ORDER:
+		cars[id] = make_car(id, Vector3(x, 0, 0))
+		x += 40.0
+	await step(0.5)
+	var yaw0 := {}
+	var t90 := {}
+	var cruising := {}
+	var t := 0.0
+	while t < 12.0 and t90.size() < cars.size():
+		await get_tree().physics_frame
+		t += TICK
+		for id in cars:
+			var c: Car = cars[id]
+			if t90.has(id):
+				continue
+			if not cruising.has(id):
+				c.throttle = 1.0
+				if c.speed >= 20.0:
+					cruising[id] = t
+					yaw0[id] = c.global_basis.get_euler().y
+					c.steer = 1.0
+					c.throttle = 0.6
+			elif absf(angle_difference(yaw0[id], c.global_basis.get_euler().y)) >= PI * 0.5:
+				t90[id] = t - cruising[id]
+	var ok := true
+	for id in cars:
+		var c: Car = cars[id]
+		var took: float = t90.get(id, 99.0)
+		print("      %-15s 90 deg from 20 m/s in %.2f s, still at %.1f m/s" % [id, took, c.speed])
+		# Trucks and the three-wheeled sidecar rig are allowed to be clumsier.
+		var limit := 2.6 if c.def["class"] == &"heavy" or c.def.wheels.size() < 4 else 1.9
+		ok = check(took < limit, "%s turns in too slowly: %.2f s" % [id, took]) and ok
+		ok = check(c.speed > 10.0, "%s scrubs off too much speed: %.1f m/s" % [id, c.speed]) and ok
+		ok = check(upright(c), "%s rolled over" % id) and ok
 	return ok
 
 

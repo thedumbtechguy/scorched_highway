@@ -13,6 +13,9 @@ var _wander := Vector3.ZERO
 var _maneuver := 0.0 # seconds left of the multi-point turn
 var _gear := -1.0 # -1 reversing, +1 forward, within the manoeuvre
 var _phase_time := 0.0
+var _phase_moving := false # got going in the current gear
+var _pinned := {} # gears in which turning only pins us harder against something: drive them straight
+var _leg_best := 0.0 # fastest we got going in the current leg
 var _escaping := 0.0
 var _escape_dir := Vector3.ZERO
 var _since_escape := 99.0
@@ -196,7 +199,7 @@ func _unstick(car: Car, delta: float, pos: Vector3, fwd: Vector3) -> bool:
 		return _manoeuvre(car, delta, fwd)
 	_progress_time += delta
 	# Pressing on but not moving and touching something: a corner caught on a wall.
-	if absf(car.throttle) > 0.3 and absf(car.speed) < 1.0 and car.get_contact_count() > 0:
+	if absf(car.throttle) > 0.3 and absf(car.speed) < 2.0 and car.get_contact_count() > 0:
 		_stall_time += delta
 	else:
 		_stall_time = 0.0
@@ -213,7 +216,7 @@ func _unstick(car: Car, delta: float, pos: Vector3, fwd: Vector3) -> bool:
 		var moved := Vector2(pos.x - _progress_from.x, pos.z - _progress_from.z).length()
 		_progress_from = pos
 		_progress_time = 0.0
-		if moved < 0.9 * window:
+		if moved < 2.0 * window: # under 2 m/s on the throttle is stuck, or shoving something that won't move
 			_start_escape(car, pos, fwd)
 			return _manoeuvre(car, delta, fwd)
 	return false
@@ -257,6 +260,9 @@ func _start_escape(car: Car, pos: Vector3, fwd: Vector3, preferred := Vector3.ZE
 	_escape_dir = best
 	_gear = -1.0
 	_phase_time = 0.0
+	_phase_moving = false
+	_pinned.clear()
+	_leg_best = 0.0
 	# Stuck again soon after an escape: allow a longer shuffle.
 	_maneuver = 8.0 if _since_escape < 8.0 else 6.0
 	_since_escape = 0.0
@@ -275,18 +281,35 @@ func _manoeuvre(car: Car, delta: float, fwd: Vector3) -> bool:
 		_escaping = 1.8
 		return false
 	if _maneuver <= 0.0:
-		return false # out of time without lining up: carry on and let the progress check try again
+		if absf(car.speed) > 3.0:
+			return false # out of time but moving: carry on and let the progress check watch
+		# Out of time and still hemmed in: look again from here.
+		_start_escape(car, car.global_position, fwd)
 	# Change gear when we stop, or when the way we're going is blocked (shoving a truck counts).
+	# Speed is measured in the direction of the gear, and only once the car has had a
+	# moment to get going: passing through zero while changing direction isn't stopping.
+	var going := car.speed * _gear
+	if going > 1.5:
+		_phase_moving = true
+	_leg_best = maxf(_leg_best, going)
 	var reach: float = car.def.half_extents.z + 0.6 # rays start at the car's centre: this is nearly touching
-	var blocked_way := _probe_front(car, fwd * _gear, reach) < reach and absf(car.speed) < 3.0
-	var crawling := _phase_time > 1.6 and absf(car.speed) < 2.5 # scraping along something
+	var blocked_way := _probe_front(car, fwd * _gear, reach) < reach and going < 3.0
+	var stopped := going < 0.8 and (_phase_moving or _phase_time > 1.0)
+	var touching := car.get_contact_count() > 0
+	var crawling := going < 2.5 and _phase_time > (0.9 if touching else 1.4) # scraping along something
 	var backed_off := _gear < 0.0 and _phase_time > 1.4 # far enough: turning forward is quicker
-	if _phase_time > 0.35 and (absf(car.speed) < 0.8 or blocked_way or crawling or backed_off):
+	if _phase_time > 0.35 and (stopped or blocked_way or crawling or backed_off):
+		# Pressed flank-on against something, full lock in this gear only pins us harder:
+		# from now on, drive this gear straight and do the turning in the other.
+		if touching and _leg_best < 3.0 and absf(car.steer) > 0.0:
+			_pinned[_gear] = true
+		_leg_best = 0.0
 		_gear = -_gear
 		_phase_time = 0.0
+		_phase_moving = false
 	car.throttle = _gear
 	# Reversing with the wheels turned right swings the nose left; going forward, steer the way you want to turn.
-	car.steer = signf(angle) * -_gear if absf(angle) > 0.1 else 0.0
+	car.steer = signf(angle) * -_gear if absf(angle) > 0.1 and not _pinned.has(_gear) else 0.0
 	car.boost = false
 	car.handbrake = false
 	car.fire = false

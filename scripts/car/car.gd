@@ -202,10 +202,14 @@ func _update_boost(delta: float) -> void:
 
 func _update_steering(delta: float) -> void:
 	var t := clampf(absf(speed) / def.top_speed, 0.0, 1.0)
-	var lock := deg_to_rad(lerpf(def.steer_lock, def.steer_lock_fast, sqrt(t)))
+	var lock := deg_to_rad(lerpf(def.steer_lock, def.steer_lock_fast, t))
+	# Never turn the wheels further than the tyres can use at this speed (plus a
+	# little slip angle), so full lock carves a tight line instead of ploughing.
+	var v2 := maxf(speed * speed, 1.0)
+	lock = minf(lock, atan(def.wheelbase * def.grip * 9.81 / v2) * 1.25 + deg_to_rad(3.0))
 	var target := -steer * lock
-	# Heavy steering rack: it takes a moment to wind on lock.
-	_steer_angle = move_toward(_steer_angle, target, delta * 2.6)
+	# A weighty rack, but quick enough that the nose answers straight away.
+	_steer_angle = move_toward(_steer_angle, target, delta * 4.0)
 
 
 func _update_wheels(delta: float) -> void:
@@ -335,11 +339,15 @@ func _assists() -> void:
 	var roll_rate := angular_velocity.dot(fwd)
 	apply_torque(fwd * (global_basis.x.y * mass * 9.81 * def.roll_assist - roll_rate * inertia.z * 2.0 * def.roll_assist))
 	if def.yaw_assist > 0.0 and absf(speed) > 2.0:
-		# Never ask for more turn than the tyres can hold, or the car just scrubs off speed.
-		var grip_limit: float = def.grip * 9.81 / absf(speed)
+		# Ask for a little more turn than the tyres alone could hold (arcade licence),
+		# but not so much that the car just scrubs off speed.
+		# It only ever adds turn: a spin from a hit is left alone.
+		var grip_limit: float = def.grip * 9.81 / absf(speed) * 1.25
 		var want: float = clampf(speed * tan(_steer_angle) / def.wheelbase, -grip_limit, grip_limit)
 		var have := angular_velocity.dot(up)
-		apply_torque(up * (want - have) * inertia.y * 4.0 * def.yaw_assist)
+		var short := want - have
+		if signf(short) == signf(want) and (signf(have) == signf(want) or absf(have) < 0.3):
+			apply_torque(up * short * inertia.y * 4.0 * def.yaw_assist)
 
 
 func _apply_aero() -> void:

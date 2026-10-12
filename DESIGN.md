@@ -10,7 +10,7 @@ This is the design for the Godot version. The web prototype showed that the sett
 Every car is two tonnes of steel or more, and you should feel it.
 
 - **Real weight transfer.** Raycast suspension per wheel, so the nose dips under braking, the body rolls in corners and the springs crunch on landing. A low centre of mass keeps cars on their wheels without them feeling glued down.
-- **Momentum is a resource.** Acceleration is slow, top speed is high and turning sheds speed. Getting back up to speed costs time, so every line you take matters.
+- **Momentum is a resource.** Top speed is high, the nose turns in eagerly, and a hard turn still costs speed. Getting back up to speed costs time, so every line you take matters.
 - **Grip that breaks away.** Tyres have a friction limit and slide past it. The handbrake kills rear grip for a deliberate drift. There is no auto-drift.
 - **A camera with mass.** The chase camera lags behind, swings into turns and leans on the car's velocity rather than its nose. The field of view widens with speed.
 
