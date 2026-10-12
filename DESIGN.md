@@ -38,10 +38,21 @@ Every car is two tonnes of steel or more, and you should feel it.
 
 ### 3. Premium
 - **Restraint.** A small HUD that stays out of the way: an armour silhouette that shows which zones are hurt, a speed readout, and boost and heat bars. No clutter, and no popups during a fight.
-- **Lighting first.** Low desert sun, long shadows, AgX tonemapping, SSAO, soft fog and dust in the air. Materials are physically based: painted metal with clearcoat, chrome, glass, concrete, rock.
+- **A designed look, executed fully.** See *Visual direction* below. Every asset is drawn for the style; nothing ships half-stylised.
 - **Fewer, better things.** One arena that is built well beats five rough ones. Each new car, gun or arena ships only when it is polished.
 - **Sound carries half the weight.** The engine note follows revs and load. Impacts have a sub-bass layer. Gunfire booms.
 
+## Visual direction: Drive-In Poster
+
+Chosen from three look tests (`tools/look_dev.tscn`). Every frame should look like a 1970s drive-in movie poster or a hot-rod magazine illustration. Borderlands and XIII are the closest game references; Hi-Fi Rush for how comic timing sells hits.
+
+- **Shading:** two-tone cel shading with hard light/shadow edges. Shadows are a warm purple (ambient), never grey or black.
+- **Line:** ink outlines on every silhouette and major crease, thinning with distance so the horizon stays clean. Outlines are drawn on the models (inverted hull), with a screen-space edge pass on top where the renderer supports it.
+- **Colour:** flat poster colour from a fixed period palette: sand ochre, canyon orange, sky gradient from burnt orange to cream, and car paints in saturated reds, teals, golds and creams. Textures are painted colour shapes and hatching, not photographic detail.
+- **Print texture:** a light halftone screen in the shadows and a faint paper grain over everything.
+- **Cars:** bold, graphic silhouettes with exaggerated proportions (fat tyres, big ram bars), painted stripes, numbers and decals. Damage shows as missing panels, crumples drawn in line, and scorch marks.
+- **Hits:** ink-streak sparks, chunky inked debris, impact frames (a one- or two-frame flash of high-contrast colour on big hits), speed lines on the ram charge, smoke as flat stylised shapes. Optional onomatopoeia for the biggest hits.
+- **HUD:** period type and print-style graphics, like a dashboard gauge or a magazine sidebar, in the same palette.
 ## The game
 
 **Modes.** *Wreck*: free-for-all in an arena, last car running wins. *Run* comes later: a race on the highway itself, with the same physics and damage, where ramming rivals off the road is as valid as outdriving them.
@@ -72,7 +83,17 @@ Every car is two tonnes of steel or more, and you should feel it.
 
 ## Platforms
 
-Desktop first (Windows, macOS, Linux), with the Forward+ renderer for lighting quality. Console-style gamepad play is the target feel. Mobile and web are not targets for now; they would cost the lighting that makes it look premium.
+Targets are desktop (Windows, macOS, Linux) and high-end phones (recent iOS and Android flagships), designed at full quality. A quality setting scales down for other devices, which are supported but not targets:
+
+| Setting | For | Renderer |
+| --- | --- | --- |
+| High | Desktop, flagship phones | Forward+ |
+| Medium | Older capable phones | Mobile renderer, lighting baked into the art |
+| Low | Web and weaker devices | Compatibility (WebGL 2) |
+
+Changing renderer needs a restart. The Drive-In Poster style scales down well because it relies on colour and line rather than lighting effects.
+
+Online play comes later, and the design keeps it in mind now: the server decides collisions and damage, hitstop and slow motion affect only the local camera and effects, and matches plan for 4 to 8 cars.
 
 ## Roadmap
 
