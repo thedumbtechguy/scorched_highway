@@ -152,7 +152,7 @@ func _process(delta: float) -> void:
 			if Input.is_action_just_pressed(&"restart"):
 				Impact.reset()
 				get_tree().reload_current_scene()
-	if Input.is_action_just_pressed(&"quit"):
+	if Input.is_action_just_pressed(&"quit") and not OS.has_feature("web"):
 		get_tree().quit()
 
 

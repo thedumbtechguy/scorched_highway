@@ -80,6 +80,14 @@ func _environment() -> void:
 	env.fog_density = 0.0012
 	env.adjustment_enabled = true
 	env.adjustment_saturation = 1.1
+	# The web/low-end renderer lights in a different colour space and comes out
+	# much brighter: pull it back so the poster palette survives.
+	if RenderingServer.get_current_rendering_method() == "gl_compatibility":
+		env.tonemap_exposure = 0.72
+		env.glow_enabled = false
+		env.ambient_light_energy = 0.55
+		sun.light_energy = 1.25
+		env.adjustment_saturation = 1.2
 	var we := WorldEnvironment.new()
 	we.environment = env
 	add_child(we)

@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, ccr-f6871953-lhayy4]
   pull_request:
   workflow_dispatch:
 
@@ -36,5 +36,61 @@ jobs:
         # Godot reports script errors without failing, so treat any SCRIPT ERROR as a failure too.
         run: |
           set -o pipefail
-          timeout 600 ~/godot/godot --headless --fixed-fps 120 --path . res://tests/test_runner.tscn 2>&1 | tee test.log
+          timeout 900 ~/godot/godot --headless --fixed-fps 120 --path . res://tests/test_runner.tscn 2>&1 | tee test.log
           ! grep -q "SCRIPT ERROR" test.log
+      - name: Run tests at the web build's physics rate
+        run: |
+          set -o pipefail
+          timeout 900 ~/godot/godot --headless --fixed-fps 60 --path . res://tests/test_runner.tscn -- ticks=60 2>&1 | tee test60.log
+          ! grep -q "SCRIPT ERROR" test60.log
+
+  # Exports the browser build. Pushes publish it to GitHub Pages.
+  web:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Cache Godot and web templates
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/godot
+            ~/.local/share/godot/export_templates
+          key: godot-web-${{ env.GODOT_VERSION }}
+      - name: Download Godot and web templates
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/godot
+          curl -sSL -o /tmp/godot.zip "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q /tmp/godot.zip -d ~/godot
+          mv ~/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64 ~/godot/godot
+          T=~/.local/share/godot/export_templates/${GODOT_VERSION}.stable
+          mkdir -p $T
+          curl -sSL -o /tmp/templates.tpz "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          unzip -o -j /tmp/templates.tpz templates/web_nothreads_release.zip templates/version.txt -d $T
+          rm /tmp/templates.tpz
+      - name: Export
+        run: |
+          timeout 300 ~/godot/godot --headless --path . --import
+          mkdir -p build/web
+          timeout 300 ~/godot/godot --headless --path . --export-release "Web" build/web/index.html
+          test -s build/web/index.wasm
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/web
+
+  # One-time setup: Settings → Pages → Source: "GitHub Actions".
+  deploy:
+    if: github.event_name == 'push'
+    needs: web
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

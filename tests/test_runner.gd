@@ -1,15 +1,21 @@
 extends Node3D
 ## Headless tests. Run with:
 ##   godot --headless --fixed-fps 120 --path . res://tests/test_runner.tscn
+## Add `-- ticks=60` (and --fixed-fps 60) to run at the web build's physics rate.
 ## Exits 0 when every test passes, 1 otherwise.
 
-const TICK := 1.0 / 120.0
+var TICK := 1.0 / 120.0
 
 var _failures := 0
 var _stage: Node3D
 
 
 func _ready() -> void:
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("ticks="):
+			Engine.physics_ticks_per_second = int(a.substr(6))
+	TICK = 1.0 / Engine.physics_ticks_per_second
+	print("physics at %d Hz" % Engine.physics_ticks_per_second)
 	Impact.enabled_time_effects = false
 	var tests := [
 		test_every_car_rests_on_its_wheels,

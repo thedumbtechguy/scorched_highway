@@ -53,6 +53,8 @@ func attach_engine(car: Car) -> void:
 		gen.buffer_length = 0.1
 		_engine_player.stream = gen
 		_engine_player.volume_db = -7.0
+		# Browsers default to pre-rendered samples; a live generator needs streaming.
+		_engine_player.playback_type = AudioServer.PLAYBACK_TYPE_STREAM
 		add_child(_engine_player)
 	_engine_player.play()
 	_engine_playback = _engine_player.get_stream_playback()

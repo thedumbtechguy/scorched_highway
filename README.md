@@ -6,6 +6,10 @@ This is the Godot rebuild. The earlier browser prototype is in the git history. 
 
 ## Play
 
+**[Play it in your browser →](https://thedumbtechguy.github.io/scorched_highway/)** Keyboard or gamepad; best in a desktop browser. The browser build uses Godot's simpler web renderer, so it lacks the ink outlines and halftone of the desktop version.
+
+To run it locally instead:
+
 Needs [Godot 4.5](https://godotengine.org/download) (standard build, not .NET).
 
 ```sh

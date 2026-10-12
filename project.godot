@@ -34,11 +34,13 @@ window/stretch/aspect="expand"
 
 3d/physics_engine="Jolt Physics"
 common/physics_ticks_per_second=120
+common/physics_ticks_per_second.web=60
 common/max_physics_steps_per_frame=12
 
 [rendering]
 
 anti_aliasing/quality/msaa_3d=2
 anti_aliasing/quality/screen_space_aa=1
+anti_aliasing/quality/screen_space_aa.web=0
 lights_and_shadows/directional_shadow/size=8192
 lights_and_shadows/directional_shadow/soft_shadow_filter_quality=3

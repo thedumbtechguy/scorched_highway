@@ -4,7 +4,7 @@ extends Control
 ## Everything is drawn, so it stays crisp at any resolution.
 
 const INK := Color(0.96, 0.93, 0.87)
-const DIM := Color(0.96, 0.93, 0.87, 0.35)
+const DIM := Color(0.96, 0.93, 0.87, 0.7)
 const HOT := Color(1.0, 0.45, 0.12)
 const BAD := Color(0.95, 0.16, 0.1)
 
@@ -79,6 +79,7 @@ func _draw_armour(origin: Vector2, u: float) -> void:
 		var col := INK.lerp(HOT, clampf(dmg * 2.0, 0.0, 1.0)).lerp(BAD, clampf(dmg * 2.0 - 1.0, 0.0, 1.0))
 		col.a = 0.82
 		col = col.lerp(Color.WHITE, _zone_flash[z])
+		draw_rect(zones[z].grow(2.0), Poster.INK)
 		draw_rect(zones[z], col)
 	# Hull integrity as a thin bar beside the silhouette.
 	var frac := car.hp / car.max_hp
@@ -114,6 +115,7 @@ func _draw_speed(right_edge: Vector2, u: float) -> void:
 
 
 func _meter(pos: Vector2, size: Vector2, frac: float, col: Color) -> void:
+	draw_rect(Rect2(pos, size).grow(2.0), Color(Poster.INK, 0.85))
 	draw_rect(Rect2(pos, size), Color(1, 1, 1, 0.12))
 	draw_rect(Rect2(pos, Vector2(size.x * clampf(frac, 0.0, 1.0), size.y)), col)
 
@@ -126,7 +128,9 @@ func _text(s: String, pos: Vector2, size: float, col: Color, centre := false, ri
 		p.x -= width * 0.5
 	elif right:
 		p.x -= width
-	draw_string(_font, p + Vector2(2, 2), s, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(0, 0, 0, col.a * 0.5))
+	# An ink outline, poster-style, so text reads over bright sand and dark rock alike.
+	var ink := Color(Poster.INK, minf(1.0, col.a * 1.6))
+	draw_string_outline(_font, p, s, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, maxi(3, int(size * 0.22)), ink)
 	draw_string(_font, p, s, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, col)
 
 
@@ -145,6 +149,9 @@ func _draw_select(vs: Vector2, u: float) -> void:
 		_text(k.to_upper(), Vector2(x, ry + 12 * u), 15 * u, DIM)
 		for b in 5:
 			var r := Rect2(Vector2(x + 130 * u + b * 34 * u, ry), Vector2(28 * u, 12 * u))
+			draw_rect(r.grow(2.0), Poster.INK)
 			draw_rect(r, HOT if b < int(i.stats[k]) else Color(1, 1, 1, 0.15))
 		row += 1
-	_text("◀ ▶  CHOOSE     ENTER / START  DRIVE", Vector2(x, y + 330 * u), 18 * u, DIM)
+	_text("A / D  CHOOSE     ENTER / START  DRIVE", Vector2(x, y + 330 * u), 18 * u, INK)
+	_text("W / S  THROTTLE · BRAKE     A / D  STEER     SPACE  HANDBRAKE     SHIFT  RAM", Vector2(x, y + 366 * u), 15 * u, DIM)
+	_text("J / LEFT MOUSE  MACHINE GUN     K / RIGHT MOUSE  SPECIAL     GAMEPAD WORKS TOO", Vector2(x, y + 390 * u), 15 * u, DIM)
