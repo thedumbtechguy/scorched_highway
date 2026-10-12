@@ -92,7 +92,24 @@ Wreckfest-style championships across every mode: series of events, earning money
 - **Bots in every mode.** Split-screen and online events can include AI drivers alongside humans. The host configures them: how many bots (up to the 8-car field), their difficulty, and optionally which cars they drive. Online, bots can also fill slots left by players who drop out.
 
 ### Cars
-Eight cars at launch, one per grid slot, each a clear trade-off between mass, power, armour and its special weapon, each with a driver. The prototype has one chassis, *Sundowner* (a 2,000 kg muscle car). The roster, the drivers and the weapon list are still to be designed.
+Eight cars at launch in three body classes. Each class shares a body size, weight band and hitbox, so collisions read the same online and offline; cars differ in silhouette, tuning and their signature special. Top speeds sit in a narrow band so every car can race; classes differ in acceleration, handling and what happens on contact. Every driver is the star of a show on the network.
+
+| # | Car | Class | Mass | Driver, show | Special | Role | Beats / beaten by |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | Sundowner, muscle car | Medium | 2.0 t | Dee Cortez, *Sundown Stunts* | Thunder Cannons: six-round 40 mm burst, straight, no homing; shells shove | Skill shot | Predictable drivers / light cars are hard to hit |
+| 2 | Lawdog, police cruiser | Medium | 2.3 t | Deputy Tull, actor from the cancelled *Pursuit Unit 9* who thinks he's a real cop | Riot Gun: close-range slug aimed low; a rear-quarter hit spins the target | Control | Light and medium cars / barely turns a heavy |
+| 3 | Picket Fence, wood-panel wagon | Medium | 2.4 t | Barb Henderson and kids, *The Hendersons* | Fourth of July: six fireworks mortars rain on an area ahead or behind | Artillery | Slow heavies, campers / light cars outrun it |
+| 4 | Moonbeam, van | Medium | 2.6 t | Sky Farrow, *The Moonbeam Hour* | Good Vibrations: 360° blast throws cars back, knocks projectiles away, snaps tow chains, scrambles lock-ons | Defence and counter | Homing, the Tow Hook, pile-ons / no damage at range |
+| 5 | Gravel Queen, dump truck | Heavy | 3.6 t | Ma Hollis, *Ma's Quarry* | Scrap Bomb: dumps scrap behind that bursts into bomblets | Traps | Chasers / Sidewinder hops it |
+| 6 | Long Haul, semi cab | Heavy | 4.2 t | Earl "Mule" Pruitt, CB handle Mule | Tow Hook: harpoon on a chain; drag a car, or let go to sling it | Grapple | Light cars / Moonbeam snaps it, Sidewinder hops clear |
+| 7 | Sidewinder, dune buggy | Light | 1.3 t | June Okafor, Baja champion | Ground Pound: hydraulic hop that slams down with a shockwave | Vertical mobility | Traps and hooks / the Riot Gun when she lands |
+| 8 | Double Trouble, motorcycle and sidecar | Light | 1.4 t | The Flying Kowalskis, daredevil act | Tail Gunner: the sidecar gun tracks whoever is behind or beside and keeps firing | Rear guard | Chasers / shoot the sidecar off and it's just a bike |
+
+Every car also carries a machine gun, and picks up weapons on the track or arena.
+
+**Silhouettes are designed from behind first**, because the chase camera mostly sees the back of the car and split-screen makes it small. **Signature parts break off** as damage builds (Lawdog's light bar, the wagon's roof rack, the Kowalskis' sidecar), so everyone can read how close a car is to wrecking.
+
+**Rivalries** the network plays up in the career: Dee and Earl, Tull and Ma, Barb and Sky, June and the Kowalskis.
 
 **Handling: heavy arcade.** Weight transfer, momentum and real collisions, but forgiving: generous grip, easy drifts, air control and quick recovery, so it plays well on gamepad, keyboard and touch.
 
