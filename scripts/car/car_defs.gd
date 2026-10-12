@@ -115,7 +115,7 @@ static func get_def(id: StringName) -> Dictionary:
 	d.hp = 100.0 + st.armour * 25.0
 	# Top speeds sit in a narrow band so every class can race.
 	d.top_speed = 41.0 + st.speed * 1.6
-	d.reverse_speed = 13.0
+	d.reverse_speed = 18.0
 	d.engine_force = m * (6.5 + st.accel * 1.1)
 	d.brake_force = m * 12.0
 	d.boost_force = m * 5.0

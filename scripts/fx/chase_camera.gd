@@ -35,16 +35,18 @@ func _ready() -> void:
 ## shadows, paper grain. The outline needs the depth-and-normal buffer, which
 ## only Forward+ has.
 static func add_poster_pass(cam: Camera3D) -> void:
-	if RenderingServer.get_current_rendering_method() != "forward_plus":
-		return
 	var quad := MeshInstance3D.new()
 	quad.mesh = QuadMesh.new()
 	quad.extra_cull_margin = 16384.0
 	quad.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	var m := ShaderMaterial.new()
-	m.shader = load("res://shaders/poster_post.gdshader")
-	m.set_shader_parameter("outline_px", 1.6)
-	m.set_shader_parameter("outline_color", Poster.INK)
+	if RenderingServer.get_current_rendering_method() == "forward_plus":
+		# Desktop adds crease lines from the depth-and-normal buffer on top of the ink hulls.
+		m.shader = load("res://shaders/poster_post.gdshader")
+		m.set_shader_parameter("outline_px", 1.2)
+		m.set_shader_parameter("outline_color", Poster.INK)
+	else:
+		m.shader = load("res://shaders/poster_print.gdshader")
 	m.set_shader_parameter("halftone", 0.5)
 	m.set_shader_parameter("halftone_px", 5.0)
 	m.set_shader_parameter("grain", 0.03)

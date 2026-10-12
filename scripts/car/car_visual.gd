@@ -96,6 +96,82 @@ func label(text: String, pos: Vector3, rot_y: float, size := 0.5, color := Poste
 	return l
 
 
+## A solid extruded from a side outline: `outline` is (z, y) points in car space,
+## extruded `width` across the car and centred at x. The mesh is centred on its
+## own bounds so the ink outline grows evenly around it.
+func profile(outline: PackedVector2Array, width: float, m: Material, zone := &"", parent: Node3D = null, x := 0.0) -> MeshInstance3D:
+	var mesh := extrude(outline, width)
+	if mesh == null:
+		return null
+	var b := _bounds(outline)
+	var mi := _add(mesh, Vector3(x, b.get_center().y, b.get_center().x), m, zone, Vector3.ZERO, parent)
+	return mi
+
+
+## Paint on both flanks only (two-tone panels, wood siding, stripes): a thin
+## extrusion just proud of each side of a body `width` wide.
+func side_paint(outline: PackedVector2Array, width: float, m: Material, zone := &"") -> void:
+	for side in [-1.0, 1.0]:
+		profile(outline, 0.03, m, zone, null, side * (width * 0.5 + 0.005))
+
+
+static func _bounds(outline: PackedVector2Array) -> Rect2:
+	var r := Rect2(outline[0], Vector2.ZERO)
+	for p in outline:
+		r = r.expand(p)
+	return r
+
+
+## Builds the extruded mesh, centred on the outline's bounds. Flat-shaded, which
+## suits the two-tone cel shading.
+static func extrude(outline: PackedVector2Array, width: float) -> ArrayMesh:
+	if outline.size() < 3:
+		return null
+	var c := _bounds(outline).get_center()
+	var pts := PackedVector2Array()
+	for p in outline:
+		pts.append(p - c)
+	var tris := Geometry2D.triangulate_polygon(pts)
+	if tris.is_empty():
+		return null
+	var area := 0.0
+	for i in pts.size():
+		var a := pts[i]
+		var b := pts[(i + 1) % pts.size()]
+		area += a.x * b.y - b.x * a.y
+	var ccw := area > 0.0
+	var hw := width * 0.5
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	# 2D (z, y) maps to 3D (x, y, z).
+	var to3 := func(p: Vector2, x: float) -> Vector3: return Vector3(x, p.y, p.x)
+	for side in [-1.0, 1.0]:
+		var n := Vector3(side, 0, 0)
+		for i in range(0, tris.size(), 3):
+			_tri(st, to3.call(pts[tris[i]], side * hw), to3.call(pts[tris[i + 1]], side * hw), to3.call(pts[tris[i + 2]], side * hw), n)
+	for i in pts.size():
+		var a := pts[i]
+		var b := pts[(i + 1) % pts.size()]
+		var e := b - a
+		var n2 := Vector2(e.y, -e.x) if ccw else Vector2(-e.y, e.x)
+		var n := Vector3(0, n2.y, n2.x).normalized()
+		var a0: Vector3 = to3.call(a, -hw)
+		var a1: Vector3 = to3.call(a, hw)
+		var b0: Vector3 = to3.call(b, -hw)
+		var b1: Vector3 = to3.call(b, hw)
+		_tri(st, a0, b0, b1, n)
+		_tri(st, a0, b1, a1, n)
+	return st.commit()
+
+
+## One triangle, wound so its front face looks along `n` (Godot's front faces are clockwise).
+static func _tri(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, n: Vector3) -> void:
+	var order := [a, b, c] if (b - a).cross(c - a).dot(n) < 0.0 else [a, c, b]
+	for p in order:
+		st.set_normal(n)
+		st.add_vertex(p)
+
+
 ## A container for parts that come off together.
 func group(pos := Vector3.ZERO) -> Node3D:
 	var n := Node3D.new()

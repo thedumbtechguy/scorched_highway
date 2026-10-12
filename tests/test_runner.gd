@@ -21,6 +21,7 @@ func _ready() -> void:
 		test_every_car_rests_on_its_wheels,
 		test_every_car_drives_turns_and_stops,
 		test_acceleration,
+		test_reverse,
 		test_bot_escapes_a_corner,
 		test_side_ram_hurts_victim_more,
 		test_heavy_beats_light_in_a_ram,
@@ -202,6 +203,32 @@ func test_acceleration() -> bool:
 		print("      %-15s 0-100 km/h in %.1f s" % [id, took])
 		ok = check(took < limit, "%s too slow: %.1f s" % [id, took]) and ok
 		ok = check(took > 2.0, "%s too twitchy: %.1f s" % [id, took]) and ok
+	return ok
+
+
+## Backing out of trouble has to be quick: every car gets to a brisk reversing
+## speed in a couple of seconds, though slower than it goes forward.
+func test_reverse() -> bool:
+	flat_ground()
+	var cars := {}
+	var x := -70.0
+	for id in CarDefs.ORDER:
+		cars[id] = make_car(id, Vector3(x, 0, 0))
+		x += 20.0
+	await step(0.5)
+	for c: Car in cars.values():
+		c.throttle = -1.0
+	await step(2.0)
+	var at_2s := {}
+	for id in cars:
+		at_2s[id] = -cars[id].speed
+	await step(3.0)
+	var ok := true
+	for id in cars:
+		var c: Car = cars[id]
+		print("      %-15s reversing %.1f m/s after 2 s, %.1f m/s after 5 s" % [id, at_2s[id], -c.speed])
+		ok = check(at_2s[id] > 9.0, "%s reverses too slowly: %.1f m/s after 2 s" % [id, at_2s[id]]) and ok
+		ok = check(-c.speed < c.def.reverse_speed + 0.5, "%s reverses past its limit: %.1f m/s" % [id, -c.speed]) and ok
 	return ok
 
 

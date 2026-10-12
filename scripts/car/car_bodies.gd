@@ -18,6 +18,39 @@ static func build(v: CarVisual, def: Dictionary) -> void:
 		&"double_trouble": double_trouble(v, def)
 
 
+## The car's main body, extruded from its poster illustration (CarProfiles).
+## Below the beltline it's `width` across; above it, the cabin narrows to
+## `cabin` of that, with the glass just proud of it. `paints` maps a decal
+## colour from the drawing to how it's used: "band" (full width) or "sides".
+static func _profile_body(v: CarVisual, id: StringName, width: float, belt := -INF, cabin := 1.0, paints := {}) -> void:
+	for shape in CarProfiles.SHAPES[id]:
+		var kind: String = shape[0]
+		var outline := PackedVector2Array(shape[1])
+		match kind:
+			"body", "accent":
+				var m := v.paint_mat if kind == "body" else v.accent_mat
+				if belt == -INF:
+					v.profile(outline, width, m)
+					continue
+				var b := CarVisual._bounds(outline)
+				var below := PackedVector2Array([Vector2(b.position.x - 1, b.position.y - 1), Vector2(b.end.x + 1, b.position.y - 1), Vector2(b.end.x + 1, belt), Vector2(b.position.x - 1, belt)])
+				var above := PackedVector2Array([Vector2(b.position.x - 1, belt), Vector2(b.end.x + 1, belt), Vector2(b.end.x + 1, b.end.y + 1), Vector2(b.position.x - 1, b.end.y + 1)])
+				for piece in Geometry2D.intersect_polygons(outline, below):
+					v.profile(piece, width, m)
+				for piece in Geometry2D.intersect_polygons(outline, above):
+					v.profile(piece, width * cabin, m)
+			"glass":
+				v.profile(outline, width * cabin + 0.04, v.glass_mat)
+			_:
+				if kind.begins_with("decal:") and paints.has(kind.substr(6)):
+					var how: String = paints[kind.substr(6)]
+					var m := Poster.mat(Color(kind.substr(6)), &"paint")
+					if how == "band":
+						v.profile(outline, width + 0.02, m)
+					else:
+						v.side_paint(outline, width, m)
+
+
 ## The parts every saloon shares: sills, bumpers, lights, doors and flares.
 static func _saloon(v: CarVisual, w: float, length: float, front_z: float, rear_z: float, rear_lights := true) -> void:
 	v.box(Vector3(w - 0.3, 0.16, length - 0.3), Vector3(0, -0.22, 0), v.trim_mat)
@@ -33,20 +66,15 @@ static func _saloon(v: CarVisual, w: float, length: float, front_z: float, rear_
 
 static func sundowner(v: CarVisual, def: Dictionary) -> void:
 	var w := 1.72
-	v.box(Vector3(w, 0.46, 4.35), Vector3(0, 0.06, 0.05), v.paint_mat)
-	v.box(Vector3(w * 0.8, 0.42, 1.8), Vector3(0, 0.48, 0.35), v.glass_mat)
-	v.box(Vector3(w * 0.78, 0.07, 1.45), Vector3(0, 0.72, 0.42), v.paint_mat)
-	v.box(Vector3(w * 0.78, 0.06, 0.9), Vector3(0, 0.55, 1.4), v.paint_mat, &"", Vector3(17, 0, 0)) # fastback
-	# Hood with racing stripes and a scoop.
-	var hood := v.box(Vector3(w * 0.86, 0.06, 1.45), Vector3(0, 0.3, -1.4), v.paint_mat, &"front")
+	_profile_body(v, &"sundowner", w, 0.36, 0.8)
+	# Racing stripes and a scoop on the hood.
 	for x in [-0.22, 0.22]:
-		v.box(Vector3(0.18, 0.02, 1.45), Vector3(x, 0.04, 0), v.accent_mat, &"", Vector3.ZERO, hood)
+		v.box(Vector3(0.18, 0.03, 1.3), Vector3(x, 0.31, -1.45), v.accent_mat)
 	v.box(Vector3(0.55, 0.14, 0.9), Vector3(0, 0.38, -1.3), v.trim_mat, &"front")
 	v.box(Vector3(w + 0.36, 0.3, 0.22), Vector3(0, -0.05, -2.32), v.chrome_mat, &"front") # ram bar
 	v.box(Vector3(w * 0.7, 0.16, 0.06), Vector3(0, 0.12, -2.2), v.trim_mat)
 	# From behind: ducktail, a full-width tail-light bar, twin pipes.
-	v.box(Vector3(w * 0.88, 0.05, 0.9), Vector3(0, 0.29, 1.75), v.paint_mat, &"rear")
-	v.box(Vector3(w * 0.94, 0.06, 0.36), Vector3(0, 0.35, 2.12), v.paint_mat, &"rear", Vector3(-12, 0, 0))
+	v.box(Vector3(w * 0.94, 0.06, 0.36), Vector3(0, 0.36, 2.0), v.paint_mat, &"rear", Vector3(-12, 0, 0))
 	v.light(Vector3(w * 0.86, 0.1, 0.05), Vector3(0, 0.16, 2.3), Color(0.95, 0.12, 0.06))
 	for side in [-1.0, 1.0]:
 		var zone: StringName = &"left" if side < 0.0 else &"right"
@@ -63,10 +91,7 @@ static func sundowner(v: CarVisual, def: Dictionary) -> void:
 
 static func lawdog(v: CarVisual, def: Dictionary) -> void:
 	var w := 1.72
-	v.box(Vector3(w, 0.46, 4.4), Vector3(0, 0.06, 0), v.paint_mat)
-	v.box(Vector3(w * 0.82, 0.44, 2.0), Vector3(0, 0.49, 0.15), v.glass_mat)
-	v.box(Vector3(w * 0.8, 0.07, 1.75), Vector3(0, 0.74, 0.15), v.paint_mat)
-	v.box(Vector3(w * 0.86, 0.06, 1.4), Vector3(0, 0.3, -1.45), v.paint_mat, &"front")
+	_profile_body(v, &"lawdog", w, 0.35, 0.82)
 	var trunk := v.box(Vector3(w * 0.86, 0.06, 1.0), Vector3(0, 0.3, 1.7), v.paint_mat, &"rear")
 	v.label("PURSUIT", Vector3(0, -0.12, 0.53), 0.0, 0.28, Poster.CREAM, trunk)
 	# Two-tone doors with a star.
@@ -95,10 +120,7 @@ static func lawdog(v: CarVisual, def: Dictionary) -> void:
 
 static func picket_fence(v: CarVisual, def: Dictionary) -> void:
 	var w := 1.72
-	v.box(Vector3(w, 0.46, 4.5), Vector3(0, 0.06, 0.05), v.paint_mat)
-	v.box(Vector3(w * 0.84, 0.44, 3.1), Vector3(0, 0.49, 0.55), v.glass_mat) # long-roof greenhouse
-	v.box(Vector3(w * 0.82, 0.07, 2.9), Vector3(0, 0.74, 0.6), v.paint_mat)
-	v.box(Vector3(w * 0.86, 0.06, 1.3), Vector3(0, 0.3, -1.5), v.paint_mat, &"front")
+	_profile_body(v, &"picket_fence", w, 0.42, 0.84) # the long roof comes from the drawing
 	var wood := v.accent_mat
 	for side in [-1.0, 1.0]:
 		var zone: StringName = &"left" if side < 0.0 else &"right"
@@ -126,14 +148,10 @@ static func picket_fence(v: CarVisual, def: Dictionary) -> void:
 
 static func moonbeam(v: CarVisual, def: Dictionary) -> void:
 	var w := 1.76
-	v.box(Vector3(w, 1.25, 4.5), Vector3(0, 0.48, 0.0), v.paint_mat)
-	v.box(Vector3(w + 0.02, 0.4, 4.3), Vector3(0, 0.92, 0.05), v.accent_mat)
-	v.box(Vector3(w * 0.9, 0.45, 0.06), Vector3(0, 0.82, -2.26), v.glass_mat, &"", Vector3(-12, 0, 0))
+	_profile_body(v, &"moonbeam", w, -INF, 1.0, {"fbf1dc": "band"})
 	v.box(Vector3(w * 0.7, 0.3, 0.04), Vector3(0, 0.88, 2.26), v.glass_mat)
 	for side in [-1.0, 1.0]:
 		var zone: StringName = &"left" if side < 0.0 else &"right"
-		for z in [-1.2, -0.2, 0.8]:
-			v.box(Vector3(0.04, 0.3, 0.8), Vector3(side * (w * 0.5 + 0.01), 0.88, z), v.glass_mat)
 		# Flower power, painted big.
 		var flower := v.group(Vector3(side * (w * 0.5 + 0.03), 0.3, 0.3))
 		for i in 6:
@@ -167,15 +185,10 @@ static func moonbeam(v: CarVisual, def: Dictionary) -> void:
 
 static func gravel_queen(v: CarVisual, _def: Dictionary) -> void:
 	v.box(Vector3(1.6, 0.3, 6.0), Vector3(0, -0.45, 0), v.trim_mat)
-	v.box(Vector3(2.1, 1.3, 1.5), Vector3(0, 0.55, -1.95), v.paint_mat)
-	v.box(Vector3(1.9, 0.55, 0.05), Vector3(0, 0.85, -2.71), v.glass_mat)
-	v.box(Vector3(1.8, 0.75, 0.6), Vector3(0, 0.15, -3.0), v.paint_mat, &"front")
+	_profile_body(v, &"gravel_queen", 2.2)
 	v.box(Vector3(2.5, 0.75, 0.15), Vector3(0, -0.35, -3.45), v.chrome_mat, &"front", Vector3(18, 0, 0)) # plough
-	v.box(Vector3(2.3, 1.3, 3.6), Vector3(0, 0.75, 0.95), v.paint_mat)
-	v.box(Vector3(2.32, 0.25, 3.62), Vector3(0, 0.55, 0.95), v.accent_mat)
 	for side in [-1.0, 1.0]:
 		var zone: StringName = &"left" if side < 0.0 else &"right"
-		v.box(Vector3(0.04, 0.5, 0.9), Vector3(side * 1.06, 0.85, -1.95), v.glass_mat)
 		v.box(Vector3(0.06, 0.9, 1.4), Vector3(side * 1.18, 0.75, 0.4), v.paint_mat, zone)
 		v.box(Vector3(0.06, 0.9, 1.4), Vector3(side * 1.18, 0.75, 1.85), v.paint_mat, zone)
 		v.light(Vector3(0.3, 0.2, 0.05), Vector3(side * 0.6, 0.2, -3.31), Poster.CREAM)
@@ -203,18 +216,13 @@ static func gravel_queen(v: CarVisual, _def: Dictionary) -> void:
 
 static func long_haul(v: CarVisual, _def: Dictionary) -> void:
 	v.box(Vector3(1.3, 0.3, 6.2), Vector3(0, -0.45, 0.1), v.trim_mat)
-	v.box(Vector3(1.9, 1.0, 2.3), Vector3(0, 0.25, -1.95), v.paint_mat)
+	_profile_body(v, &"long_haul", 2.1, -INF, 1.0, {"f2b134": "sides"})
 	v.box(Vector3(1.3, 0.9, 0.08), Vector3(0, 0.25, -3.12), v.chrome_mat, &"front") # grille
 	v.box(Vector3(2.3, 0.35, 0.3), Vector3(0, -0.35, -3.2), v.chrome_mat, &"front")
 	v.box(Vector3(0.5, 0.3, 0.4), Vector3(0, 0.05, -3.35), v.trim_mat) # winch
-	v.box(Vector3(2.2, 1.7, 1.4), Vector3(0, 0.9, -0.1), v.paint_mat)
-	v.box(Vector3(2.0, 0.6, 0.05), Vector3(0, 1.25, -0.82), v.glass_mat, &"", Vector3(-10, 0, 0))
-	v.box(Vector3(2.2, 1.95, 1.1), Vector3(0, 1.0, 1.15), v.paint_mat)
-	v.box(Vector3(2.24, 0.18, 3.8), Vector3(0, 0.45, -0.6), v.accent_mat)
 	v.label("MULE", Vector3(0, 1.2, 1.71), 0.0, 0.5, Poster.CREAM)
 	for side in [-1.0, 1.0]:
 		var zone: StringName = &"left" if side < 0.0 else &"right"
-		v.box(Vector3(0.04, 0.55, 0.8), Vector3(side * 1.11, 1.25, -0.1), v.glass_mat)
 		v.cyl(0.3, 1.0, Vector3(side * 1.05, -0.35, 0.6), v.chrome_mat, zone, Vector3(90, 0, 0)) # fuel tanks
 		v.light(Vector3(0.3, 0.2, 0.05), Vector3(side * 0.75, 0.1, -3.13), Poster.CREAM)
 		v.light(Vector3(0.2, 0.3, 0.05), Vector3(side * 0.95, 0.0, 3.1), Color(0.95, 0.12, 0.06))

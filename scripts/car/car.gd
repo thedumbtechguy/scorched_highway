@@ -268,8 +268,9 @@ func _update_wheels(delta: float) -> void:
 			if speed > 1.0:
 				f_long -= signf(v_long) * def.brake_force * -throttle / _wheels.size()
 			else:
-				var fall_r := 1.0 - clampf(-speed / def.reverse_speed, 0.0, 1.0)
-				f_long += throttle * def.engine_force * 0.6 * fall_r * drive_share
+				# Reverse pulls nearly as hard as first gear, so backing out of trouble is quick.
+				var fall_r := 1.0 - pow(clampf(-speed / def.reverse_speed, 0.0, 1.0), 3.0)
+				f_long += throttle * def.engine_force * 0.9 * fall_r * drive_share
 		if handbrake and not w.front:
 			f_long -= signf(v_long) * def.brake_force * 0.7 / _wheels.size()
 		f_long -= v_long * 6.0

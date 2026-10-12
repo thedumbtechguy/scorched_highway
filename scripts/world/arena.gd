@@ -31,7 +31,7 @@ func build() -> void:
 
 ## Flat poster colour with cel shading; the ink lines come from the camera's post pass.
 func _make_materials() -> void:
-	_mats.sand = Poster.mat(Poster.SAND)
+	_mats.sand = Poster.mat(Poster.SAND, &"ground")
 	_mats.rock = Poster.mat(Poster.CANYON)
 	_mats.concrete = Poster.mat(Poster.CONCRETE)
 	_mats.rust = Poster.mat(Poster.RUST)

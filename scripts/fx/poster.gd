@@ -15,6 +15,16 @@ const PLUM := Color(0.5, 0.36, 0.62)
 const SKIN := Color(0.94, 0.79, 0.63)
 
 static var _shared := {}
+static var _outline: ShaderMaterial
+
+
+## The ink line drawn around every poster-style object.
+static func outline() -> ShaderMaterial:
+	if _outline == null:
+		_outline = ShaderMaterial.new()
+		_outline.shader = load("res://shaders/ink_outline.gdshader")
+		_outline.set_shader_parameter("ink", INK)
+	return _outline
 
 
 ## A cel-shaded material. Kinds: flat, paint (with a hard specular glint),
@@ -45,6 +55,8 @@ static func mat(color: Color, kind := &"flat") -> StandardMaterial3D:
 			m.emission_enabled = true
 			m.emission = color
 			m.emission_energy_multiplier = 2.5
+	if kind != &"light" and kind != &"ground":
+		m.next_pass = outline()
 	return m
 
 

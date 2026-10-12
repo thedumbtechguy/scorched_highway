@@ -41,6 +41,9 @@ godot --headless --fixed-fps 120 --path . res://tests/test_runner.tscn
 # Stills and a gameplay clip of a bot match (needs a GPU or software Vulkan; not --headless)
 godot --fixed-fps 30 --path . res://tools/showcase.tscn -- stills shots
 godot --fixed-fps 30 --write-movie clip.avi --path . res://tools/showcase.tscn -- movie 15
+
+# Bot combat benchmark: hunters against a looping target, then two 8-bot brawls (optionally name the hunters)
+godot --headless --fixed-fps 60 --path . res://tools/bot_bench.tscn [-- gravel_queen ...]
 ```
 
 CI runs the tests on every push and pull request.
