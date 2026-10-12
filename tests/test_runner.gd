@@ -27,6 +27,7 @@ func _ready() -> void:
 		test_tow_hook_drags_target,
 		test_ground_pound_hops_and_slams,
 		test_tail_gunner_covers_rear_until_sidecar_lost,
+		test_frozen_bots_hold_fire,
 		test_full_match,
 	]
 	for t: Callable in tests:
@@ -367,6 +368,22 @@ func test_tail_gunner_covers_rear_until_sidecar_lost() -> bool:
 
 
 # --- Whole game ---
+
+func test_frozen_bots_hold_fire() -> bool:
+	flat_ground()
+	var ok := true
+	var cars: Array[Car] = []
+	for i in CarDefs.ORDER.size():
+		var c := make_car(CarDefs.ORDER[i], Vector3(-28 + i * 8.0, 0, 0))
+		c.set_driver(AIDriver.new())
+		c.frozen_input = true
+		cars.append(c)
+	await step(4.0)
+	for c in cars:
+		ok = check(c.special_node.charge >= 1.0 and not c.special_node.is_busy(), "%s used its special while frozen" % c.def.id) and ok
+		ok = check(c.global_position.distance_to(Vector3(-28 + cars.find(c) * 8.0, c.global_position.y, 0)) < 0.5, "%s moved while frozen" % c.def.id) and ok
+	return ok
+
 
 func test_full_match() -> bool:
 	var game_script: GDScript = load("res://scripts/game.gd")

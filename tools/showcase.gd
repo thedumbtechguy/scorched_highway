@@ -118,12 +118,20 @@ func roster() -> void:
 	game._timer = 999.0
 	game.hud.visible = false
 	await wait(0.5)
+	# Clear the floor (props, mesa, ramps) so the cars stand alone in front of the rim.
+	for n in game.arena.get_children():
+		var n3 := n as Node3D
+		if n3 == null or Vector2(n3.position.x, n3.position.z).length() > 60.0:
+			continue
+		var is_ground := n is StaticBody3D and n3.position.y < -0.9 and Vector2(n3.position.x, n3.position.z).length() < 1.0
+		if (n is StaticBody3D or n is MeshInstance3D) and not is_ground:
+			n.queue_free()
 	var cars: Array = game.cars
 	for i in cars.size():
 		var c: Car = cars[i]
-		c.teleport(Transform3D(Basis(Vector3.UP, PI), Vector3(-26.25 + i * 7.5, 1.2, -30)))
+		c.teleport(Transform3D(Basis(Vector3.UP, PI), Vector3(-28.0 + i * 8.0, 1.4, -20)))
 	await wait(2.5)
-	free_cam(Vector3(-2, 7, 2), Vector3(0, 0, -30), 50.0)
+	free_cam(Vector3(0, 11, 24), Vector3(0, 0.5, -20), 52.0)
 	await wait(0.3)
 	await shot("roster_lineup")
 	for c: Car in cars:

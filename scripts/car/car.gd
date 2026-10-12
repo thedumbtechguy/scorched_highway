@@ -162,6 +162,7 @@ func _physics_process(delta: float) -> void:
 		steer = 0.0
 		boost = false
 		fire = false
+		special = false
 		handbrake = is_wrecked or frozen_input
 
 	scrambled = maxf(0.0, scrambled - delta)
