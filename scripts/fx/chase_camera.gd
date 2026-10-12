@@ -10,6 +10,9 @@ const BASE_FOV := 64.0
 
 var target: Car
 var trauma := 0.0
+## Car selection: circle slowly around the parked car.
+var orbit := false
+var _orbit_angle := 0.6
 var _dir := Vector3.FORWARD
 var _kick := Vector3.ZERO
 var _kick_vel := Vector3.ZERO
@@ -25,6 +28,30 @@ func _ready() -> void:
 	far = 1500.0
 	_noise.frequency = 2.2
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	add_poster_pass(self)
+
+
+## The Drive-In Poster finish for any camera: ink outlines, halftone in the
+## shadows, paper grain. The outline needs the depth-and-normal buffer, which
+## only Forward+ has.
+static func add_poster_pass(cam: Camera3D) -> void:
+	if RenderingServer.get_current_rendering_method() != "forward_plus":
+		return
+	var quad := MeshInstance3D.new()
+	quad.mesh = QuadMesh.new()
+	quad.extra_cull_margin = 16384.0
+	quad.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var m := ShaderMaterial.new()
+	m.shader = load("res://shaders/poster_post.gdshader")
+	m.set_shader_parameter("outline_px", 1.6)
+	m.set_shader_parameter("outline_color", Poster.INK)
+	m.set_shader_parameter("halftone", 0.5)
+	m.set_shader_parameter("halftone_px", 5.0)
+	m.set_shader_parameter("grain", 0.03)
+	m.set_shader_parameter("vignette", 0.15)
+	quad.material_override = m
+	cam.add_child(quad)
+	quad.position = Vector3(0, 0, -1)
 
 
 func snap() -> void:
@@ -54,6 +81,15 @@ func _process(delta: float) -> void:
 	var gdt := delta # game time, for following the car
 
 	var car_pos := target.get_global_transform_interpolated().origin
+	# Bigger bodies need the camera further back and higher.
+	var size := clampf(target.def.half_extents.z / 2.3, 0.85, 1.35)
+	if orbit:
+		_orbit_angle += dt * 0.35
+		var p := car_pos + Vector3(sin(_orbit_angle), 0.0, cos(_orbit_angle)) * 7.5 * size + Vector3.UP * 1.6 * size
+		global_position = p
+		look_at(car_pos + Vector3.UP * 0.3 * size, Vector3.UP)
+		fov = BASE_FOV - 10.0
+		return
 	var fwd := target.forward()
 	fwd.y = 0.0
 	fwd = fwd.normalized()
@@ -64,7 +100,7 @@ func _process(delta: float) -> void:
 		want = fwd.lerp(vel.normalized(), 0.55).normalized()
 	_dir = _dir.slerp(want, 1.0 - exp(-3.2 * gdt)).normalized()
 
-	var desired := car_pos - _dir * DISTANCE + Vector3.UP * HEIGHT
+	var desired := car_pos - _dir * DISTANCE * size + Vector3.UP * HEIGHT * size
 	# Keep the camera out of rock walls.
 	var space := target.get_world_3d().direct_space_state
 	var q := PhysicsRayQueryParameters3D.create(car_pos + Vector3.UP * 1.2, desired, Car.LAYER_WORLD)
@@ -74,8 +110,8 @@ func _process(delta: float) -> void:
 	_pos = _pos.lerp(desired, 1.0 - exp(-9.0 * gdt))
 	# Never let the car outrun the frame.
 	var off := _pos - car_pos
-	if off.length() > DISTANCE * 1.6:
-		_pos = car_pos + off.normalized() * DISTANCE * 1.6
+	if off.length() > DISTANCE * size * 1.6:
+		_pos = car_pos + off.normalized() * DISTANCE * size * 1.6
 
 	# Kick: a damped spring that recovers in real time.
 	_kick_vel += (-_kick * 140.0 - _kick_vel * 14.0) * dt
@@ -88,7 +124,7 @@ func _process(delta: float) -> void:
 		_noise.get_noise_2d(_t * 60.0, 100.0)) * shake * 0.45
 
 	global_position = _pos + _kick + jitter
-	look_at(car_pos + _dir * LOOK_AHEAD + Vector3.UP * 0.9, Vector3.UP)
+	look_at(car_pos + _dir * LOOK_AHEAD + Vector3.UP * 0.9 * size, Vector3.UP)
 	rotate_object_local(Vector3.FORWARD, _noise.get_noise_2d(_t * 40.0, 50.0) * shake * 0.08)
 
 	var spd := clampf(absf(target.speed) / 45.0, 0.0, 1.0)

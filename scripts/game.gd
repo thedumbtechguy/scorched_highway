@@ -1,21 +1,23 @@
 extends Node3D
-## Wreck mode in The Pit: you against the bots, last car running wins.
+## Wreck mode in The Pit: pick a car, then fight the rest of the roster.
+## Last car running wins.
 
-const PAINTS := [Color(0.62, 0.06, 0.04), Color(0.05, 0.2, 0.32), Color(0.85, 0.58, 0.12), Color(0.2, 0.22, 0.2), Color(0.42, 0.44, 0.47)]
 const COUNTDOWN := 3.0
 
-enum State { COUNTDOWN, FIGHT, OVER }
+enum State { SELECT, COUNTDOWN, FIGHT, OVER }
 
-## Set by tests: no player, every car driven by a bot, and no time effects.
+## Remembered across restarts.
+static var player_car: StringName = &"sundowner"
+## Set by tests and tools: no player, every car driven by a bot, no time effects.
 static var autopilot := false
-static var bot_count := 3
+static var bot_count := 7
 
 var arena: Arena
 var cars: Array[Car] = []
 var player: Car
 var camera: ChaseCamera
 var hud: Hud
-var state := State.COUNTDOWN
+var state := State.SELECT
 var _timer := 0.0
 
 
@@ -27,46 +29,97 @@ func _ready() -> void:
 	add_child(arena)
 	arena.build()
 
-	var n := bot_count + (0 if autopilot else 1)
-	for i in n:
-		var is_player := i == 0 and not autopilot
-		var car := spawn_car(CarDefs.SUNDOWNER, PAINTS[i % PAINTS.size()], is_player, arena.spawn_points[i])
-		if is_player:
-			player = car
-			car.set_driver(PlayerDriver.new())
-		else:
-			car.set_driver(AIDriver.new(randf_range(0.85, 1.2), randf_range(0.8, 1.1)))
-		car.frozen_input = true
-
 	camera = ChaseCamera.new()
 	add_child(camera)
-	camera.target = player if player else cars[0]
 	camera.make_current()
-	camera.snap()
 	Impact.camera = camera
 
 	var layer := CanvasLayer.new()
 	add_child(layer)
 	hud = Hud.new()
 	layer.add_child(hud)
+
+	if autopilot:
+		var ids := CarDefs.ORDER.duplicate()
+		for i in mini(bot_count, arena.spawn_points.size()):
+			_spawn_bot(ids[i % ids.size()], i)
+		camera.target = cars[0]
+		camera.snap()
+		_start_countdown()
+	else:
+		_preview(player_car)
+
+
+# --- Car selection ---
+
+func _preview(id: StringName) -> void:
 	if player:
-		hud.watch(player)
-		Sfx.attach_engine(player)
-	_timer = COUNTDOWN
+		cars.erase(player)
+		player.queue_free()
+	player_car = id
+	player = spawn_car(id, true, arena.spawn_points[0])
+	player.set_driver(PlayerDriver.new())
+	player.frozen_input = true
+	camera.target = player
+	camera.orbit = true
+	camera.snap()
+	var def := player.def
+	hud.select_info = {
+		"name": def.name, "driver": def.driver, "show": def.show,
+		"class": String(def["class"]).capitalize(), "mass": def.mass,
+		"special": def.special_name, "stats": def.stats,
+	}
 
 
-func spawn_car(def: Dictionary, paint: Color, is_player: bool, xf: Transform3D) -> Car:
+func _cycle(step: int) -> void:
+	var i := CarDefs.ORDER.find(player_car)
+	_preview(CarDefs.ORDER[wrapi(i + step, 0, CarDefs.ORDER.size())])
+
+
+func _confirm() -> void:
+	hud.select_info = {}
+	camera.orbit = false
+	camera.snap()
+	hud.watch(player)
+	Sfx.attach_engine(player)
+	var others := CarDefs.ORDER.filter(func(id: StringName) -> bool: return id != player_car)
+	others.shuffle()
+	for i in mini(bot_count, arena.spawn_points.size() - 1):
+		_spawn_bot(others[i % others.size()], i + 1)
+	_start_countdown()
+
+
+# --- Match ---
+
+func _spawn_bot(id: StringName, slot: int) -> void:
+	var car := spawn_car(id, false, arena.spawn_points[slot])
+	car.set_driver(AIDriver.new(randf_range(0.85, 1.2), randf_range(0.8, 1.1)))
+	car.frozen_input = true
+
+
+func spawn_car(id: StringName, is_player: bool, xf: Transform3D) -> Car:
 	var car := Car.new()
-	car.setup(def, paint, is_player)
+	car.setup(CarDefs.get_def(id), is_player)
 	car.transform = xf
 	add_child(car)
 	car.add_to_group(&"cars")
-	var gun := Autocannon.new(car)
+	var gun := MachineGun.new(car)
 	car.add_child(gun)
 	car.gun = gun
+	var sp := Specials.create(car)
+	if sp:
+		car.add_child(sp)
+		car.special_node = sp
 	car.wrecked.connect(_on_wrecked)
 	cars.append(car)
 	return car
+
+
+func _start_countdown() -> void:
+	state = State.COUNTDOWN
+	_timer = COUNTDOWN
+	for c in cars:
+		c.frozen_input = true
 
 
 func running() -> Array[Car]:
@@ -76,6 +129,14 @@ func running() -> Array[Car]:
 func _process(delta: float) -> void:
 	hud.remaining = running().size() if state == State.FIGHT else 0
 	match state:
+		State.SELECT:
+			hud.message = ""
+			if Input.is_action_just_pressed(&"ui_prev"):
+				_cycle(-1)
+			elif Input.is_action_just_pressed(&"ui_next"):
+				_cycle(1)
+			elif Input.is_action_just_pressed(&"restart"):
+				_confirm()
 		State.COUNTDOWN:
 			_timer -= delta
 			hud.message = str(ceili(_timer)) if _timer > 0.0 else ""

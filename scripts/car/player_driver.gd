@@ -9,6 +9,7 @@ func drive(car: Car, _delta: float) -> void:
 	car.handbrake = Input.is_action_pressed(&"handbrake")
 	car.boost = Input.is_action_pressed(&"boost")
 	car.fire = Input.is_action_pressed(&"fire")
+	car.special = Input.is_action_pressed(&"special")
 
 
 static func setup_input() -> void:
@@ -19,6 +20,9 @@ static func setup_input() -> void:
 	_action(&"handbrake", [KEY_SPACE], [JOY_BUTTON_A], [])
 	_action(&"boost", [KEY_SHIFT], [JOY_BUTTON_B, JOY_BUTTON_LEFT_SHOULDER], [])
 	_action(&"fire", [KEY_J], [JOY_BUTTON_RIGHT_SHOULDER, JOY_BUTTON_X], [], MOUSE_BUTTON_LEFT)
+	_action(&"special", [KEY_K, KEY_E], [JOY_BUTTON_Y], [], MOUSE_BUTTON_RIGHT)
+	_action(&"ui_prev", [KEY_A, KEY_LEFT], [JOY_BUTTON_DPAD_LEFT], [JOY_AXIS_LEFT_X, -1.0])
+	_action(&"ui_next", [KEY_D, KEY_RIGHT], [JOY_BUTTON_DPAD_RIGHT], [JOY_AXIS_LEFT_X, 1.0])
 	_action(&"restart", [KEY_ENTER, KEY_KP_ENTER], [JOY_BUTTON_START], [])
 	_action(&"quit", [KEY_ESCAPE], [JOY_BUTTON_BACK], [])
 

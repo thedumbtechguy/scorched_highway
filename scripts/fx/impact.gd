@@ -88,12 +88,58 @@ func shell_hit(pos: Vector3, normal: Vector3, hit_car: bool, involves_player: bo
 		shake(0.22, normal * 0.12)
 
 
-func muzzle_flash(pos: Vector3, dir: Vector3, is_player: bool) -> void:
-	_flash(pos + dir * 0.4, Color(1.0, 0.7, 0.35), 6.0, 0.05, 8.0)
-	_fireball(pos + dir * 0.6, 0.45, 0.07)
-	Sfx.play(&"cannon", pos, 2.0 if is_player else -2.0, randf_range(0.93, 1.05))
+func muzzle_flash(pos: Vector3, dir: Vector3, is_player: bool, size := 1.0) -> void:
+	_flash(pos + dir * 0.4, Color(1.0, 0.7, 0.35), 6.0 * size, 0.05, 8.0 * size)
+	_fireball(pos + dir * 0.6 * size, 0.45 * size, 0.07)
+	Sfx.play(&"cannon", pos, (2.0 if is_player else -2.0) + (size - 1.0) * 10.0, randf_range(0.93, 1.05) / sqrt(size))
 	if is_player:
-		shake(0.16, -dir * 0.08)
+		shake(0.16 * size, -dir * 0.08 * size)
+
+
+## An explosion from a weapon (mortar, bomblet, shockwave), scaled by its radius.
+func blast(pos: Vector3, radius: float, involves_player: bool) -> void:
+	var k := clampf(radius / 6.0, 0.3, 2.0)
+	_fireball(pos + Vector3.UP * 0.4, radius * 0.7, 0.35)
+	_flash(pos + Vector3.UP, Color(1.0, 0.6, 0.25), 8.0 * k, 0.3, radius * 4.0)
+	_sparks(pos, Vector3.UP, int(30 * k), 14.0)
+	_dust(pos, radius * 0.5)
+	Sfx.play(&"explosion", pos, -4.0 + k * 4.0, randf_range(1.1, 1.35) / k)
+	if involves_player:
+		hitstop(0.03 + 0.03 * k)
+		shake(0.25 * k)
+	elif camera and camera.global_position.distance_to(pos) < 50.0:
+		shake(0.12 * k)
+
+
+## A ring of force on the ground (Good Vibrations, Ground Pound).
+func shockwave(pos: Vector3, radius: float, color: Color, involves_player: bool) -> void:
+	var w := _world()
+	if w == null:
+		return
+	var mi := MeshInstance3D.new()
+	var tm := TorusMesh.new()
+	tm.inner_radius = 0.8
+	tm.outer_radius = 1.0
+	tm.rings = 32
+	tm.ring_segments = 8
+	mi.mesh = tm
+	var mat := _fire_mat.duplicate() as StandardMaterial3D
+	mat.albedo_color = color
+	mat.emission = color
+	mi.material_override = mat
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	w.add_child(mi)
+	mi.global_position = pos + Vector3.UP * 0.3
+	mi.scale = Vector3(1.0, 0.6, 1.0)
+	var tw := mi.create_tween().set_parallel(true)
+	tw.tween_property(mi, "scale", Vector3(radius, 0.6, radius), 0.35).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	tw.tween_property(mat, "albedo_color:a", 0.0, 0.4)
+	tw.chain().tween_callback(mi.queue_free)
+	_dust(pos, radius * 0.35)
+	Sfx.play(&"thump", pos, 4.0, 0.7)
+	if involves_player:
+		hitstop(0.05)
+		shake(0.5, Vector3.UP * 0.2)
 
 
 func explosion(pos: Vector3, involves_player: bool) -> void:
@@ -115,31 +161,51 @@ func hit_marker() -> void:
 	player_hit_confirmed.emit()
 
 
-## A panel that took enough damage comes off and tumbles away as debris.
-func detach_panel(panel: MeshInstance3D, car: Node3D) -> void:
-	if not is_instance_valid(panel):
+## A panel or part that took enough damage comes off and tumbles away as debris.
+func detach_panel(node: Node3D, car: Node3D) -> void:
+	if not is_instance_valid(node) or not node.is_inside_tree():
 		return
 	var world := car.get_parent()
-	var xf := panel.global_transform
+	var xf := node.global_transform
+	var aabb := _local_aabb(node)
 	var body := RigidBody3D.new()
 	body.collision_layer = Car.LAYER_DEBRIS
 	body.collision_mask = Car.LAYER_WORLD
 	var shape := CollisionShape3D.new()
 	var box := BoxShape3D.new()
-	box.size = ((panel.mesh as BoxMesh).size).max(Vector3(0.08, 0.08, 0.08))
+	box.size = aabb.size.max(Vector3(0.08, 0.08, 0.08))
 	shape.shape = box
+	shape.position = aabb.get_center()
 	body.add_child(shape)
-	body.mass = 25.0
+	body.mass = clampf(aabb.size.x * aabb.size.y * aabb.size.z * 200.0, 10.0, 200.0)
 	world.add_child(body)
 	body.global_transform = xf
-	panel.get_parent().remove_child(panel)
-	body.add_child(panel)
-	panel.transform = Transform3D.IDENTITY
+	node.get_parent().remove_child(node)
+	body.add_child(node)
+	node.transform = Transform3D.IDENTITY
 	var car_body := car as RigidBody3D
 	var out := (xf.origin - car.global_position).normalized()
 	body.linear_velocity = (car_body.linear_velocity if car_body else Vector3.ZERO) + out * randf_range(3.0, 6.0) + Vector3.UP * randf_range(3.0, 6.0)
 	body.angular_velocity = Vector3(randf_range(-8, 8), randf_range(-8, 8), randf_range(-8, 8))
 	_free_later(body, 10.0)
+
+
+## Bounds of everything drawn under a node, in that node's space.
+func _local_aabb(node: Node3D) -> AABB:
+	var inv := node.global_transform.affine_inverse()
+	var out := AABB()
+	var first := true
+	var stack: Array[Node] = [node]
+	while not stack.is_empty():
+		var n: Node = stack.pop_back()
+		stack.append_array(n.get_children())
+		var vi := n as VisualInstance3D
+		if vi == null:
+			continue
+		var b: AABB = (inv * vi.global_transform) * vi.get_aabb()
+		out = b if first else out.merge(b)
+		first = false
+	return out
 
 
 # --- Building blocks ---

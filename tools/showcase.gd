@@ -4,6 +4,7 @@ extends Node
 ##
 ##   godot --fixed-fps 30 --path . res://tools/showcase.tscn -- stills <out_dir>
 ##   godot --fixed-fps 30 --write-movie clip.avi --path . res://tools/showcase.tscn -- movie <seconds>
+##   godot --fixed-fps 30 --path . res://tools/showcase.tscn -- roster <out_dir>
 
 var game: Node3D
 var cam: Camera3D
@@ -15,11 +16,15 @@ func _ready() -> void:
 	var mode := args[0] if args.size() > 0 else "stills"
 	var game_script: GDScript = load("res://scripts/game.gd")
 	game_script.set("autopilot", true)
-	game_script.set("bot_count", 5)
+	game_script.set("bot_count", 8 if mode == "roster" else 5)
 	game = load("res://scenes/main.tscn").instantiate()
 	add_child(game)
 	if mode == "movie":
 		await movie(float(args[1]) if args.size() > 1 else 15.0)
+	elif mode == "roster":
+		out = args[1] if args.size() > 1 else "shots"
+		DirAccess.make_dir_recursive_absolute(out)
+		await roster()
 	else:
 		out = args[1] if args.size() > 1 else "shots"
 		DirAccess.make_dir_recursive_absolute(out)
@@ -44,6 +49,7 @@ func free_cam(pos: Vector3, look: Vector3, fov := 45.0) -> void:
 	if cam == null:
 		cam = Camera3D.new()
 		add_child(cam)
+		ChaseCamera.add_poster_pass(cam)
 	cam.global_position = pos
 	cam.look_at(look, Vector3.UP)
 	cam.fov = fov
@@ -105,3 +111,27 @@ func movie(seconds: float) -> void:
 	Sfx.attach_engine(car)
 	game._timer = 1.5
 	await wait(seconds)
+
+
+## The whole roster parked in a row, then each car from behind and from the front.
+func roster() -> void:
+	game._timer = 999.0
+	game.hud.visible = false
+	await wait(0.5)
+	var cars: Array = game.cars
+	for i in cars.size():
+		var c: Car = cars[i]
+		c.teleport(Transform3D(Basis(Vector3.UP, PI), Vector3(-26.25 + i * 7.5, 1.2, -30)))
+	await wait(2.5)
+	free_cam(Vector3(-2, 7, 2), Vector3(0, 0, -30), 50.0)
+	await wait(0.3)
+	await shot("roster_lineup")
+	for c: Car in cars:
+		var xf := c.global_transform
+		var size: float = c.def.half_extents.z / 2.3
+		free_cam(xf * (Vector3(3.2, 1.6, 6.0) * size), c.global_position + Vector3.UP * 0.4 * size, 34.0)
+		await wait(0.15)
+		await shot("rear_%s" % c.def.id)
+		free_cam(xf * (Vector3(-3.4, 1.0, -5.6) * size), c.global_position + Vector3.UP * 0.3 * size, 34.0)
+		await wait(0.15)
+		await shot("front_%s" % c.def.id)

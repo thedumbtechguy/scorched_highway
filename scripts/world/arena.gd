@@ -22,115 +22,64 @@ func build() -> void:
 	_containers()
 	_pillars()
 	_backdrop()
-	for i in 6:
-		var a := TAU * i / 6.0 + 0.3
+	for i in 8:
+		var a := TAU * i / 8.0 + 0.3
 		var p := Vector3(cos(a), 0.0, sin(a)) * 46.0 + Vector3.UP * 1.2
 		var face := Transform3D.IDENTITY.looking_at(-p.normalized() * Vector3(1, 0, 1), Vector3.UP)
 		spawn_points.append(Transform3D(face.basis, p))
 
 
+## Flat poster colour with cel shading; the ink lines come from the camera's post pass.
 func _make_materials() -> void:
-	_mats.sand = _noise_material(Color(0.72, 0.55, 0.38), Color(0.58, 0.42, 0.28), 0.95, 0.06, 18.0)
-	_mats.rock = _noise_material(Color(0.62, 0.4, 0.27), Color(0.38, 0.24, 0.16), 0.9, 0.12, 0.25, true)
-	_mats.concrete = _noise_material(Color(0.66, 0.63, 0.58), Color(0.5, 0.48, 0.45), 0.85, 0.3, 0.6, true)
-	for c in [["rust", Color(0.5, 0.17, 0.09)], ["navy", Color(0.1, 0.18, 0.3)], ["bone", Color(0.78, 0.74, 0.66)], ["teal", Color(0.12, 0.36, 0.36)]]:
-		var m := _noise_material(c[1], (c[1] as Color).darkened(0.3), 0.55, 0.5, 0.5, true)
-		m.metallic = 0.45
-		_mats[c[0]] = m
-	var hazard := StandardMaterial3D.new()
-	hazard.albedo_color = Color(0.9, 0.62, 0.08)
-	hazard.roughness = 0.6
-	_mats.hazard = hazard
+	_mats.sand = Poster.mat(Poster.SAND)
+	_mats.rock = Poster.mat(Poster.CANYON)
+	_mats.concrete = Poster.mat(Poster.CONCRETE)
+	_mats.rust = Poster.mat(Poster.RUST)
+	_mats.navy = Poster.mat(Poster.NAVY)
+	_mats.bone = Poster.mat(Poster.CREAM)
+	_mats.teal = Poster.mat(Poster.TEAL)
+	_mats.hazard = Poster.mat(Poster.MUSTARD)
 
 
-func _noise_material(a: Color, b: Color, rough: float, normal_strength: float, uv_scale: float, triplanar := false) -> StandardMaterial3D:
-	var noise := FastNoiseLite.new()
-	noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
-	noise.frequency = 0.012
-	noise.fractal_octaves = 5
-	noise.seed = _rng.randi()
-	var grad := Gradient.new()
-	grad.set_color(0, b)
-	grad.set_color(1, a)
-	var albedo := NoiseTexture2D.new()
-	albedo.noise = noise
-	albedo.color_ramp = grad
-	albedo.seamless = true
-	albedo.width = 512
-	albedo.height = 512
-	var normal := NoiseTexture2D.new()
-	normal.noise = noise
-	normal.as_normal_map = true
-	normal.bump_strength = 6.0
-	normal.seamless = true
-	normal.width = 512
-	normal.height = 512
-	var m := StandardMaterial3D.new()
-	m.albedo_texture = albedo
-	m.normal_enabled = true
-	m.normal_texture = normal
-	m.normal_scale = normal_strength * 4.0
-	m.roughness = rough
-	if triplanar:
-		m.uv1_triplanar = true
-		m.uv1_world_triplanar = true
-		m.uv1_scale = Vector3.ONE * uv_scale * 0.5
-	else:
-		m.uv1_scale = Vector3(uv_scale, uv_scale, 1)
-	m.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
-	return m
-
-
+## A drive-in poster sky: burnt orange to cream, a hard sun, purple shadows.
 func _environment() -> void:
 	var sun := DirectionalLight3D.new()
-	sun.rotation_degrees = Vector3(-24.0, -38.0, 0.0)
-	sun.light_color = Color(1.0, 0.86, 0.68)
-	sun.light_energy = 2.1
+	sun.rotation_degrees = Vector3(-30.0, -40.0, 0.0)
+	sun.light_color = Color(1.0, 0.95, 0.85)
+	sun.light_energy = 1.6
 	sun.shadow_enabled = true
 	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
 	sun.directional_shadow_max_distance = 220.0
-	sun.shadow_blur = 1.2
-	sun.light_angular_distance = 0.8
+	sun.shadow_blur = 0.0
 	add_child(sun)
 
 	var sky_mat := ProceduralSkyMaterial.new()
-	sky_mat.sky_top_color = Color(0.16, 0.34, 0.66)
-	sky_mat.sky_horizon_color = Color(0.92, 0.76, 0.58)
-	sky_mat.ground_horizon_color = Color(0.7, 0.52, 0.38)
-	sky_mat.ground_bottom_color = Color(0.3, 0.22, 0.16)
-	sky_mat.sun_angle_max = 18.0
-	sky_mat.sun_curve = 0.08
+	sky_mat.sky_top_color = Color(0.95, 0.45, 0.22)
+	sky_mat.sky_horizon_color = Color(1.0, 0.86, 0.52)
+	sky_mat.ground_horizon_color = Color(1.0, 0.8, 0.5)
+	sky_mat.ground_bottom_color = Color(0.6, 0.35, 0.25)
+	sky_mat.sky_curve = 0.25
+	sky_mat.sun_angle_max = 12.0
 	var sky := Sky.new()
 	sky.sky_material = sky_mat
 
 	var env := Environment.new()
 	env.background_mode = Environment.BG_SKY
 	env.sky = sky
-	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	env.ambient_light_energy = 0.7
+	env.tonemap_mode = Environment.TONE_MAPPER_LINEAR
+	env.tonemap_exposure = 1.0
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	env.ambient_light_color = Poster.PLUM
+	env.ambient_light_energy = 0.75
 	env.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
-	env.tonemap_mode = Environment.TONE_MAPPER_AGX
-	env.tonemap_exposure = 1.05
-	env.ssao_enabled = true
-	env.ssao_radius = 1.6
-	env.ssao_intensity = 2.2
-	env.ssil_enabled = true
 	env.glow_enabled = true
-	env.glow_intensity = 0.55
-	env.glow_bloom = 0.06
+	env.glow_intensity = 0.25
 	env.glow_hdr_threshold = 1.2
 	env.fog_enabled = true
-	env.fog_light_color = Color(0.86, 0.7, 0.55)
-	env.fog_density = 0.0028
-	env.fog_aerial_perspective = 0.6
-	env.fog_sun_scatter = 0.25
-	env.volumetric_fog_enabled = true
-	env.volumetric_fog_density = 0.0035
-	env.volumetric_fog_albedo = Color(0.9, 0.78, 0.62)
-	env.volumetric_fog_anisotropy = 0.5
+	env.fog_light_color = Color(1.0, 0.82, 0.55)
+	env.fog_density = 0.0012
 	env.adjustment_enabled = true
-	env.adjustment_contrast = 1.08
-	env.adjustment_saturation = 1.06
+	env.adjustment_saturation = 1.1
 	var we := WorldEnvironment.new()
 	we.environment = env
 	add_child(we)

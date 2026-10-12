@@ -12,6 +12,8 @@ var car: Car
 var remaining := 0
 var message := ""
 var sub_message := ""
+## Car selection card; empty when not choosing.
+var select_info := {}
 var _zone_flash := { &"front": 0.0, &"left": 0.0, &"right": 0.0, &"rear": 0.0 }
 var _hit_marker := 0.0
 var _font: Font
@@ -45,6 +47,8 @@ func _draw() -> void:
 	if car:
 		_draw_armour(Vector2(70, vs.y - 230 * u), u)
 		_draw_speed(Vector2(vs.x - 70 * u, vs.y - 120 * u), u)
+	if not select_info.is_empty():
+		_draw_select(vs, u)
 	if remaining > 0:
 		_text("%d CARS RUNNING" % remaining, Vector2(vs.x * 0.5, 64 * u), 20 * u, DIM, true)
 	if message != "":
@@ -95,10 +99,18 @@ func _draw_speed(right_edge: Vector2, u: float) -> void:
 	var y := right_edge.y + 38 * u
 	_meter(Vector2(bx, y), Vector2(bw, bh), car.boost_meter / 100.0, HOT if car.boosting else INK)
 	_text("RAM", Vector2(bx - 12 * u, y + 6 * u), 14 * u, DIM, false, true)
-	var gun := car.gun as Autocannon
+	var gun := car.gun as MachineGun
 	if gun:
 		_meter(Vector2(bx, y + 22 * u), Vector2(bw, bh), gun.heat, BAD if gun.overheated else DIM.lerp(HOT, gun.heat))
 		_text("HEAT", Vector2(bx - 12 * u, y + 28 * u), 14 * u, DIM, false, true)
+	var sp := car.special_node as Special
+	if sp:
+		var ready := sp.is_ready()
+		var col := HOT if ready else DIM
+		if not sp.is_available():
+			col = BAD
+		_meter(Vector2(bx, y + 44 * u), Vector2(bw, bh * 1.6), sp.charge, col)
+		_text(sp.display_name.to_upper() + ("" if sp.is_available() else " · LOST"), Vector2(right_edge.x, y + 66 * u), 15 * u, INK if ready else DIM, false, true)
 
 
 func _meter(pos: Vector2, size: Vector2, frac: float, col: Color) -> void:
@@ -116,3 +128,23 @@ func _text(s: String, pos: Vector2, size: float, col: Color, centre := false, ri
 		p.x -= width
 	draw_string(_font, p + Vector2(2, 2), s, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(0, 0, 0, col.a * 0.5))
 	draw_string(_font, p, s, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, col)
+
+
+## The car-selection card: name, driver and show, class, special and stats.
+func _draw_select(vs: Vector2, u: float) -> void:
+	var x := 90.0 * u
+	var y := vs.y - 420.0 * u
+	var i := select_info
+	_text("CHOOSE YOUR CAR", Vector2(x, y), 18 * u, DIM)
+	_text(String(i.name).to_upper(), Vector2(x, y + 80 * u), 76 * u, INK)
+	_text("%s · %s" % [i.driver, i.show], Vector2(x, y + 122 * u), 24 * u, INK)
+	_text("%s · %.1f t · SPECIAL: %s" % [String(i["class"]).to_upper(), i.mass / 1000.0, String(i.special).to_upper()], Vector2(x, y + 156 * u), 18 * u, HOT)
+	var row := 0
+	for k in ["speed", "accel", "handling", "armour"]:
+		var ry := y + 196 * u + row * 26 * u
+		_text(k.to_upper(), Vector2(x, ry + 12 * u), 15 * u, DIM)
+		for b in 5:
+			var r := Rect2(Vector2(x + 130 * u + b * 34 * u, ry), Vector2(28 * u, 12 * u))
+			draw_rect(r, HOT if b < int(i.stats[k]) else Color(1, 1, 1, 0.15))
+		row += 1
+	_text("◀ ▶  CHOOSE     ENTER / START  DRIVE", Vector2(x, y + 330 * u), 18 * u, DIM)

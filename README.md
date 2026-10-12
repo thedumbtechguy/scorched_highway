@@ -1,8 +1,8 @@
 # Scorched Highway
 
-Heavy, hard-hitting vehicular combat in a desert quarry. Two tonnes of muscle car, a 40 mm autocannon, and a front end built for ramming. Last car running wins.
+Vehicular combat and contact racing in an alternate 1970s, where a TV network runs the bloodsport coast to coast. Eight cars, eight drivers, every one the star of a show, each with a signature special. Heavy, hard-hitting physics in a Drive-In Poster look.
 
-This is the Godot rebuild. The earlier browser prototype is in the git history (before this branch). **[DESIGN.md](DESIGN.md)** sets out the new game: pillars, damage rules, roster and roadmap.
+This is the Godot rebuild. The earlier browser prototype is in the git history. **[DESIGN.md](DESIGN.md)** sets out the game: pillars, damage rules, modes, roster, visual direction and roadmap.
 
 ## Play
 
@@ -19,16 +19,18 @@ godot -e --path .         # open the editor
 | Steer | A / D | Left stick |
 | Handbrake | Space | A |
 | Ram charge | Shift | B / LB |
-| Fire | J or left mouse | RB / X |
-| Restart after a match | Enter | Start |
+| Fire machine gun | J or left mouse | RB / X |
+| Special | K / E or right mouse | Y |
+| Choose car (before the match) | A / D or arrows | D-pad / left stick |
+| Start / restart | Enter | Start |
 | Quit | Esc | Back |
 
-**How fights work:** collisions do damage from physics: ½ · reduced mass · closing speed². Every hit lands on a zone: the **front** (ram bar) takes ×0.35, **sides** ×1.0 and the **rear** ×1.3. T-bone people and keep your nose pointed at trouble. The ram charge hardens your front to ×0.15 and hits 50% harder. The cannon's shells are for shoving a car into position, not for grinding it down.
+**How fights work:** collisions do damage from physics, and where a hit lands matters: the **front** takes ×0.35, **sides** ×1.0 and the **rear** ×1.3. The lighter car always takes the bigger jolt. The ram charge hardens your nose and hits harder. Every car has a machine gun and a signature special that recharges: cannons, a riot gun, fireworks mortars, a sound blast, scrap bombs, a tow hook, a hydraulic hop and a sidecar gunner.
 
 ## Develop
 
 ```sh
-# Headless tests: physics at rest, driving, ram and wall damage, the cannon, wrecking, a full bot match
+# Headless tests: every car at rest and driving, rams, walls, the gun, damage, all eight specials, a full 8-car match
 godot --headless --fixed-fps 120 --path . res://tests/test_runner.tscn
 
 # Stills and a gameplay clip of a bot match (needs a GPU or software Vulkan; not --headless)
@@ -40,16 +42,18 @@ CI runs the tests on every push and pull request.
 
 | Path | What's there |
 | --- | --- |
-| `scripts/car/car.gd` | The car: raycast suspension, tyre grip, ram charge, collision → zone damage |
-| `scripts/car/car_defs.gd` | Tuning numbers per chassis |
-| `scripts/car/car_visual.gd` | Placeholder body built from primitives, with panels that come off |
+| `scripts/car/car.gd` | The car: raycast suspension on any wheel layout, tyre grip, ram charge, collision → zone damage |
+| `scripts/car/car_defs.gd` | The roster: three body classes, each car's stats, and how stats become physics |
+| `scripts/car/car_bodies.gd` | The eight silhouettes, built from primitives; `car_visual.gd` has the building kit, breakable panels and parts |
 | `scripts/car/ai_driver.gd`, `player_driver.gd` | Drivers write throttle / steer / fire into the car |
-| `scripts/combat/` | Autocannon and its shells |
+| `scripts/combat/` | Machine gun, projectiles, explosions, aim assist |
+| `scripts/combat/specials/` | One script per signature special |
 | `scripts/fx/impact.gd` | Autoload `Impact`: hitstop, slow motion, shake, sparks, debris, fireballs |
 | `scripts/fx/chase_camera.gd` | A camera with mass, trauma shake and kicks |
 | `scripts/audio/sfx.gd` | Autoload `Sfx`: synthesised engine, impacts, cannon, explosions |
-| `scripts/world/arena.gd` | The Pit: lighting, sky, rocks, containers, ramps |
+| `scripts/world/arena.gd` | The Pit: poster sky and lighting, rocks, containers, ramps |
+| `scripts/fx/poster.gd`, `shaders/poster_post.gdshader` | The Drive-In Poster look: cel-shaded materials, palette, ink outlines, halftone |
 | `scripts/ui/hud.gd` | Armour silhouette, speed, ram and heat meters |
-| `scripts/game.gd` | Match flow |
+| `scripts/game.gd` | Car selection and match flow |
 
 Everything is built in code for now, so the project is easy to read and diff. Modelled cars and real sound recordings come with the art pass (see the roadmap in DESIGN.md).

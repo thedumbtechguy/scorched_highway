@@ -124,7 +124,8 @@ Bots read the same zone rules as the player: they try to land side and rear hits
 | Steer | A / D | Left stick |
 | Handbrake | Space | A |
 | Ram charge (boost) | Shift | B / LB |
-| Fire | J or left mouse | RB / X |
+| Fire machine gun | J or left mouse | RB / X |
+| Special | K / E or right mouse | Y |
 | Restart (after a match) | Enter | Start |
 
 **Touch** offers a choice of schemes. The default has automatic throttle, thumb steering on the left, and buttons on the right for brake, fire, special and ram. Options add tilt steering and manual throttle, and gamepads work on phones too.

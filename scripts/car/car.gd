@@ -29,6 +29,7 @@ var steer := 0.0 # -1 left .. 1 right
 var handbrake := false
 var boost := false
 var fire := false
+var special := false
 
 # --- State ---
 var def: Dictionary
@@ -44,6 +45,9 @@ var frozen_input := false
 var zone_damage := { &"front": 0.0, &"left": 0.0, &"right": 0.0, &"rear": 0.0 }
 var last_attacker: Car
 var gun: Node
+var special_node: Node # the car's signature special (scripts/combat/specials)
+var scrambled := 0.0 # seconds left without aim assist or lock-ons (Good Vibrations)
+var hooked_by: Node # a TowHook currently holding this car
 var visual: CarVisual
 var grounded_wheels := 0
 var speed := 0.0 # signed, forward positive
@@ -59,9 +63,9 @@ var _upside_down_time := 0.0
 var _teleport_to: Variant = null # Transform3D, applied inside the physics step
 
 
-func setup(car_def: Dictionary, paint_color: Color, player: bool) -> void:
+func setup(car_def: Dictionary, player: bool) -> void:
 	def = car_def
-	paint = paint_color
+	paint = def.paint
 	is_player = player
 	max_hp = def.hp
 	hp = max_hp
@@ -75,7 +79,7 @@ func setup(car_def: Dictionary, paint_color: Color, player: bool) -> void:
 	angular_damp = 0.6
 	linear_damp = 0.0
 	center_of_mass_mode = RigidBody3D.CENTER_OF_MASS_MODE_CUSTOM
-	center_of_mass = Vector3(0, -0.22, 0.05)
+	center_of_mass = def.com
 	var he: Vector3 = def.half_extents
 	var m: float = def.mass
 	# Box inertia, with extra roll resistance so the car leans rather than tips.
@@ -88,28 +92,30 @@ func setup(car_def: Dictionary, paint_color: Color, player: bool) -> void:
 	pm.bounce = 0.05
 	physics_material_override = pm
 
-	_add_shape(Vector3(he.x, 0.33, he.z), Vector3(0, -0.02, 0))
-	_add_shape(Vector3(he.x * 0.82, 0.26, 1.05), Vector3(0, 0.56, 0.2))
+	_add_shape(Vector3(he.x, he.y * 0.75, he.z), Vector3(0, -0.02, 0))
+	_add_shape(def.cabin[0], def.cabin[1])
 
 	visual = CarVisual.new()
 	add_child(visual)
-	visual.build(def, paint)
+	visual.build(def)
 
-	for side in [-1.0, 1.0]:
-		for front in [true, false]:
-			var z: float = def.wheel_front_z if front else def.wheel_rear_z
-			var w := {
-				"mount": Vector3(side * def.wheel_x, def.wheel_y, z),
-				"front": front,
-				"side": side,
-				"comp": 0.0,
-				"prev_comp": 0.0,
-				"grounded": false,
-				"spin": 0.0,
-				"slip": 0.0,
-				"node": visual.add_wheel(Vector3(side * def.wheel_x, def.wheel_y, z), def.wheel_radius, side),
-			}
-			_wheels.append(w)
+	for wd in def.wheels:
+		var mount := Vector3(wd[0], def.wheel_y, wd[1])
+		var side := signf(wd[0])
+		_wheels.append({
+			"mount": mount,
+			"front": wd[2], # steers; the others take the handbrake
+			"drive": wd[3],
+			"lat": wd[5] if wd.size() > 5 else 1.0, # sideways grip scale
+			"side": side,
+			"comp": 0.0,
+			"prev_comp": 0.0,
+			"grounded": false,
+			"spin": 0.0,
+			"slip": 0.0,
+			"load": 0.0,
+			"node": visual.add_wheel(mount, def.wheel_radius, side, wd[4]),
+		})
 
 
 func _add_shape(half: Vector3, pos: Vector3) -> void:
@@ -158,11 +164,13 @@ func _physics_process(delta: float) -> void:
 		fire = false
 		handbrake = is_wrecked or frozen_input
 
+	scrambled = maxf(0.0, scrambled - delta)
 	speed = linear_velocity.dot(forward())
 	_update_boost(delta)
 	_update_steering(delta)
 	_update_wheels(delta)
 	_apply_aero()
+	_assists()
 	_air_and_recovery(delta)
 	_process_contacts()
 	_update_rpm()
@@ -197,7 +205,7 @@ func _update_wheels(delta: float) -> void:
 	var up := global_basis.y
 	var ray_len: float = def.rest_length + def.wheel_radius
 	var com := com_world()
-	var per_wheel_mass: float = mass * 0.25
+	var per_wheel_mass: float = mass / _wheels.size()
 	grounded_wheels = 0
 
 	for w in _wheels:
@@ -243,26 +251,31 @@ func _update_wheels(delta: float) -> void:
 
 		# Longitudinal: drive, brake, rolling resistance.
 		var f_long := 0.0
-		var drive_share: float = def.drive_front if w.front else (1.0 - def.drive_front)
+		var drive_share: float = w.drive
 		if throttle > 0.0:
 			var fall := 1.0 - pow(clampf(speed / def.top_speed, 0.0, 1.0), 2.0)
-			f_long += throttle * def.engine_force * fall * drive_share * 0.5
+			f_long += throttle * def.engine_force * fall * drive_share
 		elif throttle < 0.0:
 			if speed > 1.0:
-				f_long -= signf(v_long) * def.brake_force * -throttle * 0.25
+				f_long -= signf(v_long) * def.brake_force * -throttle / _wheels.size()
 			else:
 				var fall_r := 1.0 - clampf(-speed / def.reverse_speed, 0.0, 1.0)
-				f_long += throttle * def.engine_force * 0.6 * fall_r * drive_share * 0.5
+				f_long += throttle * def.engine_force * 0.6 * fall_r * drive_share
 		if handbrake and not w.front:
-			f_long -= signf(v_long) * def.brake_force * 0.35
+			f_long -= signf(v_long) * def.brake_force * 0.7 / _wheels.size()
 		f_long -= v_long * 6.0
+		if absf(throttle) < 0.05:
+			# Off the throttle: engine braking, and something like a parking brake near a stop,
+			# so a car doesn't creep on its own suspension.
+			f_long -= v_long * 25.0
+			f_long -= v_long * per_wheel_mass / delta * 0.15 * clampf(1.0 - absf(v_long) / 3.0, 0.0, 1.0)
 		# Don't let braking push the car backwards.
 		var max_stop := absf(v_long) * per_wheel_mass / delta
 		if throttle <= 0.0 and absf(f_long) > max_stop and signf(f_long) != signf(throttle):
 			f_long = signf(f_long) * max_stop
 
 		# Lateral: cancel sideways slip, up to the grip limit.
-		var f_lat := -v_lat * per_wheel_mass / delta * 0.32
+		var f_lat: float = -v_lat * per_wheel_mass / delta * 0.32 * w.lat
 		var mu: float = def.grip
 		if handbrake and not w.front:
 			mu = def.grip_rear_handbrake
@@ -281,21 +294,42 @@ func _update_wheels(delta: float) -> void:
 
 
 func _apply_anti_roll() -> void:
+	# Pair wheels that share an axle (same z, opposite sides) and resist the difference.
 	var up := global_basis.y
-	for front in [true, false]:
-		var l: Dictionary
-		var r: Dictionary
-		for w in _wheels:
-			if w.front == front:
-				if w.side < 0.0:
-					l = w
-				else:
-					r = w
+	var axles := {}
+	for w in _wheels:
+		var key := snappedf(w.mount.z, 0.01)
+		if not axles.has(key):
+			axles[key] = []
+		axles[key].append(w)
+	for key in axles:
+		var pair: Array = axles[key]
+		if pair.size() != 2 or signf(pair[0].side) == signf(pair[1].side):
+			continue
+		var l: Dictionary = pair[0] if pair[0].side < 0.0 else pair[1]
+		var r: Dictionary = pair[1] if pair[0].side < 0.0 else pair[0]
 		var diff: float = (l.comp - r.comp) * def.anti_roll
 		if l.grounded:
 			apply_force(-up * diff, (global_transform * l.mount) - global_position)
 		if r.grounded:
 			apply_force(up * diff, (global_transform * r.mount) - global_position)
+
+
+## Heavy arcade, not simulation: lean in corners but don't tip, and (for cars that
+## need it) reach the yaw rate the front wheels are asking for.
+func _assists() -> void:
+	if grounded_wheels < 2 or is_wrecked:
+		return
+	var fwd := forward()
+	var up := global_basis.y
+	var roll_rate := angular_velocity.dot(fwd)
+	apply_torque(fwd * (global_basis.x.y * mass * 9.81 * def.roll_assist - roll_rate * inertia.z * 2.0 * def.roll_assist))
+	if def.yaw_assist > 0.0 and absf(speed) > 2.0:
+		# Never ask for more turn than the tyres can hold, or the car just scrubs off speed.
+		var grip_limit: float = def.grip * 9.81 / absf(speed)
+		var want: float = clampf(speed * tan(_steer_angle) / def.wheelbase, -grip_limit, grip_limit)
+		var have := angular_velocity.dot(up)
+		apply_torque(up * (want - have) * inertia.y * 4.0 * def.yaw_assist)
 
 
 func _apply_aero() -> void:
@@ -404,8 +438,11 @@ func _resolve_impact(other: Car, pos: Vector3, normal: Vector3, closing: float) 
 		mult = ZONE_FRONT_BOOSTING
 	if other == null:
 		mult *= SCENERY_MULT
-	elif other.boosting and other.zone_at(pos) == Zone.FRONT:
-		mult *= RAM_BOOST_MULT
+	else:
+		# The lighter car takes the bigger jolt: mass is a weapon.
+		mult *= sqrt(2.0 * other.mass / (mass + other.mass))
+		if other.boosting and other.zone_at(pos) == Zone.FRONT:
+			mult *= RAM_BOOST_MULT
 	var dmg := energy_kj * DAMAGE_PER_KJ * mult
 	take_damage(dmg, pos, other)
 	# One of the pair reports the feel of the hit, so it isn't doubled.
@@ -455,6 +492,7 @@ func take_damage(amount: float, pos: Vector3, by: Car) -> void:
 	if by and by != self:
 		last_attacker = by
 	hp -= amount
+	visual.hp_lost(1.0 - maxf(hp, 0.0) / max_hp, self)
 	damaged.emit(self, amount, zn, by)
 	if hp <= 0.0:
 		_wreck()

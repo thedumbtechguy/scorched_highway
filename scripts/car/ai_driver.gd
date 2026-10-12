@@ -12,6 +12,7 @@ var _stuck_time := 0.0
 var _reversing := 0.0
 var _reverse_steer := 1.0
 var _wander := Vector3.ZERO
+var _special_check := 0.0
 
 
 func _init(aggr := 1.0, skl := 1.0) -> void:
@@ -38,6 +39,7 @@ func drive(car: Car, delta: float) -> void:
 		car.boost = false
 		car.handbrake = false
 		car.fire = false
+		car.special = false
 		return
 	if absf(car.speed) < 2.0 and car.throttle > 0.5:
 		_stuck_time += delta
@@ -82,6 +84,7 @@ func drive(car: Car, delta: float) -> void:
 	var lined_up := absf(angle) < 0.18
 	car.boost = target != null and lined_up and dist < 38.0 * aggression and dist > 6.0 and car.boost_meter > 30.0
 	car.fire = target != null and lined_up and dist < 90.0 and _gun_ready(car)
+	_use_special(car, delta)
 
 
 ## Go for the target's weakest side: lead its motion and swing wide to hit it side-on.
@@ -126,5 +129,19 @@ func _probe(space: PhysicsDirectSpaceState3D, car: Car, dir: Vector3, length: fl
 
 
 func _gun_ready(car: Car) -> bool:
-	var gun := car.gun as Autocannon
+	var gun := car.gun as MachineGun
 	return gun != null and gun.heat < 0.75
+
+
+## Check a few times a second whether the special fits the moment; a press is one tick long.
+func _use_special(car: Car, delta: float) -> void:
+	car.special = false
+	var sp := car.special_node as Special
+	if sp == null:
+		return
+	_special_check -= delta
+	if _special_check > 0.0:
+		return
+	_special_check = randf_range(0.25, 0.45) / maxf(skill, 0.3)
+	if (sp.is_ready() or sp.is_busy()) and sp.ai_wants(target):
+		car.special = true

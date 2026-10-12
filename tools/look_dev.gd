@@ -7,7 +7,7 @@ extends Node
 ## Needs a real renderer (not --headless). This is exploration, not shipping code:
 ## the chosen direction gets rebuilt properly in the game's own materials.
 
-const POST := preload("res://tools/look_post.gdshader")
+const POST := preload("res://shaders/poster_post.gdshader")
 
 var game: Node3D
 var cam: Camera3D
