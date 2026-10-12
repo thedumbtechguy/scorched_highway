@@ -2,7 +2,7 @@
 
 This is the design for the Godot version. The web prototype showed that the setting and car combat work, but it felt floaty and busy. This version keeps the Vigilante 8 spirit (weapons, specials, characters, couch play) and the contact racing of Wreckfest, and builds both on three words: **heavy, hard hitting, premium**.
 
-**Decided so far:** races and arena combat are equal headline modes; V8-style weapons (a signature special per car plus pickups); four race types and four arena modes; a career mode; classed car upgrades; a televised-bloodsport alternate 1970s; 8-car events of 3–5 minutes; 8 cars at launch; heavy arcade handling; a choice of touch schemes; split-screen for up to 4 players; online later; the Drive-In Poster visual direction.
+**Decided so far:** races and arena combat are equal headline modes; V8-style weapons (a signature special per car plus pickups); four race types and four arena modes; a career mode; classed car upgrades; a televised-bloodsport alternate 1970s; 8-car events of 3–5 minutes; 8 cars at launch; heavy arcade handling; a choice of touch schemes; split-screen for up to 4 players; online later; configurable bots in every multiplayer mode; the Drive-In Poster visual direction.
 
 ## Pillars
 
@@ -89,6 +89,7 @@ Wreckfest-style championships across every mode: series of events, earning money
 ### Multiplayer
 - **Split-screen** for up to 4 players on desktop (and consoles, if we go there). Cameras, HUD and input are per player from the start, and the visual budget assumes up to four views.
 - **Online** comes later; see *Platforms* for what that means for the design now.
+- **Bots in every mode.** Split-screen and online events can include AI drivers alongside humans. The host configures them: how many bots (up to the 8-car field), their difficulty, and optionally which cars they drive. Online, bots can also fill slots left by players who drop out.
 
 ### Cars
 Eight cars at launch, one per grid slot, each a clear trade-off between mass, power, armour and its special weapon, each with a driver. The prototype has one chassis, *Sundowner* (a 2,000 kg muscle car). The roster, the drivers and the weapon list are still to be designed.
