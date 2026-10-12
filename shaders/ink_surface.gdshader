@@ -131,15 +131,22 @@ void fragment() {
 
 void light() {
 	float ndl = dot(NORMAL, LIGHT);
-	// One hard terminator, very slightly softened so it doesn't fizz.
-	float lit = smoothstep(-0.02, 0.05, ndl) * ATTENUATION;
-	float shade = 1.0 - lit;
-	float ink_amount = hatch > 0.0 ? hatching(shade * (0.55 + 0.45 * smoothstep(0.0, -0.6, ndl)) * hatch) : 0.0;
-	float energy = lit + shade * fill * (1.0 - ink_amount);
-	DIFFUSE_LIGHT += LIGHT_COLOR * energy / PI;
-	if (spec > 0.0) {
-		vec3 h = normalize(LIGHT + VIEW);
-		float glint = smoothstep(gloss - 0.01, gloss + 0.01, dot(NORMAL, h)) * lit;
-		SPECULAR_LIGHT += LIGHT_COLOR * glint * spec;
+	if (!LIGHT_IS_DIRECTIONAL) {
+		// Muzzle flashes and explosions: a plain hard-edged glow that falls off with
+		// distance. The shade fill and hatching belong to the sun alone; giving them to
+		// small lights lit everything in range at full strength (a screen flash).
+		DIFFUSE_LIGHT += LIGHT_COLOR * smoothstep(-0.02, 0.05, ndl) * ATTENUATION / PI;
+	} else {
+		// One hard terminator, very slightly softened so it doesn't fizz.
+		float lit = smoothstep(-0.02, 0.05, ndl) * ATTENUATION;
+		float shade = 1.0 - lit;
+		float ink_amount = hatch > 0.0 ? hatching(shade * (0.55 + 0.45 * smoothstep(0.0, -0.6, ndl)) * hatch) : 0.0;
+		float energy = lit + shade * fill * (1.0 - ink_amount);
+		DIFFUSE_LIGHT += LIGHT_COLOR * energy / PI;
+		if (spec > 0.0) {
+			vec3 h = normalize(LIGHT + VIEW);
+			float glint = smoothstep(gloss - 0.01, gloss + 0.01, dot(NORMAL, h)) * lit;
+			SPECULAR_LIGHT += LIGHT_COLOR * glint * spec;
+		}
 	}
 }
